@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xbrli:xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance"
+            xmlns:sample="http://fincortext.example/sample">
+  <xbrli:context id="fy2024">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://fincortext.example/nse">RELIANCE</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:startDate>2023-04-01</xbrli:startDate>
+      <xbrli:endDate>2024-03-31</xbrli:endDate>
+    </xbrli:period>
+  </xbrli:context>
+  <xbrli:context id="fy2024_instant">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://fincortext.example/nse">RELIANCE</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:instant>2024-03-31</xbrli:instant>
+    </xbrli:period>
+  </xbrli:context>
+  <xbrli:unit id="inr">
+    <xbrli:measure>iso4217:INR</xbrli:measure>
+  </xbrli:unit>
+  <sample:Revenues contextRef="fy2024" unitRef="inr" decimals="0">2392000</sample:Revenues>
+  <sample:ProfitLoss contextRef="fy2024" unitRef="inr" decimals="0">69600</sample:ProfitLoss>
+  <sample:OperatingIncomeLoss contextRef="fy2024" unitRef="inr" decimals="0">178000</sample:OperatingIncomeLoss>
+  <sample:Assets contextRef="fy2024_instant" unitRef="inr" decimals="0">3525000</sample:Assets>
+  <sample:StockholdersEquity contextRef="fy2024_instant" unitRef="inr" decimals="0">925000</sample:StockholdersEquity>
+  <sample:EarningsPerShareBasic contextRef="fy2024" unitRef="inr" decimals="2">102.9</sample:EarningsPerShareBasic>
+</xbrli:xbrl>

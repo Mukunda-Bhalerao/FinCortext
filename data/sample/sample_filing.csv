@@ -1,0 +1,8 @@
+metric,value,unit,currency,period_start,period_end,statement_type,consolidation_basis,fiscal_year,filing_date,published_at
+Total Revenue,2392000,INR_cr,INR,2023-04-01,2024-03-31,income_statement,consolidated,FY2024,2024-06-14,2024-06-14
+Net Income,69600,INR_cr,INR,2023-04-01,2024-03-31,income_statement,consolidated,FY2024,2024-06-14,2024-06-14
+Operating Profit,178000,INR_cr,INR,2023-04-01,2024-03-31,income_statement,consolidated,FY2024,2024-06-14,2024-06-14
+Total Assets,3525000,INR_cr,INR,2023-04-01,2024-03-31,balance_sheet,consolidated,FY2024,2024-06-14,2024-06-14
+Total Equity,925000,INR_cr,INR,2023-04-01,2024-03-31,balance_sheet,consolidated,FY2024,2024-06-14,2024-06-14
+Total Debt,320000,INR_cr,INR,2023-04-01,2024-03-31,balance_sheet,consolidated,FY2024,2024-06-14,2024-06-14
+Earnings Per Share,102.9,INR,INR,2023-04-01,2024-03-31,income_statement,consolidated,FY2024,2024-06-14,2024-06-14
