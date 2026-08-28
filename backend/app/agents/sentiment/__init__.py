@@ -1,0 +1,1 @@
+"""Sentiment Analyst — FinBERT-based news sentiment with deterministic aggregation."""

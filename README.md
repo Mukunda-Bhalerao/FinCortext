@@ -166,8 +166,21 @@ period end and when the information became publicly available.
 # Refresh market prices for the whole universe (yfinance)
 curl -X POST http://127.0.0.1:8000/api/market/refresh
 
-# Fetch news for one company (requires NEWS_API_KEY)
-curl -X POST http://127.0.0.1:8000/api/news/fetch/RELIANCE
+# Refresh prices for one symbol
+curl -X POST http://127.0.0.1:8000/api/market/refresh/TCS
+
+# Stored price series with explicit LIVE/CACHED/UNAVAILABLE status
+curl http://127.0.0.1:8000/api/market/prices/TCS
+
+# News provider configuration status
+curl http://127.0.0.1:8000/api/news/status
+
+# Fetch live news for one company (requires NEWS_API_KEY; graceful
+# UNAVAILABLE response when the key is missing — never an error/crash)
+curl -X POST http://127.0.0.1:8000/api/news/refresh/TCS
+
+# Stored (cached) articles for a company
+curl http://127.0.0.1:8000/api/news/TCS
 ```
 
 ## 12. Running the agents
@@ -180,7 +193,18 @@ curl -X POST http://127.0.0.1:8000/api/agents/sentiment/RELIANCE/run
 
 Each returns the standardized `AgentOutput` contract (score, signal, confidence,
 factors, rationale, evidence, limitations). Outputs are persisted and can be
-listed via `GET /api/agents/{agent_id}/outputs?symbol=RELIANCE`.
+listed via `GET /api/agents/outputs?agent_id=firm_analyst&symbol=RELIANCE`.
+
+Methodology documentation (weights, formulas, confidence rules, determinism):
+
+- Firm Analyst: `backend/app/agents/firm/methodology.py`
+- Industry Analyst: [docs/industry_methodology.md](docs/industry_methodology.md)
+- Sentiment Analyst: [docs/sentiment_methodology.md](docs/sentiment_methodology.md)
+
+The **Intelligence → Combined Summary** page runs all three analysts for one
+company and shows their scores together. Portfolio synthesis is explicitly
+reserved for the future Portfolio Agent — no recommendations or weights are
+generated.
 
 ## 13. Running tests
 

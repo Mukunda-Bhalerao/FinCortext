@@ -113,7 +113,58 @@ Each agent:
 The future Portfolio Agent will consume `AgentOutput`s from all analysts
 through the same contract — no hidden agent-to-agent coupling.
 
-## 8. Future Portfolio Agent integration
+### Implemented agents and their data seams
+
+| agent | reads | model/provider coupling |
+|---|---|---|
+| Firm Analyst | `FinancialRepository` (ingested filings), `MarketRepository` (prices) | none |
+| Industry Analyst | `MarketRepository` (peer prices), `FinancialRepository` (peer margins), universe config | none |
+| Sentiment Analyst | `NewsRepository` (stored articles) | injectable sentiment model (`FinBERTSentimentModel` in production, fakes in tests) |
+
+Methodology documents: `docs/industry_methodology.md`,
+`docs/sentiment_methodology.md`, and the docstrings of
+`app/agents/firm/methodology.py`.
+
+### News + sentiment pipeline
+
+```
+NewsProvider contract ← NewsAPINewsProvider (key ONLY from NEWS_API_KEY env)
+        ↓ canonical NewsArticle (article_id = SHA-256 of URL; content_hash audit)
+NewsService (entity association, dedup-on-store, provenance, explicit statuses)
+        ↓ DuckDB news_articles
+SentimentAgent (relevance filter → FinBERT → polarity → recency-weighted
+                aggregation anchored to the latest article timestamp)
+        ↓ per-article SentimentResults + standardized AgentOutput
+```
+
+Degradation contract: missing `NEWS_API_KEY` → provider reports unconfigured,
+`NewsService` returns explicit UNAVAILABLE, the backend starts and all other
+modules keep working. Model load/inference failures → `ModelUnavailableError`
+→ UNAVAILABLE AgentOutput — the backend never crashes on model problems.
+
+## 8. Frontend architecture
+
+React 18 + TypeScript + Vite (`frontend/`), organized by feature:
+
+```
+frontend/src/
+├── app/            App shell, routing (sectioned nav), dark theme styles
+├── components/      common/ reusable UI (StatusBadge, CompanySelector,
+│                    AgentOutputCard) + ui/
+├── features/        dashboard/ · data/ (sources, pipeline, market, filings,
+│                    quality) · agents/ (firm, industry, sentiment, summary)
+│                    · portfolio/ · research/
+├── services/        api.ts — the ONLY module that talks to the backend
+└── types/           api.ts — typed mirrors of backend response contracts
+```
+
+Rules: typed API service layer, feature separation, loading/error/unavailable
+states everywhere, explicit data-status badges (LIVE / CACHED / IMPORTED
+OFFICIAL / SAMPLE / UNAVAILABLE / ERROR), and honest "Coming soon"
+placeholders for Macro/Portfolio/Research. The combined intelligence summary
+states that portfolio synthesis is reserved for the future Portfolio Agent.
+
+## 9. Future Portfolio Agent integration
 
 Reserved seams (no fake implementations):
 
@@ -122,3 +173,9 @@ Reserved seams (no fake implementations):
 - Universe configuration provides the tradable set.
 - Storage schema leaves room for portfolio/optimization tables.
 - Frontend Portfolio/Research pages are explicit "Coming soon" placeholders.
+
+A future Portfolio Agent would: read the latest persisted `AgentOutput` per
+(agent, entity) from `agent_outputs`, weight scores by confidence and status
+(OK/DEGRADED/UNAVAILABLE), apply the future risk/constraint engine, and hand
+candidate weights to the future optimizer — all through the existing
+contract and repository seams, with no agent-to-agent calls.

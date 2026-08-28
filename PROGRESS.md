@@ -88,31 +88,97 @@ FinCortext. It is updated after every milestone.
   tiers, determinism), FirmAgent behavior (full data, missing data, no data,
   growth periods, negative growth), integration filing→DuckDB→agent→API
 
+### Milestone 6 — Industry Analyst ✅
+- Methodology (`app/agents/industry/methodology.py`): 4 documented factors —
+  peer_momentum 0.30, relative_strength 0.30, peer_fundamentals 0.25,
+  sector_volatility 0.15; median-based peer stats; company excluded from peer
+  medians; weight redistribution for missing factors; deterministic
+  confidence = coverage × quality tier
+- Volatility convention documented and deterministic: simple daily returns,
+  population std-dev (ddof=0), × √252; identical returns short-circuit to
+  exactly 0.0 (fixes floating-point residual bug); `math.fsum` summation
+- `IndustryAgent` (`app/agents/industry/industry_agent.py`): peer grouping
+  from versioned universe config (sector, industry fallback), 90-day momentum
+  window, peer medians via MarketRepository + FinancialRepository, full
+  AgentOutput with factors/rationale/evidence/limitations/provenance,
+  UNAVAILABLE when no data
+- `AgentService.run_agent(..., persist=)` passthrough added (deterministic
+  re-runs without double-persisting)
+- Methodology doc: `docs/industry_methodology.md`
+- Tests: methodology math (weights, median, volatility conventions, linear
+  score, combination determinism), agent behavior (relative strength seeded
+  series, no-data UNAVAILABLE, API endpoint + output history)
+
+### Milestone 7 — News + Sentiment ✅
+- `NewsAPINewsProvider` (`app/data/providers/news/newsapi_provider.py`):
+  implements the existing `NewsProvider` contract; key ONLY from
+  `NEWS_API_KEY` env (never hardcoded); missing key → ProviderUnavailableError;
+  401/403 → unavailable, 429 → rate-limit error, network/API failures →
+  ProviderError; never fabricates articles
+- Article normalization: canonical `NewsArticle` with stable `article_id`
+  (SHA-256 of URL; title+timestamp fallback), `content_hash` audit hash,
+  source metadata, publication/collection timestamps, language
+- `NewsService` (`app/services/news_service.py`): entity association,
+  dedup-on-store, provenance events, explicit LIVE/CACHED/UNAVAILABLE/ERROR
+  statuses; missing key degrades gracefully (backend + unrelated modules keep
+  working); provider crashes never propagate
+- Sentiment model (`app/agents/sentiment/model.py`): lazy-loading local
+  FinBERT (ProsusAI/finbert default, configurable); any load/inference failure
+  → ModelUnavailableError → explicit UNAVAILABLE output; backend never crashes
+  on model problems; no paid API
+- Methodology (`app/agents/sentiment/methodology.py`): documented polarity
+  P(pos)−P(neg), recency weighting with 7-day half-life anchored to the
+  latest article timestamp (data-anchored determinism), composite score
+  mapping to 0–100, confidence = 0.35·coverage + 0.25·model_confidence +
+  0.25·consistency + 0.15·recency
+- `SentimentAgent` (`app/agents/sentiment/sentiment_agent.py`): relevance
+  filter (name/symbol), per-article SentimentResult persistence, full
+  AgentOutput (score/signal/confidence/factors/evidence/rationale/
+  limitations/provenance), OK/DEGRADED/UNAVAILABLE status semantics
+- API: `GET /api/news/status`, `POST /api/news/refresh/{symbol}`,
+  `GET /api/news/{symbol}`; sentiment agent enabled via
+  `POST /api/agents/sentiment/{symbol}/run`
+- Docs: `docs/sentiment_methodology.md`
+- Tests: NewsAPI normalization/dedup identity/error paths (mocked HTTP, no
+  network), NewsService degradation/dedup/provenance, sentiment aggregation
+  math (recency, determinism, confidence components), SentimentAgent behavior
+  (fake model; unavailable/degraded/OK), integration fixture-provider→
+  storage→sentiment→API + missing-key graceful endpoints
+
 ## CURRENT STATE
 
-- Backend: 65 tests passing. Market pipeline, filing ingestion, and the Firm
-  Analyst are fully working offline.
+- Backend: 114 tests passing. Market pipeline, filing ingestion, Firm
+  Analyst, Industry Analyst, and News+Sentiment all working offline
+  (fixtures/fakes; live providers network-optional).
 - Frontend unchanged (builds clean).
-- Industry Analyst, news, sentiment: not yet implemented.
+- All three implemented agents (firm/industry/sentiment) emit the
+  standardized AgentOutput via `POST /api/agents/{agent}/{symbol}/run`.
 
 ## TEST STATUS
 
-- `cd backend && python -m pytest` — **65 passed**
+- `cd backend && python -m pytest` — **114 passed**
+  (M7 focused run: 41 passed; M6 focused run: 8 passed)
 - Frontend `npm run build` — passing
 
 ## KNOWN LIMITATIONS
 
-- Live yfinance untested in CI (network-dependent; adapter covered by fakes).
+- Live yfinance/NewsAPI untested in CI (network-dependent; adapters covered
+  by fakes/mocked HTTP).
 - `POST /api/market/refresh` is synchronous — 10 symbols take ~10-30s live.
 - PDF parsing is explicitly a limited fallback (documented in results).
 - Firm Agent needs ≥2 price points for momentum; single-period filings leave
   revenue_growth unavailable (by design — no fabrication).
-- Industry Analyst, news, sentiment: not yet implemented.
+- Industry Analyst peer set limited to the 10-symbol universe; single-member
+  sectors produce no peer factors (docs/industry_methodology.md).
+- FinBERT downloads on first sentiment run (~440MB) into
+  `data/cache/sentiment-model`; until then sentiment reports UNAVAILABLE.
+- Sentiment relevance matching is lexical (name/symbol); NewsAPI free tier
+  caps history (~30 days).
 
 ## NEXT RECOMMENDED STEP
 
-**Milestone 6 — Industry Analyst**: peer grouping from universe config
-(sector/industry), peer return/momentum/volatility comparison via
-MarketRepository, peer fundamental comparison via FinancialRepository,
-relative-strength vs broader universe, deterministic score + confidence,
-standardized AgentOutput, tests with seeded multi-symbol data.
+**Milestone 8 — Frontend Integration**: wire the existing React shell to the
+full API (universe, market, filings, news, all three agents), company-centric
+demonstration flow, explicit LIVE/CACHED/IMPORTED/SAMPLE/UNAVAILABLE/ERROR
+data-status badges, filing upload UI, combined intelligence summary, and
+honest "Coming soon" placeholders for Macro/Portfolio/Research.

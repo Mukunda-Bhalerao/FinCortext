@@ -1,0 +1,748 @@
+﻿
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mD:/KODERRRR/FinCortext/frontend[39m
+
+ [32mΓ£ô[39m src/components/common/StatusBadge.test.tsx[2m > [22mStatusBadge[2m > [22mrenders each known status with its explicit label
+ [32mΓ£ô[39m src/components/common/StatusBadge.test.tsx[2m > [22mStatusBadge[2m > [22mfalls back to UNAVAILABLE for unknown statuses (never fakes LIVE)
+ [31m├ù[39m src/components/common/AgentOutputCard.test.tsx[2m > [22mAgentOutputCard[2m > [22mrenders score, signal, confidence and rationale
+[31m   ΓåÆ Found multiple elements with the text: /confidence 90%/i
+
+Here are the matching elements:
+
+Ignored nodes: comments, script, style
+[36m<span[31m
+  [33mclass[31m=[32m"muted"[31m
+[36m>[31m
+  [0mconfidence [0m
+  [0m90[0m
+  [0m%[0m
+[36m</span>[31m
+
+Ignored nodes: comments, script, style
+[36m<p[31m
+  [33mclass[31m=[32m"agent-rationale"[31m
+[36m>[31m
+  [0mFirm score 72/100 (confidence 90%).[0m
+[36m</p>[31m
+
+(If this is intentional, then use the `*AllBy*` variant of the query (like `queryAllByText`, `getAllByText`, or `findAllByText`)).
+
+Ignored nodes: comments, script, style
+[36m<body>[31m
+  [36m<div>[31m
+    [36m<article[31m
+      [33mclass[31m=[32m"agent-card status-ok"[31m
+    [36m>[31m
+      [36m<header[31m
+        [33mclass[31m=[32m"agent-card-header"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"score-dial positive"[31m
+        [36m>[31m
+          [36m<span[31m
+            [33mclass[31m=[32m"score-value"[31m
+          [36m>[31m
+            [0m72[0m
+          [36m</span>[31m
+          [36m<span[31m
+            [33mclass[31m=[32m"score-label"[31m
+          [36m>[31m
+            [0m/ 100[0m
+          [36m</span>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"agent-card-title"[31m
+        [36m>[31m
+          [36m<h3>[31m
+            [0mfirm analyst[0m
+          [36m</h3>[31m
+          [36m<p>[31m
+            [36m<span[31m
+              [33mclass[31m=[32m"badge signal-strong-buy"[31m
+            [36m>[31m
+              [0mSTRONG BUY[0m
+            [36m</span>[31m
+            [0m [0m
+            [36m<span[31m
+              [33mclass[31m=[32m"badge badge-status-ok"[31m
+            [36m>[31m
+              [0mOK[0m
+            [36m</span>[31m
+            [0m [0m
+            [36m<span[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mconfidence [0m
+              [0m90[0m
+              [0m%[0m
+            [36m</span>[31m
+          [36m</p>[31m
+        [36m</div>[31m
+      [36m</header>[31m
+      [36m<p[31m
+        [33mclass[31m=[32m"agent-rationale"[31m
+      [36m>[31m
+        [0mFirm score 72/100 (confidence 90%).[0m
+      [36m</p>[31m
+      [36m<section>[31m
+        [36m<h4>[31m
+          [0mContributing factors[0m
+        [36m</h4>[31m
+        [36m<ul[31m
+          [33mclass[31m=[32m"factor-list"[31m
+        [36m>[31m
+          [36m<li>[31m
+            [36m<strong>[31m
+              [0mprofitability[0m
+            [36m</strong>[31m
+            [36m<span[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0m value: [0m
+              [0m0.18[0m
+            [36m</span>[31m
+            [36m<span[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0m ┬╖ contribution: [0m
+              [0m25.0[0m
+            [36m</span>[31m
+            [36m<p[31m
+              [33mclass[31m=[32m"factor-detail"[31m
+            [36m>[31m
+              [0mnet_margin = 18.00% ΓåÆ 100/100[0m
+            [36m</p>[31m
+          [36m</li>[31m
+          [36m<li[31m
+            [33mclass[31m=[32m"factor-missing"[31m
+          [36m>[31m
+            [36m<strong>[31m
+              [0mvaluation[0m
+            [36m</strong>[31m
+            [0m ΓÇö not computed[0m
+            [36m<p[31m
+              [33mclass[31m=[32m"factor-detail"[31m
+            [36m>[31m
+              [0mMissing pe_ratio ΓÇö not fabricated.[0m
+            [36m</p>[31m
+          [36m</li>[31m
+        [36m</ul>[31m
+      [36m</section>[31m
+      [36m<section>[31m
+        [36m<h4>[31m
+          [0mEvidence[0m
+        [36m</h4>[31m
+        [36m<ul[31m
+          [33mclass[31m=[32m"evidence-list"[31m
+        [36m>[31m
+          [36m<li>[31m
+            [36m<span[31m
+              [33mclass[31m=[32m"badge badge-evidence"[31m
+            [36m>[31m
+              [0mfinancial_observation[0m
+            [36m</span>[31m
+            [0m [0m
+            [0mnet_income=45000 Cr[0m
+            [36m<span[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0m ΓÇö [0m
+              [0mannual_report[0m
+            [36m</span>[31m
+          [36m</li>[31m
+        [36m</ul>[31m
+      [36m</section>[31m
+      [36m<section>[31m
+        [36m<h4>[31m
+          [0mLimitations[0m
+        [36m</h4>[31m
+        [36m<ul[31m
+          [33mclass[31m=[32m"limitations-list"[31m
+        [36m>[31m
+          [36m<li>[31m
+            [0mMissing pe_ratio ΓÇö valuation factor unavailable.[0m
+          [36m</li>[31m
+        [36m</ul>[31m
+      [36m</section>[31m
+      [36m<footer[31m
+        [33mclass[31m=[32m"agent-card-footer muted"[31m
+      [36m>[31m
+        [0mGenerated [0m
+        [0m15/7/2024, 3:30:00 pm[0m
+        [0m ┬╖ methodology:[0m
+        [0m [0m
+        [0mfirm_analyst_v1[0m
+      [36m</footer>[31m
+    [36m</article>[31m
+  [36m</div>[31m
+[36m</body>[31m[39m
+ [31m├ù[39m src/components/common/AgentOutputCard.test.tsx[2m > [22mAgentOutputCard[2m > [22mshows available and missing factors distinctly
+[31m   ΓåÆ Found multiple elements with the text: /Missing pe_ratio/i
+
+Here are the matching elements:
+
+Ignored nodes: comments, script, style
+[36m<p[31m
+  [33mclass[31m=[32m"factor-detail"[31m
+[36m>[31m
+  [0mMissing pe_ratio ΓÇö not fabricated.[0m
+[36m</p>[31m
+
+Ignored nodes: comments, script, style
+[36m<li>[31m
+  [0mMissing pe_ratio ΓÇö valuation factor unavailable.[0m
+[36m</li>[31m
+
+(If this is intentional, then use the `*AllBy*` variant of the query (like `queryAllByText`, `getAllByText`, or `findAllByText`)).
+
+Ignored nodes: comments, script, style
+[36m<body>[31m
+  [36m<div>[31m
+    [36m<article[31m
+      [33mclass[31m=[32m"agent-card status-ok"[31m
+    [36m>[31m
+      [36m<header[31m
+        [33mclass[31m=[32m"agent-card-header"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"score-dial positive"[31m
+        [36m>[31m
+          [36m<span[31m
+            [33mclass[31m=[32m"score-value"[31m
+          [36m>[31m
+            [0m72[0m
+          [36m</span>[31m
+          [36m<span[31m
+            [33mclass[31m=[32m"score-label"[31m
+          [36m>[31m
+            [0m/ 100[0m
+          [36m</span>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"agent-card-title"[31m
+        [36m>[31m
+          [36m<h3>[31m
+            [0mfirm analyst[0m
+          [36m</h3>[31m
+          [36m<p>[31m
+            [36m<span[31m
+              [33mclass[31m=[32m"badge signal-strong-buy"[31m
+            [36m>[31m
+              [0mSTRONG BUY[0m
+            [36m</span>[31m
+            [0m [0m
+            [36m<span[31m
+              [33mclass[31m=[32m"badge badge-status-ok"[31m
+            [36m>[31m
+              [0mOK[0m
+            [36m</span>[31m
+            [0m [0m
+            [36m<span[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mconfidence [0m
+              [0m90[0m
+              [0m%[0m
+            [36m</span>[31m
+          [36m</p>[31m
+        [36m</div>[31m
+      [36m</header>[31m
+      [36m<p[31m
+        [33mclass[31m=[32m"agent-rationale"[31m
+      [36m>[31m
+        [0mFirm score 72/100 (confidence 90%).[0m
+      [36m</p>[31m
+      [36m<section>[31m
+        [36m<h4>[31m
+          [0mContributing factors[0m
+        [36m</h4>[31m
+        [36m<ul[31m
+          [33mclass[31m=[32m"factor-list"[31m
+        [36m>[31m
+          [36m<li>[31m
+            [36m<strong>[31m
+              [0mprofitability[0m
+            [36m</strong>[31m
+            [36m<span[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0m value: [0m
+              [0m0.18[0m
+            [36m</span>[31m
+            [36m<span[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0m ┬╖ contribution: [0m
+              [0m25.0[0m
+            [36m</span>[31m
+            [36m<p[31m
+              [33mclass[31m=[32m"factor-detail"[31m
+            [36m>[31m
+              [0mnet_margin = 18.00% ΓåÆ 100/100[0m
+            [36m</p>[31m
+          [36m</li>[31m
+          [36m<li[31m
+            [33mclass[31m=[32m"factor-missing"[31m
+          [36m>[31m
+            [36m<strong>[31m
+              [0mvaluation[0m
+            [36m</strong>[31m
+            [0m ΓÇö not computed[0m
+            [36m<p[31m
+              [33mclass[31m=[32m"factor-detail"[31m
+            [36m>[31m
+              [0mMissing pe_ratio ΓÇö not fabricated.[0m
+            [36m</p>[31m
+          [36m</li>[31m
+        [36m</ul>[31m
+      [36m</section>[31m
+      [36m<section>[31m
+        [36m<h4>[31m
+          [0mEvidence[0m
+        [36m</h4>[31m
+        [36m<ul[31m
+          [33mclass[31m=[32m"evidence-list"[31m
+        [36m>[31m
+          [36m<li>[31m
+            [36m<span[31m
+              [33mclass[31m=[32m"badge badge-evidence"[31m
+            [36m>[31m
+              [0mfinancial_observation[0m
+            [36m</span>[31m
+            [0m [0m
+            [0mnet_income=45000 Cr[0m
+            [36m<span[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0m ΓÇö [0m
+              [0mannual_report[0m
+            [36m</span>[31m
+          [36m</li>[31m
+        [36m</ul>[31m
+      [36m</section>[31m
+      [36m<section>[31m
+        [36m<h4>[31m
+          [0mLimitations[0m
+        [36m</h4>[31m
+        [36m<ul[31m
+          [33mclass[31m=[32m"limitations-list"[31m
+        [36m>[31m
+          [36m<li>[31m
+            [0mMissing pe_ratio ΓÇö valuation factor unavailable.[0m
+          [36m</li>[31m
+        [36m</ul>[31m
+      [36m</section>[31m
+      [36m<footer[31m
+        [33mclass[31m=[32m"agent-card-footer muted"[31m
+      [36m>[31m
+        [0mGenerated [0m
+        [0m15/7/2024, 3:30:00 pm[0m
+        [0m ┬╖ methodology:[0m
+        [0m [0m
+        [0mfirm_analyst_v1[0m
+      [36m</footer>[31m
+    [36m</article>[31m
+  [36m</div>[31m
+[36m</body>[31m[39m
+ [32mΓ£ô[39m src/components/common/AgentOutputCard.test.tsx[2m > [22mAgentOutputCard[2m > [22mrenders evidence and limitations sections
+ [32mΓ£ô[39m src/components/common/AgentOutputCard.test.tsx[2m > [22mAgentOutputCard[2m > [22mrenders an em-dash score for UNAVAILABLE outputs
+
+node.exe : [31mΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1m[7m Failed Tests 2 [27m[22mΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[39m
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([31mΓÄ»ΓÄ»ΓÄ»Γ...»ΓÄ»ΓÄ»ΓÄ»[39m:String) [], RemoteExcepti 
+   on
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+[31m[1m[7m FAIL [27m[22m[39m src/components/common/AgentOutputCard.test.tsx[2m > 
+[22mAgentOutputCard[2m > [22mrenders score, signal, confidence and rationale
+[31m[1mTestingLibraryElementError[22m[39m: Found multiple elements with the text: /confidence 90%/i
+
+Here are the matching elements:
+
+Ignored nodes: comments, script, style
+[36m<span[39m
+  [33mclass[39m=[32m"muted"[39m
+[36m>[39m
+  [0mconfidence [0m
+  [0m90[0m
+  [0m%[0m
+[36m</span>[39m
+
+Ignored nodes: comments, script, style
+[36m<p[39m
+  [33mclass[39m=[32m"agent-rationale"[39m
+[36m>[39m
+  [0mFirm score 72/100 (confidence 90%).[0m
+[36m</p>[39m
+
+(If this is intentional, then use the `*AllBy*` variant of the query (like `queryAllByText`, 
+`getAllByText`, or `findAllByText`)).
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<article[39m
+      [33mclass[39m=[32m"agent-card status-ok"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"agent-card-header"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"score-dial positive"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"score-value"[39m
+          [36m>[39m
+            [0m72[0m
+          [36m</span>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"score-label"[39m
+          [36m>[39m
+            [0m/ 100[0m
+          [36m</span>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"agent-card-title"[39m
+        [36m>[39m
+          [36m<h3>[39m
+            [0mfirm analyst[0m
+          [36m</h3>[39m
+          [36m<p>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"badge signal-strong-buy"[39m
+            [36m>[39m
+              [0mSTRONG BUY[0m
+            [36m</span>[39m
+            [0m [0m
+            [36m<span[39m
+              [33mclass[39m=[32m"badge badge-status-ok"[39m
+            [36m>[39m
+              [0mOK[0m
+            [36m</span>[39m
+            [0m [0m
+            [36m<span[39m
+              [33mclass[39m=[32m"muted"[39m
+            [36m>[39m
+              [0mconfidence [0m
+              [0m90[0m
+              [0m%[0m
+            [36m</span>[39m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"agent-rationale"[39m
+      [36m>[39m
+        [0mFirm score 72/100 (confidence 90%).[0m
+      [36m</p>[39m
+      [36m<section>[39m
+        [36m<h4>[39m
+          [0mContributing factors[0m
+        [36m</h4>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"factor-list"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [36m<strong>[39m
+              [0mprofitability[0m
+            [36m</strong>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"muted"[39m
+            [36m>[39m
+              [0m value: [0m
+              [0m0.18[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"muted"[39m
+            [36m>[39m
+              [0m ┬╖ contribution: [0m
+              [0m25.0[0m
+            [36m</span>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"factor-detail"[39m
+            [36m>[39m
+              [0mnet_margin = 18.00% ΓåÆ 100/100[0m
+            [36m</p>[39m
+          [36m</li>[39m
+          [36m<li[39m
+            [33mclass[39m=[32m"factor-missing"[39m
+          [36m>[39m
+            [36m<strong>[39m
+              [0mvaluation[0m
+            [36m</strong>[39m
+            [0m ΓÇö not computed[0m
+            [36m<p[39m
+              [33mclass[39m=[32m"factor-detail"[39m
+            [36m>[39m
+              [0mMissing pe_ratio ΓÇö not fabricated.[0m
+            [36m</p>[39m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+      [36m<section>[39m
+        [36m<h4>[39m
+          [0mEvidence[0m
+        [36m</h4>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"evidence-list"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"badge badge-evidence"[39m
+            [36m>[39m
+              [0mfinancial_observation[0m
+            [36m</span>[39m
+            [0m [0m
+            [0mnet_income=45000 Cr[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"muted"[39m
+            [36m>[39m
+              [0m ΓÇö [0m
+              [0mannual_report[0m
+            [36m</span>[39m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+      [36m<section>[39m
+        [36m<h4>[39m
+          [0mLimitations[0m
+        [36m</h4>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"limitations-list"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mMissing pe_ratio ΓÇö valuation factor unavailable.[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+      [36m<footer[39m
+        [33mclass[39m=[32m"agent-card-footer muted"[39m
+      [36m>[39m
+        [0mGenerated [0m
+        [0m15/7/2024, 3:30:00 pm[0m
+        [0m ┬╖ methodology:[0m
+        [0m [0m
+        [0mfirm_analyst_v1[0m
+      [36m</footer>[39m
+    [36m</article>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2mΓ¥»[22m Object.getElementError 
+node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2mΓ¥»[22m getElementError 
+node_modules/@testing-library/dom/dist/query-helpers.js:[2m20:35[22m[39m
+[90m [2mΓ¥»[22m getMultipleElementsFoundError 
+node_modules/@testing-library/dom/dist/query-helpers.js:[2m23:10[22m[39m
+[90m [2mΓ¥»[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m55:13[22m[39m
+[90m [2mΓ¥»[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2mΓ¥»[22m src/components/common/AgentOutputCard.test.tsx:[2m54:19[22m[39m
+    [90m 52| [39m    [34mexpect[39m(screen[33m.[39m[34mgetByText[39m([32m'72'[39m))[33m.[39m
+[34mtoBeInTheDocument[39m()[33m;[39m
+    [90m 53| [39m    [34mexpect[39m(screen[33m.[39m[34mgetByText[39m([32m'STRONG 
+BUY'[39m))[33m.[39m[34mtoBeInTheDocument[39m()[33m;[39m
+    [90m 54| [39m    [34mexpect[39m(screen[33m.[39m[34mgetByText[39m([36m/confidence 
+90%/i[39m))[33m.[39m[34mtoBeInTheDocument[39m()[33m;[39m
+    [90m   | [39m                  [31m^[39m
+    [90m 55| [39m    [34mexpect[39m(screen[33m.[39m[34mgetByText[39m([36m/Firm score 
+72\/100/i[39m))[33m.[39m[34mtoBeInTheDocument[39m(ΓÇª
+    [90m 56| [39m  })[33m;[39m
+
+[31m[2mΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/2]ΓÄ»[22m[39m
+
+[31m[1m[7m FAIL [27m[22m[39m src/components/common/AgentOutputCard.test.tsx[2m > 
+[22mAgentOutputCard[2m > [22mshows available and missing factors distinctly
+[31m[1mTestingLibraryElementError[22m[39m: Found multiple elements with the text: /Missing pe_ratio/i
+
+Here are the matching elements:
+
+Ignored nodes: comments, script, style
+[36m<p[39m
+  [33mclass[39m=[32m"factor-detail"[39m
+[36m>[39m
+  [0mMissing pe_ratio ΓÇö not fabricated.[0m
+[36m</p>[39m
+
+Ignored nodes: comments, script, style
+[36m<li>[39m
+  [0mMissing pe_ratio ΓÇö valuation factor unavailable.[0m
+[36m</li>[39m
+
+(If this is intentional, then use the `*AllBy*` variant of the query (like `queryAllByText`, 
+`getAllByText`, or `findAllByText`)).
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<article[39m
+      [33mclass[39m=[32m"agent-card status-ok"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"agent-card-header"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"score-dial positive"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"score-value"[39m
+          [36m>[39m
+            [0m72[0m
+          [36m</span>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"score-label"[39m
+          [36m>[39m
+            [0m/ 100[0m
+          [36m</span>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"agent-card-title"[39m
+        [36m>[39m
+          [36m<h3>[39m
+            [0mfirm analyst[0m
+          [36m</h3>[39m
+          [36m<p>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"badge signal-strong-buy"[39m
+            [36m>[39m
+              [0mSTRONG BUY[0m
+            [36m</span>[39m
+            [0m [0m
+            [36m<span[39m
+              [33mclass[39m=[32m"badge badge-status-ok"[39m
+            [36m>[39m
+              [0mOK[0m
+            [36m</span>[39m
+            [0m [0m
+            [36m<span[39m
+              [33mclass[39m=[32m"muted"[39m
+            [36m>[39m
+              [0mconfidence [0m
+              [0m90[0m
+              [0m%[0m
+            [36m</span>[39m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"agent-rationale"[39m
+      [36m>[39m
+        [0mFirm score 72/100 (confidence 90%).[0m
+      [36m</p>[39m
+      [36m<section>[39m
+        [36m<h4>[39m
+          [0mContributing factors[0m
+        [36m</h4>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"factor-list"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [36m<strong>[39m
+              [0mprofitability[0m
+            [36m</strong>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"muted"[39m
+            [36m>[39m
+              [0m value: [0m
+              [0m0.18[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"muted"[39m
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m4 passed[39m[22m[90m (6)[39m
+[2m   Start at [22m 21:20:11
+[2m   Duration [22m 2.66s[2m (transform 92ms, setup 359ms, collect 430ms, tests 161ms, environment 2.73s, prepare 520ms)[22m
+
+            [36m>[39m
+              [0m ┬╖ contribution: [0m
+              [0m25.0[0m
+            [36m</span>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"factor-detail"[39m
+            [36m>[39m
+              [0mnet_margin = 18.00% ΓåÆ 100/100[0m
+            [36m</p>[39m
+          [36m</li>[39m
+          [36m<li[39m
+            [33mclass[39m=[32m"factor-missing"[39m
+          [36m>[39m
+            [36m<strong>[39m
+              [0mvaluation[0m
+            [36m</strong>[39m
+            [0m ΓÇö not computed[0m
+            [36m<p[39m
+              [33mclass[39m=[32m"factor-detail"[39m
+            [36m>[39m
+              [0mMissing pe_ratio ΓÇö not fabricated.[0m
+            [36m</p>[39m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+      [36m<section>[39m
+        [36m<h4>[39m
+          [0mEvidence[0m
+        [36m</h4>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"evidence-list"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"badge badge-evidence"[39m
+            [36m>[39m
+              [0mfinancial_observation[0m
+            [36m</span>[39m
+            [0m [0m
+            [0mnet_income=45000 Cr[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"muted"[39m
+            [36m>[39m
+              [0m ΓÇö [0m
+              [0mannual_report[0m
+            [36m</span>[39m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+      [36m<section>[39m
+        [36m<h4>[39m
+          [0mLimitations[0m
+        [36m</h4>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"limitations-list"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mMissing pe_ratio ΓÇö valuation factor unavailable.[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+      [36m<footer[39m
+        [33mclass[39m=[32m"agent-card-footer muted"[39m
+      [36m>[39m
+        [0mGenerated [0m
+        [0m15/7/2024, 3:30:00 pm[0m
+        [0m ┬╖ methodology:[0m
+        [0m [0m
+        [0mfirm_analyst_v1[0m
+      [36m</footer>[39m
+    [36m</article>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2mΓ¥»[22m Object.getElementError 
+node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2mΓ¥»[22m getElementError 
+node_modules/@testing-library/dom/dist/query-helpers.js:[2m20:35[22m[39m
+[90m [2mΓ¥»[22m getMultipleElementsFoundError 
+node_modules/@testing-library/dom/dist/query-helpers.js:[2m23:10[22m[39m
+[90m [2mΓ¥»[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m55:13[22m[39m
+[90m [2mΓ¥»[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2mΓ¥»[22m src/components/common/AgentOutputCard.test.tsx:[2m63:19[22m[39m
+    [90m 61| [39m    [90m// "valuation" appears as the missing factor name; "not computed" [39mΓÇª
+    [90m 62| [39m    [34mexpect[39m(screen[33m.[39m[34mgetAllByText[39m([36m/not 
+computed/i[39m)[33m.[39mlength)[33m.[39m[34mtoBeGreaterTha[39mΓÇª
+    [90m 63| [39m    [34mexpect[39m(screen[33m.[39m[34mgetByText[39m([36m/Missing 
+pe_ratio/i[39m))[33m.[39m[34mtoBeInTheDocument[39m()[33m;[39m
+    [90m   | [39m                  [31m^[39m
+    [90m 64| [39m  })[33m;[39m
+    [90m 65| [39m
+
+[31m[2mΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/2]ΓÄ»[22m[39m
+

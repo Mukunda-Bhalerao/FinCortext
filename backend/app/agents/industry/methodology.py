@@ -32,6 +32,7 @@ medians.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 WEIGHTS = {
@@ -97,10 +98,21 @@ def median(values: list[float]) -> float | None:
 
 
 def annualized_volatility(daily_returns: list[float]) -> float | None:
-    """Population std-dev of daily returns × sqrt(252). None if < 2 returns."""
+    """Population std-dev of daily returns × sqrt(252). None if < 2 returns.
+
+    Convention (documented): population standard deviation (ddof=0) of simple
+    daily returns, annualized with sqrt(252) trading days.
+
+    Numerical handling: identical returns are short-circuited to exactly 0.0
+    (zero dispersion by definition — avoids floating-point residuals like
+    2.7e-17 from naive variance), and `math.fsum` is used for exact
+    floating-point summation elsewhere.
+    """
     if len(daily_returns) < 2:
         return None
+    if min(daily_returns) == max(daily_returns):
+        return 0.0  # all returns identical → zero dispersion (exact)
     n = len(daily_returns)
-    mean = sum(daily_returns) / n
-    var = sum((r - mean) ** 2 for r in daily_returns) / n
+    mean = math.fsum(daily_returns) / n
+    var = math.fsum((r - mean) ** 2 for r in daily_returns) / n
     return var ** 0.5 * (252 ** 0.5)
