@@ -1,6 +1,6 @@
 import type { AgentOutput } from '../../types/api';
 
-const SIGNAL_CLASS: Record<string, string> = {
+export const SIGNAL_CLASS: Record<string, string> = {
   strong_buy: 'signal-strong-buy',
   buy: 'signal-buy',
   neutral: 'signal-neutral',

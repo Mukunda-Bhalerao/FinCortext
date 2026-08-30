@@ -201,3 +201,19 @@ export interface ApiError {
     details: Record<string, unknown>;
   };
 }
+
+/** Flattened `agent_outputs` row returned by GET /api/agents/outputs
+ *  (SELECT * ordered by generated_at DESC — latest first). */
+export interface AgentOutputSummary {
+  output_id: string;
+  agent_id: string;
+  entity_id: string;
+  score: number | null;
+  signal: SignalValue;
+  confidence: number;
+  factors_json?: string;
+  rationale?: string;
+  generated_at: string;
+  data_version?: string;
+  status: 'OK' | 'DEGRADED' | 'UNAVAILABLE';
+}

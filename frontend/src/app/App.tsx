@@ -1,4 +1,5 @@
 import { Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom';
+import FinCortextLogo from '../utils/FinCortextLogo.png';
 import DashboardPage from '../features/dashboard/DashboardPage';
 import DataSourcesPage from '../features/data/DataSourcesPage';
 import DataPipelinePage from '../features/data/DataPipelinePage';
@@ -17,25 +18,13 @@ interface NavItem {
   end?: boolean;
 }
 
-interface NavSection {
-  heading: string;
-  items: NavItem[];
-}
-
-const navSections: NavSection[] = [
-  {
-    heading: 'Overview',
-    items: [{ to: '/', label: 'Dashboard', end: true }],
-  },
-  {
-    heading: 'Intelligence',
-    items: [
-      { to: '/intelligence/firm', label: 'Firm Analyst' },
-      { to: '/intelligence/industry', label: 'Industry Analyst' },
-      { to: '/intelligence/sentiment', label: 'Sentiment Analyst' },
-      { to: '/intelligence/summary', label: 'Combined Summary' },
-    ],
-  },
+/** Flat demo navigation — one clean professional navbar. */
+const NAV_ITEMS: NavItem[] = [
+  { to: '/', label: 'Dashboard', end: true },
+  { to: '/intelligence/firm', label: 'Firm Analyst' },
+  { to: '/intelligence/industry', label: 'Industry Analyst' },
+  { to: '/intelligence/sentiment', label: 'Sentiment Analyst' },
+  { to: '/intelligence/summary', label: 'Combined Summary' },
 ];
 
 export default function App() {
@@ -45,31 +34,21 @@ export default function App() {
     <div className="app-shell">
       <header className="app-header">
         <div className="brand">
-          <span className="brand-mark">FC</span>
-          <div>
-            <h1>FinCortext</h1>
-            <p>AI-Powered Investment Intelligence</p>
-          </div>
+          <img src={FinCortextLogo} alt="FinCortext logo" className="brand-logo" />
+          <h1>FinCortext</h1>
         </div>
-        <nav className="app-nav">
-          {navSections.map((section) => (
-            <div key={section.heading} className="nav-section">
-              <span className="nav-heading">{section.heading}</span>
-              <div className="nav-links">
-                {section.items.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.end}
-                    className={({ isActive }) =>
-                      isActive ? 'nav-link active' : 'nav-link'
-                    }
-                  >
-                    {item.label}
-                  </NavLink>
-                ))}
-              </div>
-            </div>
+        <nav className="app-nav" aria-label="Main navigation">
+          {NAV_ITEMS.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={({ isActive }) =>
+                isActive ? 'nav-link active' : 'nav-link'
+              }
+            >
+              {item.label}
+            </NavLink>
           ))}
         </nav>
       </header>

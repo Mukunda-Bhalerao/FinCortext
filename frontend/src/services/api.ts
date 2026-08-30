@@ -2,6 +2,7 @@
 
 import type {
   AgentOutput,
+  AgentOutputSummary,
   FilingsListResponse,
   FilingImportResult,
   HealthInfo,
@@ -117,7 +118,7 @@ export const api = {
       if (agentId) params.set('agent_id', agentId);
       if (symbol) params.set('symbol', symbol);
       params.set('limit', String(limit));
-      return request<{ count: number; outputs: Record<string, unknown>[] }>(
+      return request<{ count: number; outputs: AgentOutputSummary[] }>(
         `/api/agents/outputs?${params.toString()}`,
       );
     },
