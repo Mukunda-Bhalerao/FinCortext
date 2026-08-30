@@ -25,15 +25,30 @@ class YFinanceMarketProvider(MarketDataProvider):
         # Optional mapping of internal symbol -> provider ticker. When absent,
         # the caller must pass provider tickers directly.
         self._symbol_to_ticker = symbol_to_ticker or {}
+        # Reverse mapping so the canonical internal symbol can ALWAYS be
+        # resolved: MarketPrice.symbol is the internal symbol (e.g. 'TCS'),
+        # never the provider ticker (e.g. 'TCS.NS'). Storing the provider
+        # ticker in the `symbol` column makes every internal-symbol read
+        # (prices, status, agents) return zero rows.
+        self._ticker_to_symbol = {t.upper(): s for s, t in self._symbol_to_ticker.items()}
+
+    def _resolve_canonical_symbol(self, ticker: str) -> str:
+        """Internal FinCortext symbol for the given symbol or provider ticker."""
+        upper = ticker.upper()
+        if upper in self._symbol_to_ticker:
+            return upper  # already an internal symbol
+        return self._ticker_to_symbol.get(upper, upper)
 
     def fetch_ohlcv(self, ticker: str, start: date, end: date) -> list[MarketPrice]:
         """Fetch daily OHLCV for `ticker` (internal symbol or provider ticker).
 
         `end` is inclusive (yfinance end is exclusive; we add one day).
+        Returned bars are always keyed by the canonical internal symbol.
         """
         import pandas as pd
 
         provider_ticker = self._symbol_to_ticker.get(ticker.upper(), ticker)
+        symbol = self._resolve_canonical_symbol(ticker)
         try:
             import yfinance as yf
 
@@ -55,7 +70,7 @@ class YFinanceMarketProvider(MarketDataProvider):
             logger.warning("yfinance returned no data for %s", provider_ticker)
             return []
 
-        return self.normalize_frame(df, symbol=ticker.upper(), provider_ticker=provider_ticker)
+        return self.normalize_frame(df, symbol=symbol, provider_ticker=provider_ticker)
 
     def normalize_frame(self, df, *, symbol: str, provider_ticker: str) -> list[MarketPrice]:
         """Convert a yfinance OHLCV frame to canonical MarketPrice models.

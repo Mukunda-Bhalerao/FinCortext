@@ -147,17 +147,28 @@ FinCortext. It is updated after every milestone.
 
 ## CURRENT STATE
 
-- Backend: 114 tests passing. Market pipeline, filing ingestion, Firm
+- Backend: 126 tests passing. Market pipeline, filing ingestion, Firm
   Analyst, Industry Analyst, and News+Sentiment all working offline
   (fixtures/fakes; live providers network-optional).
-- Frontend unchanged (builds clean).
+- Market data canonical-key invariant enforced: stored bars are keyed by the
+  internal symbol (TCS), never the provider ticker (TCS.NS); startup repair
+  re-keys any legacy rows (see "Bugfix — Market data canonical symbol key").
+- Firm/Industry agents report DEGRADED (not OK) when a score rests on less
+  than half of the documented factor weight.
+- Industry Analyst auto-prepares its market data (company + sector peers):
+  fresh cached history is reused, only missing/stale symbols are fetched.
+- Demo navigation: Dashboard + the three analysts + Combined Summary; all
+  other pages remain mounted at their routes but are unlinked.
+- Frontend: 10 component tests passing; production build clean.
 - All three implemented agents (firm/industry/sentiment) emit the
   standardized AgentOutput via `POST /api/agents/{agent}/{symbol}/run`.
 
 ## TEST STATUS
 
-- `cd backend && python -m pytest` — **114 passed**
-  (M7 focused run: 41 passed; M6 focused run: 8 passed)
+- `cd backend && python -m pytest` — **126 passed** (120 previous + 6 added
+  by Industry data-preparation tests)
+- Frontend `npm test` — **10 passed** (3 new App navigation/hidden-route
+  tests)
 - Frontend `npm run build` — passing
 
 ## KNOWN LIMITATIONS
@@ -175,10 +186,80 @@ FinCortext. It is updated after every milestone.
 - Sentiment relevance matching is lexical (name/symbol); NewsAPI free tier
   caps history (~30 days).
 
+### Bugfix — Market data canonical symbol key ✅
+
+**Symptom:** `POST /api/market/refresh/TCS` reported "501 stored, 0 rejected"
+while the frontend Market Data page showed "0 stored bars / UNAVAILABLE" and
+the Firm/Industry Analysts reported missing price data.
+
+**Root cause:** `MarketService.refresh_symbol` passed the provider ticker
+(`TCS.NS`) to `YFinanceMarketProvider.fetch_ohlcv`, which keyed every stored
+bar's canonical `symbol` field with that provider ticker. DuckDB rows were
+therefore stored under `symbol='TCS.NS'`, while every read path
+(`GET /api/market/prices/{symbol}`, `/api/market/status`, Firm Agent momentum,
+Industry Agent peer metrics) queries the internal symbol (`'TCS'`) — zero rows
+found. The integration test's fake provider masked the bug by stripping the
+`.NS` suffix itself (`symbol=ticker.split(".")[0]`).
+
+**Fix (canonical-key invariant):**
+- `MarketService.refresh_symbol` now requests the **internal symbol**; the
+  provider resolves the provider ticker via the universe mapping (as its
+  container wiring always intended).
+- `YFinanceMarketProvider` hardens the boundary: bars are keyed by the
+  canonical internal symbol even if a provider ticker is passed directly
+  (reverse mapping), matching `MarketPrice.symbol`'s documented meaning.
+- `MarketRepository.normalize_symbol_keys()` (wired idempotently into
+  `Container.__init__`) re-keys rows historically stored under provider
+  tickers to internal symbols — real price data preserved, exact duplicates
+  by `(symbol, trade_date)` removed. First startup re-keyed 1002 rows.
+- Firm/Industry agents now emit `status="DEGRADED"` when a score is computed
+  from less than half of the documented factor weights (e.g. momentum only,
+  no filings) — a 200 response is never presented as a fully-successful
+  analysis when the underlying required data is missing.
+
+**Tests added:** service stores/reads under the internal symbol; provider
+reverse-resolution (both call styles); key-repair migration (incl. dedup);
+firm agent thin-evidence DEGRADED. Frontend: fixed two pre-existing ambiguous
+`getByText` queries (duplicate rendered text) and added a DEGRADED badge test.
+
+### Milestone 9 — Demo Readiness ✅
+
+**Industry Analyst automatic data preparation:**
+- `MarketService.ensure_history(symbols, min_bars, max_age_days=7)`: per
+  symbol, sufficient **fresh** cached history (≥ `MIN_PRICES_FOR_METRICS`
+  bars, latest trade date within the 7-day LIVE window) is reused as-is —
+  the provider is not called. Missing/stale symbols go through the normal
+  refresh pipeline (provider → validation → storage → provenance). Provider
+  failures are isolated per symbol (`refresh_failed`) and never raised, so
+  the analysis still runs on cached data with honest limitations.
+- `AgentService` (optional `market_service`, default `None` — existing
+  constructions unaffected) prepares sector peers via `get_sector_peers`
+  before every `industry_analyst` run and records a transparent
+  `data_preparation` summary (cached/refreshed/failed per symbol) in the
+  output provenance. Agents stay repository-only (no provider coupling).
+- Tests: cache-hit no-fetch, fetch-only-missing, stale-refresh, provider
+  failure isolation (MarketService); industry flow auto-fetches missing
+  peers then re-runs purely from cache; failure path still analyses cached
+  company data.
+
+**Demo UI cleanup (routes and backend functionality untouched):**
+- Main navigation reduced to Overview → Dashboard and Intelligence →
+  Firm/Industry/Sentiment/Combined Summary. Data, Macro, Portfolio and
+  Research pages remain fully mounted at their routes (pinned by new
+  `App.test.tsx` navigation + hidden-route tests) — only unlinked.
+- Dashboard replaced with a product-oriented overview: platform intro,
+  company selector, "Analyze Company" primary action, the three analyst
+  modules and Combined Summary access. No backend paths, DB/cache/config
+  diagnostics or "coming soon" lists (backend status endpoints remain).
+- Intelligence pages: selected company carried via `?symbol=` across the
+  demo flow; developer wording (repo paths, env-var names, manual data-page
+  instructions) replaced with product copy; honest statuses, evidence,
+  limitations and methodology reporting kept unchanged.
+
 ## NEXT RECOMMENDED STEP
 
-**Milestone 8 — Frontend Integration**: wire the existing React shell to the
-full API (universe, market, filings, news, all three agents), company-centric
-demonstration flow, explicit LIVE/CACHED/IMPORTED/SAMPLE/UNAVAILABLE/ERROR
-data-status badges, filing upload UI, combined intelligence summary, and
-honest "Coming soon" placeholders for Macro/Portfolio/Research.
+Demo polish: consider a universe-wide "prepare demo data" action (background
+refresh with progress feedback), ingesting real filings for the demo
+companies so the Firm Analyst's fundamental factors light up, and surfacing
+the Industry Analyst's automatic data-preparation summary in the UI for
+extra transparency.

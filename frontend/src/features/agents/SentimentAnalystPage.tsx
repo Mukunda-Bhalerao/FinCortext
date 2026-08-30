@@ -1,13 +1,21 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import AgentOutputCard from '../../components/common/AgentOutputCard';
 import CompanySelector from '../../components/common/CompanySelector';
 import StatusBadge from '../../components/common/StatusBadge';
 import { api, ApiRequestError } from '../../services/api';
 import type { AgentOutput, NewsStatusResponse } from '../../types/api';
 
-/** Sentiment Analyst — news retrieval status + agent run. */
+/** Sentiment Analyst — news retrieval status + agent run.
+ *
+ * The selected company is kept in the URL (`?symbol=`) so a choice made on
+ * the Dashboard or any intelligence page carries across the demo flow.
+ */
 export default function SentimentAnalystPage() {
-  const [symbol, setSymbol] = useState('TCS');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const symbol = searchParams.get('symbol') ?? 'TCS';
+  const setSymbol = (next: string) =>
+    setSearchParams(next ? { symbol: next } : {}, { replace: true });
   const [output, setOutput] = useState<AgentOutput | null>(null);
   const [newsStatus, setNewsStatus] = useState<NewsStatusResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -64,8 +72,9 @@ export default function SentimentAnalystPage() {
     <section className="page">
       <h2>Sentiment Analyst</h2>
       <p className="muted page-description">
-        Local FinBERT financial sentiment over stored, relevant news articles —
-        recency-weighted, deterministic aggregation. No paid LLM API.
+        Financial-news sentiment for the selected company — recency-weighted,
+        deterministic aggregation over relevant stored articles, scored by a
+        local financial-language model.
       </p>
 
       <div className="run-bar">
@@ -80,15 +89,19 @@ export default function SentimentAnalystPage() {
 
       {newsStatus && (
         <div className="prereq-card">
-          <h4>News provider</h4>
+          <h4>News data</h4>
           <p>
             <StatusBadge status={newsStatus.configured ? 'LIVE' : 'UNAVAILABLE'} />{' '}
-            <span className="muted">{newsStatus.message ?? 'Configured via NEWS_API_KEY.'}</span>
+            <span className="muted">
+              {newsStatus.configured
+                ? 'Live financial-news retrieval is configured.'
+                : 'Live news retrieval is not configured — stored articles are still used and nothing is fabricated.'}
+            </span>
           </p>
           <p className="muted">
-            Without NEWS_API_KEY the agent reports UNAVAILABLE — it never
-            fabricates news. The first sentiment run downloads the local FinBERT
-            model (~440 MB) into the configured cache directory.
+            Stored articles are reused across runs; the first analysis loads the
+            local sentiment model (one-time setup). Missing data is reported
+            honestly — news is never fabricated.
           </p>
         </div>
       )}
@@ -100,8 +113,8 @@ export default function SentimentAnalystPage() {
 
       {!output && !error && !loading && (
         <p className="muted">
-          Fetch news (requires NEWS_API_KEY), then run the analysis. Stored
-          articles are reused across runs.
+          Fetch recent news for the selected company, then run the analysis.
+          Stored articles are reused across runs.
         </p>
       )}
     </section>

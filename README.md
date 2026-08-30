@@ -192,7 +192,10 @@ curl -X POST http://127.0.0.1:8000/api/agents/sentiment/RELIANCE/run
 ```
 
 Each returns the standardized `AgentOutput` contract (score, signal, confidence,
-factors, rationale, evidence, limitations). Outputs are persisted and can be
+factors, rationale, evidence, limitations) with an explicit `status`:
+`OK` (score from full-quality evidence), `DEGRADED` (score computed from less
+than half of the documented factor weight — required data is missing), or
+`UNAVAILABLE` (no analyzable data). Outputs are persisted and can be
 listed via `GET /api/agents/outputs?agent_id=firm_analyst&symbol=RELIANCE`.
 
 Methodology documentation (weights, formulas, confidence rules, determinism):

@@ -110,3 +110,57 @@ def test_yfinance_fetch_empty_returns_no_bars(monkeypatch):
     monkeypatch.setattr(yf, "download", lambda *a, **k: pd.DataFrame())
     bars = provider.fetch_ohlcv("RELIANCE.NS", date(2024, 1, 1), date(2024, 1, 31))
     assert bars == []
+
+
+# --- yfinance adapter canonical-symbol resolution ---------------------------
+
+
+def _flat_yf_frame() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "Open": [100.0, 101.0],
+            "High": [110.0, 111.0],
+            "Low": [95.0, 96.0],
+            "Close": [105.0, 106.0],
+            "Volume": [1000, 1100],
+        },
+        index=pd.to_datetime(["2024-01-02", "2024-01-03"]),
+    )
+
+
+def _patch_download(monkeypatch, requested: dict):
+    import yfinance as yf
+
+    def fake_download(ticker, *args, **kwargs):
+        requested["ticker"] = ticker
+        return _flat_yf_frame()
+
+    monkeypatch.setattr(yf, "download", fake_download)
+
+
+def test_yfinance_fetch_keys_bars_by_internal_symbol_even_for_provider_ticker(monkeypatch):
+    """Regression: passing a provider ticker directly must still yield bars
+    keyed by the canonical internal symbol. Storing 'TCS.NS' in the symbol
+    column made every internal-symbol read return zero rows."""
+    provider = YFinanceMarketProvider({"TCS": "TCS.NS"})
+    requested: dict = {}
+    _patch_download(monkeypatch, requested)
+
+    bars = provider.fetch_ohlcv("TCS.NS", date(2024, 1, 2), date(2024, 1, 3))
+
+    assert requested["ticker"] == "TCS.NS"  # still downloads the provider ticker
+    assert len(bars) == 2
+    assert all(b.symbol == "TCS" for b in bars)
+    assert all(b.provider_ticker == "TCS.NS" for b in bars)
+
+
+def test_yfinance_fetch_resolves_provider_ticker_from_internal_symbol(monkeypatch):
+    provider = YFinanceMarketProvider({"TCS": "TCS.NS"})
+    requested: dict = {}
+    _patch_download(monkeypatch, requested)
+
+    bars = provider.fetch_ohlcv("TCS", date(2024, 1, 2), date(2024, 1, 3))
+
+    assert requested["ticker"] == "TCS.NS"  # downloads with the provider ticker
+    assert all(b.symbol == "TCS" for b in bars)
+    assert all(b.provider_ticker == "TCS.NS" for b in bars)

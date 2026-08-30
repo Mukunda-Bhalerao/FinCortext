@@ -92,6 +92,7 @@ body { background: var(--bg); color: var(--text); }
 .badge-status-imported_official { background: rgba(123, 92, 255, 0.18); color: #b39dff; }
 .badge-status-sample { background: rgba(245, 176, 76, 0.15); color: var(--warning); }
 .badge-status-unavailable { background: rgba(143, 160, 184, 0.15); color: var(--neutral); }
+.badge-status-degraded { background: rgba(245, 176, 76, 0.15); color: var(--warning); }
 .badge-status-error { background: rgba(255, 93, 115, 0.15); color: var(--negative); }
 
 .signal-strong-buy { background: rgba(46, 204, 143, 0.25); color: var(--positive); }

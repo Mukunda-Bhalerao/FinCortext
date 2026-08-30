@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import AgentOutputCard from '../../components/common/AgentOutputCard';
 import CompanySelector from '../../components/common/CompanySelector';
 import { api, ApiRequestError } from '../../services/api';
@@ -12,7 +13,11 @@ interface AgentPageProps {
   prerequisites: string[];
 }
 
-/** Shared page for one implemented analyst: run + explain output honestly. */
+/** Shared page for one implemented analyst: run + explain output honestly.
+ *
+ * The selected company is kept in the URL (`?symbol=`) so a choice made on
+ * the Dashboard or any intelligence page carries across the demo flow.
+ */
 export default function AgentPage({
   agentId,
   title,
@@ -20,7 +25,10 @@ export default function AgentPage({
   methodologyDoc,
   prerequisites,
 }: AgentPageProps) {
-  const [symbol, setSymbol] = useState('TCS');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const symbol = searchParams.get('symbol') ?? 'TCS';
+  const setSymbol = (next: string) =>
+    setSearchParams(next ? { symbol: next } : {}, { replace: true });
   const [output, setOutput] = useState<AgentOutput | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +61,7 @@ export default function AgentPage({
       </div>
 
       <div className="prereq-card">
-        <h4>What this agent needs</h4>
+        <h4>What this analyst uses</h4>
         <ul>
           {prerequisites.map((p) => (
             <li key={p}>{p}</li>
@@ -61,7 +69,7 @@ export default function AgentPage({
         </ul>
         <p className="muted">
           Missing data is never fabricated — unavailable factors are listed as
-          limitations. Methodology: <code>{methodologyDoc}</code>
+          limitations. {methodologyDoc}
         </p>
       </div>
 

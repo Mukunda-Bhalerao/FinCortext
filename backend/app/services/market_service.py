@@ -44,7 +44,11 @@ class MarketService:
         end = end or date.today()
         start = start or (end - timedelta(days=settings.market_history_days))
 
-        bars = self.provider.fetch_ohlcv(entry.ticker, start, end)
+        # Canonical-key invariant: request the INTERNAL symbol. The provider
+        # resolves the provider ticker (e.g. TCS -> TCS.NS) via the universe
+        # mapping, and every stored bar is keyed by the internal symbol —
+        # the same key all read paths (prices/status/agents) query.
+        bars = self.provider.fetch_ohlcv(entry.symbol, start, end)
         validation = validate_market_bars(bars)
 
         written = 0
@@ -99,6 +103,66 @@ class MarketService:
             "symbols_ok": stored,
             "results": results,
         }
+
+    def ensure_history(
+        self,
+        symbols: list[str],
+        *,
+        min_bars: int,
+        max_age_days: int = 7,
+    ) -> list[dict]:
+        """Ensure cached OHLCV coverage for `symbols`, fetching only what is missing.
+
+        Used by agent orchestration (e.g. Industry Analyst data preparation):
+        a symbol is sufficient when at least `min_bars` rows are stored AND
+        the latest stored trade date is within `max_age_days` of today
+        (mirrors the LIVE window of get_price_series, tolerant of weekends
+        and holidays). Sufficient symbols are served from cache — the
+        provider is NOT called. Insufficient or stale symbols go through the
+        normal refresh pipeline (provider -> validation -> storage ->
+        provenance). Provider failures are isolated per symbol and reported;
+        this method never raises so agent runs can proceed with whatever
+        cached data exists (honest limitation reporting downstream).
+        """
+        prepared: list[dict] = []
+        for raw in symbols:
+            entry = get_universe_entry(raw)
+            rows = self.market_repo.count(entry.symbol)
+            latest = self.market_repo.latest_trade_date(entry.symbol)
+            fresh = latest is not None and (date.today() - latest).days <= max_age_days
+            if rows >= min_bars and fresh:
+                prepared.append(
+                    {
+                        "symbol": entry.symbol,
+                        "action": "cached",
+                        "rows": rows,
+                        "status": DataStatus.CACHED.value,
+                    }
+                )
+                continue
+            try:
+                outcome = self.refresh_symbol(entry.symbol)
+                prepared.append(
+                    {
+                        "symbol": entry.symbol,
+                        "action": "refreshed",
+                        "rows_stored": outcome.get("rows_stored", 0),
+                        "status": outcome.get("status", DataStatus.UNAVAILABLE.value),
+                    }
+                )
+            except ProviderError as exc:
+                logger.error(
+                    "Automatic data preparation failed for %s: %s", entry.symbol, exc.message
+                )
+                prepared.append(
+                    {
+                        "symbol": entry.symbol,
+                        "action": "refresh_failed",
+                        "status": DataStatus.ERROR.value,
+                        "error": exc.message,
+                    }
+                )
+        return prepared
 
     def get_price_series(self, symbol: str, start: date | None = None, end: date | None = None) -> dict:
         """Stored price series with explicit data status."""

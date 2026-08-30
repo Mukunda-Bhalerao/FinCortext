@@ -6,10 +6,11 @@ export default function FirmAnalystPage() {
       agentId="firm_analyst"
       title="Firm Analyst"
       description="Deterministic fundamental + market-behavior scoring from ingested official filings and stored prices."
-      methodologyDoc="backend/app/agents/firm/methodology.py"
+      methodologyDoc="Deterministic methodology v1 — documented weights, thresholds and confidence rules."
       prerequisites={[
-        'Ingested official filings (Data → Filing Import) for profitability, growth, leverage, ROE, valuation.',
-        'Stored market prices (Data → Market Data → Refresh) for the 90-day momentum factor.',
+        'Official ingested filings provide the profitability, growth, leverage, ROE and valuation factors.',
+        'Stored market history drives the 90-day momentum factor.',
+        'Missing inputs are reported as limitations — values are never fabricated.',
       ]}
     />
   );

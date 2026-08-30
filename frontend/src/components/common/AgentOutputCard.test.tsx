@@ -51,7 +51,8 @@ describe('AgentOutputCard', () => {
     render(<AgentOutputCard output={baseOutput} />);
     expect(screen.getByText('72')).toBeInTheDocument();
     expect(screen.getByText('STRONG BUY')).toBeInTheDocument();
-    expect(screen.getByText(/confidence 90%/i)).toBeInTheDocument();
+    // "confidence 90%" appears in the header span and inside the rationale.
+    expect(screen.getAllByText(/confidence 90%/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Firm score 72\/100/i)).toBeInTheDocument();
   });
 
@@ -60,7 +61,8 @@ describe('AgentOutputCard', () => {
     expect(screen.getByText('profitability')).toBeInTheDocument();
     // "valuation" appears as the missing factor name; "not computed" is shown
     expect(screen.getAllByText(/not computed/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Missing pe_ratio/i)).toBeInTheDocument();
+    // "Missing pe_ratio" appears in the factor detail and in the limitations list.
+    expect(screen.getAllByText(/Missing pe_ratio/i).length).toBeGreaterThan(0);
   });
 
   it('renders evidence and limitations sections', () => {
@@ -69,6 +71,17 @@ describe('AgentOutputCard', () => {
     expect(
       screen.getByText(/Missing pe_ratio — valuation factor unavailable\./),
     ).toBeInTheDocument();
+  });
+
+  it('renders a DEGRADED status badge for thin-evidence outputs', () => {
+    const degraded: AgentOutput = {
+      ...baseOutput,
+      score: 59.2,
+      signal: 'buy',
+      status: 'DEGRADED',
+    };
+    render(<AgentOutputCard output={degraded} />);
+    expect(screen.getByText('DEGRADED')).toBeInTheDocument();
   });
 
   it('renders an em-dash score for UNAVAILABLE outputs', () => {

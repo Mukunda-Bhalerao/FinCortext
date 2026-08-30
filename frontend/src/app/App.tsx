@@ -28,39 +28,12 @@ const navSections: NavSection[] = [
     items: [{ to: '/', label: 'Dashboard', end: true }],
   },
   {
-    heading: 'Data',
-    items: [
-      { to: '/data/sources', label: 'Data Sources' },
-      { to: '/data/pipeline', label: 'Data Pipeline' },
-      { to: '/data/market', label: 'Market Data' },
-      { to: '/data/filings', label: 'Filing Import' },
-      { to: '/data/quality', label: 'Data Quality' },
-    ],
-  },
-  {
     heading: 'Intelligence',
     items: [
       { to: '/intelligence/firm', label: 'Firm Analyst' },
       { to: '/intelligence/industry', label: 'Industry Analyst' },
       { to: '/intelligence/sentiment', label: 'Sentiment Analyst' },
       { to: '/intelligence/summary', label: 'Combined Summary' },
-      { to: '/intelligence/macro', label: 'Macro Analyst' },
-    ],
-  },
-  {
-    heading: 'Portfolio',
-    items: [
-      { to: '/portfolio', label: 'Portfolio Agent' },
-      { to: '/portfolio/risk', label: 'Risk & Constraints' },
-      { to: '/portfolio/optimization', label: 'Optimization' },
-    ],
-  },
-  {
-    heading: 'Research',
-    items: [
-      { to: '/research/backtesting', label: 'Backtesting' },
-      { to: '/research/performance', label: 'Performance' },
-      { to: '/research/experiments', label: 'Experiments' },
     ],
   },
 ];
@@ -191,8 +164,7 @@ export default function App() {
         </Routes>
       </main>
       <footer className="app-footer">
-        <span>FinCortext v0.1.0 — research MVP</span>
-        <span>Portfolio synthesis is reserved for the future Portfolio Agent.</span>
+        <span>FinCortext v0.1.0 — investment intelligence research demo</span>
       </footer>
     </div>
   );

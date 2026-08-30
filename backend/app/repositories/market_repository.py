@@ -50,6 +50,69 @@ class MarketRepository:
             raise
         return len(rows)
 
+    def normalize_symbol_keys(self, ticker_to_symbol: dict[str, str]) -> int:
+        """Re-key rows stored under provider tickers to canonical internal symbols.
+
+        Repair for rows written before the canonical-key invariant was
+        enforced (the provider ticker was mistakenly stored in the `symbol`
+        column, e.g. 'TCS.NS'), which made every read by internal symbol
+        return zero rows. Real price data is preserved:
+
+        - rows whose trade_date is not already present under the internal
+          symbol are re-keyed to it;
+        - leftover rows under the provider ticker are exact
+          (symbol, trade_date) duplicates of canonical rows and are removed.
+
+        Idempotent: a second call with the same mapping is a no-op. Returns
+        the number of rows re-keyed (dedup-removed rows are not counted).
+        """
+        rekeyed = 0
+        for provider_ticker, symbol in ticker_to_symbol.items():
+            provider_key = provider_ticker.upper()
+            canonical = symbol.upper()
+            if provider_key == canonical:
+                continue
+            rows = self.storage.fetch_all(
+                "SELECT COUNT(*) AS n FROM market_prices WHERE symbol = ?",
+                [provider_key],
+            )
+            stale = int(rows[0]["n"]) if rows else 0
+            if not stale:
+                continue
+            dup_rows = self.storage.fetch_all(
+                """
+                SELECT COUNT(*) AS n FROM market_prices p
+                WHERE p.symbol = ? AND EXISTS (
+                    SELECT 1 FROM market_prices q
+                    WHERE q.symbol = ? AND q.trade_date = p.trade_date
+                )
+                """,
+                [provider_key, canonical],
+            )
+            duplicates = int(dup_rows[0]["n"]) if dup_rows else 0
+            self.storage.execute("BEGIN TRANSACTION")
+            try:
+                self.storage.execute(
+                    """
+                    UPDATE market_prices SET symbol = ?
+                    WHERE symbol = ?
+                      AND trade_date NOT IN (
+                          SELECT trade_date FROM market_prices WHERE symbol = ?
+                      )
+                    """,
+                    [canonical, provider_key, canonical],
+                )
+                self.storage.execute(
+                    "DELETE FROM market_prices WHERE symbol = ?",
+                    [provider_key],
+                )
+                self.storage.execute("COMMIT")
+            except Exception:
+                self.storage.execute("ROLLBACK")
+                raise
+            rekeyed += stale - duplicates
+        return rekeyed
+
     def get_prices(
         self,
         symbol: str,

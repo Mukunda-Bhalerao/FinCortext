@@ -92,6 +92,19 @@ class FirmAgent(BaseAgent):
                 "refresh market data, then re-run the analysis.",
             )
 
+        # Honest status: a computed score resting on less than half of the
+        # documented factor weights (e.g. momentum only, no filings) is
+        # DEGRADED, never presented as a fully-successful analysis.
+        available_weight = sum(
+            WEIGHTS[c.name] for c in computations if c.available and c.points is not None
+        )
+        if score is None:
+            status = "UNAVAILABLE"
+        elif available_weight < 0.5:
+            status = "DEGRADED"
+        else:
+            status = "OK"
+
         factors = [
             AgentFactor(
                 name=c.name,
@@ -124,7 +137,7 @@ class FirmAgent(BaseAgent):
                 "market_rows_used": self.market_repo.count(entry_symbol),
                 "methodology": "firm_analyst_v1",
             },
-            status="OK" if score is not None else "UNAVAILABLE",
+            status=status,
         )
 
     # -- factor computations -------------------------------------------------

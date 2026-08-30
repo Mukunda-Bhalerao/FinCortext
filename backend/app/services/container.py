@@ -61,6 +61,7 @@ class Container:
             self.agent_output_repo,
             news_repo=self.news_repo,
             sentiment_model=self.sentiment_model,
+            market_service=self.market_service,
         )
 
         # Keep the universe DB mirror in sync (idempotent).
@@ -70,6 +71,27 @@ class Container:
             from app.core.logging import get_logger
 
             get_logger("container").error("Universe sync failed: %s", exc)
+
+        # Repair rows historically stored under provider tickers (e.g.
+        # 'TCS.NS' in the `symbol` column) so canonical reads by internal
+        # symbol see them. Idempotent; a no-op once every row uses the
+        # canonical key.
+        try:
+            from app.core.logging import get_logger
+
+            rekeyed = self.market_repo.normalize_symbol_keys(
+                {e.ticker: e.symbol for e in get_universe()}
+            )
+            if rekeyed:
+                get_logger("container").info(
+                    "Market key normalization: re-keyed %d price rows from "
+                    "provider tickers to internal symbols",
+                    rekeyed,
+                )
+        except Exception as exc:  # storage problems must not crash startup
+            from app.core.logging import get_logger
+
+            get_logger("container").error("Market key normalization failed: %s", exc)
 
 
 @lru_cache(maxsize=1)

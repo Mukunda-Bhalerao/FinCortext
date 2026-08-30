@@ -107,6 +107,19 @@ def test_firm_agent_missing_data_reduces_confidence_and_lists_limitations():
     assert any(f.name == "market_momentum" and not f.available for f in out.factors)
 
 
+def test_firm_agent_thin_evidence_reports_degraded():
+    """A computed score resting on less than half the documented factor
+    weight (momentum only, no filings: weight 0.10) is DEGRADED — a 200
+    response must not present thin evidence as a successful analysis."""
+    agent = FirmAgent(FakeFinancialRepo([]), FakeMarketRepo(_prices()))
+    out = agent.analyze("RELIANCE")
+    assert out.score is not None  # momentum is computable
+    assert out.status == "DEGRADED"
+    assert out.confidence < 0.2
+    assert any(f.name == "market_momentum" and f.available for f in out.factors)
+    assert len([f for f in out.factors if not f.available]) == 5
+
+
 def test_firm_agent_no_data_returns_unavailable():
     agent = FirmAgent(FakeFinancialRepo([]), FakeMarketRepo([]))
     out = agent.analyze("RELIANCE")

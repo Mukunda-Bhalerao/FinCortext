@@ -67,7 +67,12 @@ class IndustryAgent(BaseAgent):
 
     # ------------------------------------------------------------------
 
-    def analyze(self, symbol: str) -> AgentOutput:
+    def analyze(
+        self,
+        symbol: str,
+        *,
+        data_preparation: list[dict] | None = None,
+    ) -> AgentOutput:
         entry = get_universe_entry(symbol)
         entity = entry.symbol
         peers = [p for p in get_sector_peers(entity) if p.symbol != entity]
@@ -105,6 +110,19 @@ class IndustryAgent(BaseAgent):
                 "the universe, then re-run the analysis.",
             )
 
+        # Honest status: a computed score resting on less than half of the
+        # documented factor weights is DEGRADED, never presented as a
+        # fully-successful analysis.
+        available_weight = sum(
+            WEIGHTS[c.name] for c in computations if c.available and c.points is not None
+        )
+        if score is None:
+            status = "UNAVAILABLE"
+        elif available_weight < 0.5:
+            status = "DEGRADED"
+        else:
+            status = "OK"
+
         factors = [
             AgentFactor(
                 name=c.name,
@@ -117,6 +135,18 @@ class IndustryAgent(BaseAgent):
             )
             for c in computations
         ]
+
+        provenance = {
+            "sector": entry.sector,
+            "industry": entry.industry,
+            "peer_count": len(peers),
+            "peers_with_prices": peers_with_prices,
+            "methodology": "industry_analyst_v1",
+        }
+        if data_preparation is not None:
+            # Transparent record of automatic data preparation: which symbols
+            # were served from cache and which were fetched (or failed).
+            provenance["data_preparation"] = data_preparation
 
         evidence = self._build_evidence(entity, peers_with_prices)
         rationale = self._build_rationale(entry.name, score, confidence, computations, len(peers))
@@ -131,14 +161,8 @@ class IndustryAgent(BaseAgent):
             rationale=rationale,
             evidence=evidence,
             data_limitations=limitations,
-            provenance={
-                "sector": entry.sector,
-                "industry": entry.industry,
-                "peer_count": len(peers),
-                "peers_with_prices": peers_with_prices,
-                "methodology": "industry_analyst_v1",
-            },
-            status="OK" if score is not None else "UNAVAILABLE",
+            provenance=provenance,
+            status=status,
         )
 
     # -- data helpers ----------------------------------------------------------

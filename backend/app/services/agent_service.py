@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from app.agents.firm.firm_agent import FirmAgent
 from app.agents.industry.industry_agent import IndustryAgent
+from app.agents.industry.methodology import MIN_PRICES_FOR_METRICS
 from app.agents.sentiment.sentiment_agent import SentimentAgent
 from app.core.exceptions import NotFoundError
-from app.data.universe.universe_config import get_universe_entry
+from app.data.universe.universe_config import get_sector_peers, get_universe_entry
 from app.domain.models.agent_output import AgentId, AgentOutput
 from app.repositories.agent_output_repository import AgentOutputRepository
 from app.repositories.financial_repository import FinancialRepository
@@ -37,10 +38,15 @@ class AgentService:
         output_repo: AgentOutputRepository,
         news_repo: NewsRepository | None = None,
         sentiment_model=None,
+        market_service=None,
     ):
         self.financial_repo = financial_repo
         self.market_repo = market_repo
         self.output_repo = output_repo
+        # Optional MarketService for agents that prepare their own market
+        # data before analysis (Industry Analyst). When absent, agents run
+        # purely on cached data (existing behavior; tests/fakes).
+        self.market_service = market_service
         self._firm_agent = FirmAgent(financial_repo, market_repo, output_repo)
         self._industry_agent = IndustryAgent(market_repo, financial_repo, output_repo)
         # Sentiment requires news storage + an (injectable) sentiment model.
@@ -56,19 +62,30 @@ class AgentService:
         `persist=False` runs analysis without writing to the output history
         (used for deterministic re-runs / previews).
         """
-        get_universe_entry(symbol)  # validate symbol
+        entry = get_universe_entry(symbol)  # validate symbol
         agent_id = AGENT_ALIASES.get(agent_id.lower(), agent_id.lower())
         if agent_id == AgentId.FIRM_ANALYST.value:
-            return self._firm_agent.run(symbol, persist=persist)
+            return self._firm_agent.run(entry.symbol, persist=persist)
         if agent_id == AgentId.INDUSTRY_ANALYST.value:
-            return self._industry_agent.run(symbol, persist=persist)
+            # Automatic data preparation: ensure the company and its sector
+            # peers have sufficient cached market history (fetch only what is
+            # missing/stale, via the normal provider/validation pipeline).
+            data_preparation = None
+            if self.market_service is not None:
+                required = [p.symbol for p in get_sector_peers(entry.symbol)]
+                data_preparation = self.market_service.ensure_history(
+                    required, min_bars=MIN_PRICES_FOR_METRICS
+                )
+            return self._industry_agent.run(
+                entry.symbol, persist=persist, data_preparation=data_preparation
+            )
         if agent_id == AgentId.SENTIMENT_ANALYST.value:
             if self._sentiment_agent is None:
                 raise NotFoundError(
                     "Sentiment analyst requires news storage, which is not "
                     "wired in this container."
                 )
-            return self._sentiment_agent.run(symbol, persist=persist)
+            return self._sentiment_agent.run(entry.symbol, persist=persist)
         if agent_id in {AgentId.MACRO_ANALYST.value, AgentId.PORTFOLIO_AGENT.value}:
             raise NotFoundError(
                 f"Agent '{agent_id}' is not implemented yet. "

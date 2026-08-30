@@ -25,9 +25,14 @@ class BaseAgent(ABC):
         """Produce a standardized AgentOutput for `symbol`."""
         raise NotImplementedError
 
-    def run(self, symbol: str, *, persist: bool = True) -> AgentOutput:
-        """Analyze and (optionally) persist the output."""
-        output = self.analyze(symbol)
+    def run(self, symbol: str, *, persist: bool = True, **kwargs) -> AgentOutput:
+        """Analyze and (optionally) persist the output.
+
+        Extra keyword arguments are forwarded to `analyze` so orchestration
+        layers can pass run context (e.g. Industry Analyst data-preparation
+        summaries) without coupling every agent to them.
+        """
+        output = self.analyze(symbol, **kwargs)
         if persist and self._output_repo is not None:
             self._output_repo.save(output)
         return output

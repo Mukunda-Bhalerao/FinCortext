@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import AgentOutputCard from '../../components/common/AgentOutputCard';
 import CompanySelector from '../../components/common/CompanySelector';
 import { api, ApiRequestError } from '../../services/api';
@@ -10,9 +11,16 @@ const AGENTS = [
   { id: 'sentiment_analyst', label: 'Sentiment Analyst' },
 ] as const;
 
-/** Combined intelligence: run all three implemented agents, show scores together. */
+/** Combined intelligence: run all three implemented agents, show scores together.
+ *
+ * The selected company is kept in the URL (`?symbol=`) so a choice made on
+ * the Dashboard or any intelligence page carries across the demo flow.
+ */
 export default function IntelligenceSummaryPage() {
-  const [symbol, setSymbol] = useState('TCS');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const symbol = searchParams.get('symbol') ?? 'TCS';
+  const setSymbol = (next: string) =>
+    setSearchParams(next ? { symbol: next } : {}, { replace: true });
   const [outputs, setOutputs] = useState<Record<string, AgentOutput | { error: string }>>({});
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
@@ -47,9 +55,9 @@ export default function IntelligenceSummaryPage() {
     <section className="page">
       <h2>Combined Intelligence Summary</h2>
       <p className="muted page-description">
-        Runs all three implemented analysts for one company and shows their
-        standardized scores together. Each agent stays independent — they share
-        only the AgentOutput contract.
+        Runs the three analysts for the selected company and shows their
+        standardized scores side by side. Each analyst is independent — they
+        share only the transparent AgentOutput contract.
       </p>
 
       <div className="run-bar">
@@ -80,7 +88,7 @@ export default function IntelligenceSummaryPage() {
             })}
           </div>
           <p className="muted">
-            Portfolio synthesis is reserved for the future Portfolio Agent —
+            Each perspective is reported with its own evidence and limitations —
             FinCortext does not generate portfolio recommendations or weights.
           </p>
         </div>
@@ -104,8 +112,8 @@ export default function IntelligenceSummaryPage() {
 
       {!anyResult && !running && (
         <p className="muted">
-          Select a company and run all analysts. Agents with missing data report
-          UNAVAILABLE honestly instead of producing fake scores.
+          Select a company and run all analysts. Analysts with missing data
+          report UNAVAILABLE honestly instead of producing fake scores.
         </p>
       )}
     </section>
