@@ -78,6 +78,14 @@ class IndustryAgent(BaseAgent):
         peers = [p for p in get_sector_peers(entity) if p.symbol != entity]
 
         company_metrics = self._price_metrics(entity)
+        # Company-level availability only steers *messaging*: every factor is
+        # peer-relative by methodology, so a peer-less sector never scores no
+        # matter how much company history exists.
+        company_has_metrics = (
+            company_metrics["momentum"] is not None
+            or company_metrics["volatility"] is not None
+        )
+        peerless = len(peers) == 0
         peer_momenta: list[float] = []
         peer_vols: list[float] = []
         peer_margins: list[float] = []
@@ -95,20 +103,36 @@ class IndustryAgent(BaseAgent):
                 peer_margins.append(margin)
 
         computations = [
-            self._peer_momentum(peer_momenta, peers_with_prices),
-            self._relative_strength(company_metrics["momentum"], peer_momenta),
-            self._peer_fundamentals(self._net_margin(entity), peer_margins),
-            self._sector_volatility(company_metrics["volatility"], peer_vols),
+            self._peer_momentum(peer_momenta, peers_with_prices, peerless),
+            self._relative_strength(company_metrics["momentum"], peer_momenta, peerless),
+            self._peer_fundamentals(self._net_margin(entity), peer_margins, peerless),
+            self._sector_volatility(company_metrics["volatility"], peer_vols, peerless),
         ]
 
         score, confidence = combine_factor_scores(computations)
         limitations = [c.detail for c in computations if not c.available]
         if score is None:
-            limitations.insert(
-                0,
-                "No peer/company price data available. Refresh market data for "
-                "the universe, then re-run the analysis.",
-            )
+            if peerless:
+                limitations.insert(
+                    0,
+                    f"{entity} is the only {entry.sector} company in the current "
+                    "universe — every industry factor compares against peers, so "
+                    "no score is computed. Refreshing market data cannot change "
+                    "this; a larger universe would.",
+                )
+            elif not company_has_metrics and not peers_with_prices:
+                limitations.insert(
+                    0,
+                    "No peer/company price data available. Refresh market data for "
+                    "the universe, then re-run the analysis.",
+                )
+            else:
+                limitations.insert(
+                    0,
+                    "Peers exist but none have enough usable price or filing data "
+                    "to score a factor. Refresh market data for the universe, "
+                    "then re-run the analysis.",
+                )
 
         # Honest status: a computed score resting on less than half of the
         # documented factor weights is DEGRADED, never presented as a
@@ -148,8 +172,17 @@ class IndustryAgent(BaseAgent):
             # were served from cache and which were fetched (or failed).
             provenance["data_preparation"] = data_preparation
 
-        evidence = self._build_evidence(entity, peers_with_prices)
-        rationale = self._build_rationale(entry.name, score, confidence, computations, len(peers))
+        evidence = self._build_evidence(entity, peers_with_prices, company_has_metrics)
+        rationale = self._build_rationale(
+            entry.name,
+            score,
+            confidence,
+            computations,
+            len(peers),
+            peerless=peerless,
+            sector=entry.sector,
+            company_has_metrics=company_has_metrics,
+        )
 
         return AgentOutput(
             agent_id=self.agent_id,
@@ -199,11 +232,19 @@ class IndustryAgent(BaseAgent):
 
     # -- factors -----------------------------------------------------------------
 
-    def _peer_momentum(self, peer_momenta: list[float], peers_with_prices: list[str]) -> FactorComputation:
+    def _peer_momentum(
+        self,
+        peer_momenta: list[float],
+        peers_with_prices: list[str],
+        peerless: bool = False,
+    ) -> FactorComputation:
         med = median(peer_momenta)
         if med is None:
             return FactorComputation(
                 "peer_momentum", None, None, False,
+                "The current universe has no sector peers for this company — "
+                "peer momentum not computable. A larger universe would fix this."
+                if peerless else
                 "No peer price history available — peer momentum not computable. "
                 "Refresh market data for the universe.",
             )
@@ -214,9 +255,21 @@ class IndustryAgent(BaseAgent):
             f"({len(peer_momenta)} peers: {', '.join(peers_with_prices)}) → {points:.0f}/100",
         )
 
-    def _relative_strength(self, company_momentum: float | None, peer_momenta: list[float]) -> FactorComputation:
+    def _relative_strength(
+        self,
+        company_momentum: float | None,
+        peer_momenta: list[float],
+        peerless: bool = False,
+    ) -> FactorComputation:
         med = median(peer_momenta)
         if company_momentum is None or med is None:
+            if peerless:
+                return FactorComputation(
+                    "relative_strength", None, None, False,
+                    "Company momentum is measurable but there is no peer median "
+                    "to compare against — relative strength not computable for "
+                    "a single-member sector.",
+                )
             return FactorComputation(
                 "relative_strength", None, None, False,
                 "Company and/or peer momentum unavailable — relative strength "
@@ -229,9 +282,20 @@ class IndustryAgent(BaseAgent):
             f"company momentum − peer median = {rel:+.2%} → {points:.0f}/100",
         )
 
-    def _peer_fundamentals(self, company_margin: float | None, peer_margins: list[float]) -> FactorComputation:
+    def _peer_fundamentals(
+        self,
+        company_margin: float | None,
+        peer_margins: list[float],
+        peerless: bool = False,
+    ) -> FactorComputation:
         med = median(peer_margins)
         if company_margin is None or med is None:
+            if peerless:
+                return FactorComputation(
+                    "peer_fundamentals", None, None, False,
+                    "No sector peers in the current universe — peer fundamental "
+                    "comparison not computable.",
+                )
             return FactorComputation(
                 "peer_fundamentals", None, None, False,
                 "Company and/or peer net margins unavailable (missing filings) — "
@@ -245,9 +309,21 @@ class IndustryAgent(BaseAgent):
             f"({len(peer_margins)} peers with filings) → {points:.0f}/100",
         )
 
-    def _sector_volatility(self, company_vol: float | None, peer_vols: list[float]) -> FactorComputation:
+    def _sector_volatility(
+        self,
+        company_vol: float | None,
+        peer_vols: list[float],
+        peerless: bool = False,
+    ) -> FactorComputation:
         med = median(peer_vols)
         if company_vol is None or med is None or med == 0:
+            if peerless and company_vol is not None:
+                return FactorComputation(
+                    "sector_volatility", None, None, False,
+                    "Company volatility is measurable but there is no peer "
+                    "median to compare against — volatility comparison not "
+                    "computable for a single-member sector.",
+                )
             return FactorComputation(
                 "sector_volatility", None, None, False,
                 "Company and/or peer volatility unavailable — volatility "
@@ -273,7 +349,9 @@ class IndustryAgent(BaseAgent):
         }
         return descriptions.get(name, name)
 
-    def _build_evidence(self, entity: str, peers_with_prices: list[str]) -> list[AgentEvidence]:
+    def _build_evidence(
+        self, entity: str, peers_with_prices: list[str], company_has_metrics: bool = False
+    ) -> list[AgentEvidence]:
         evidence = [
             AgentEvidence(
                 data_type="universe_config",
@@ -283,6 +361,18 @@ class IndustryAgent(BaseAgent):
                 note="Peer grouping from versioned universe metadata",
             )
         ]
+        if company_has_metrics:
+            latest = self.market_repo.latest_trade_date(entity)
+            evidence.append(
+                AgentEvidence(
+                    data_type="market_price",
+                    reference=f"{entity}/prices/latest={latest.isoformat() if latest else '?'}",
+                    source_name="market_repository",
+                    source_type="stored",
+                    note="Company price history available; peer baseline missing "
+                    "so no peer-relative factor could be scored",
+                )
+            )
         for p in peers_with_prices:
             latest = self.market_repo.latest_trade_date(p)
             evidence.append(
@@ -297,8 +387,29 @@ class IndustryAgent(BaseAgent):
         return evidence
 
     @staticmethod
-    def _build_rationale(name, score, confidence, computations, peer_count) -> str:
+    def _build_rationale(
+        name,
+        score,
+        confidence,
+        computations,
+        peer_count,
+        *,
+        peerless: bool = False,
+        sector: str = "",
+        company_has_metrics: bool = False,
+    ) -> str:
         if score is None:
+            if peerless:
+                have = (
+                    "Company price history exists but every industry factor "
+                    "compares against peers. "
+                    if company_has_metrics else
+                    "Neither company nor peer price data is available. "
+                )
+                return (
+                    f"Industry analysis for {name} is unavailable: it is the "
+                    f"only {sector} company in the current universe. " + have
+                )
             return (
                 f"Industry analysis for {name} is unavailable: no peer or "
                 "company price data found. Refresh market data first."

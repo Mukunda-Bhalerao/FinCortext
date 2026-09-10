@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import AgentOutputCard from '../../components/common/AgentOutputCard';
 import CompanySelector from '../../components/common/CompanySelector';
+import { useFinCortext } from '../../app/FinCortextContext';
 import { api, ApiRequestError } from '../../services/api';
 import type { AgentOutput } from '../../types/api';
 
@@ -11,32 +11,55 @@ const AGENTS = [
   { id: 'sentiment_analyst', label: 'Sentiment Analyst' },
 ] as const;
 
+type Entry = AgentOutput | { error: string };
+
 /** Combined intelligence: run all three implemented agents, show scores together.
  *
- * The selected company is kept in the URL (`?symbol=`) so a choice made on
- * the Dashboard or any intelligence page carries across the demo flow.
+ * Company selection and every result are shared session-wide — navigating
+ * away and back restores the previous results with no re-run.
  */
 export default function IntelligenceSummaryPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const symbol = searchParams.get('symbol') ?? 'TCS';
-  const setSymbol = (next: string) =>
-    setSearchParams(next ? { symbol: next } : {}, { replace: true });
-  const [outputs, setOutputs] = useState<Record<string, AgentOutput | { error: string }>>({});
+  const { symbol, setSymbol, runOf, runErrorOf, recordRun, recordRunError } = useFinCortext();
+  const restore = (s: string): Record<string, Entry> => {
+    const restored: Record<string, Entry> = {};
+    for (const agent of AGENTS) {
+      const cached = runOf(s, agent.id);
+      if (cached) restored[agent.id] = cached;
+      else {
+        const err = runErrorOf(s, agent.id);
+        if (err) restored[agent.id] = { error: err };
+      }
+    }
+    return restored;
+  };
+  const [outputs, setOutputs] = useState<Record<string, Entry>>(() => restore(symbol));
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
+  const [fromCache, setFromCache] = useState(() => Object.keys(restore(symbol)).length > 0);
+
+  useEffect(() => {
+    const restored = restore(symbol);
+    setOutputs(restored);
+    setFromCache(Object.keys(restored).length > 0);
+    setRunError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol]);
 
   const runAll = async () => {
     setRunning(true);
     setRunError(null);
     setOutputs({});
-    const results: Record<string, AgentOutput | { error: string }> = {};
+    setFromCache(false);
+    const results: Record<string, Entry> = {};
     for (const agent of AGENTS) {
       try {
-        results[agent.id] = await api.agents.run(agent.id, symbol);
+        const out = await api.agents.run(agent.id, symbol);
+        results[agent.id] = out;
+        recordRun(symbol, agent.id, out);
       } catch (e) {
-        results[agent.id] = {
-          error: e instanceof ApiRequestError ? e.message : String(e),
-        };
+        const message = e instanceof ApiRequestError ? e.message : String(e);
+        results[agent.id] = { error: message };
+        recordRunError(symbol, agent.id, message);
       }
       setOutputs({ ...results });
     }
@@ -55,19 +78,25 @@ export default function IntelligenceSummaryPage() {
     <section className="page">
       <h2>Combined Intelligence Summary</h2>
       <p className="muted page-description">
-        Runs the three analysts for the selected company and shows their
-        standardized scores side by side. Each analyst is independent — they
-        share only the transparent AgentOutput contract.
+        The three analysts read the same company through different evidence —
+        fundamentals, industry peers, and news tone. Their views sit side by side;
+        FinCortext does not blend them into one overall score.
       </p>
 
       <div className="run-bar">
         <CompanySelector value={symbol} onChange={setSymbol} />
         <button className="btn btn-primary" onClick={runAll} disabled={running || !symbol}>
-          {running ? 'Running all analysts…' : 'Run all analysts'}
+          {running ? 'Running all analysts…' : anyResult ? 'Run fresh analysis' : 'Run all analysts'}
         </button>
       </div>
 
       {runError && <p className="error-text">{runError}</p>}
+
+      {anyResult && fromCache && !running && (
+        <p className="muted">
+          Showing previous results for {symbol} — run again for a fresh analysis.
+        </p>
+      )}
 
       {anyResult && (
         <div className="card summary-card">

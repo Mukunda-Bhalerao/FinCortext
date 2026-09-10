@@ -1,5 +1,6 @@
-import { Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, NavLink, Navigate } from 'react-router-dom';
 import FinCortextLogo from '../utils/FinCortextLogo.png';
+import { FinCortextProvider, useFinCortext } from './FinCortextContext';
 import DashboardPage from '../features/dashboard/DashboardPage';
 import DataSourcesPage from '../features/data/DataSourcesPage';
 import DataPipelinePage from '../features/data/DataPipelinePage';
@@ -18,7 +19,8 @@ interface NavItem {
   end?: boolean;
 }
 
-/** Flat demo navigation — one clean professional navbar. */
+/** Product navigation — the five demo destinations. Internal data tooling
+ *  stays reachable by URL but out of the demo path. */
 const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Dashboard', end: true },
   { to: '/intelligence/firm', label: 'Firm Analyst' },
@@ -27,21 +29,26 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/intelligence/summary', label: 'Combined Summary' },
 ];
 
-export default function App() {
-  const location = useLocation();
+function Shell() {
+  const { symbol } = useFinCortext();
+  const withSymbol = (to: string) =>
+    symbol ? `${to}?symbol=${encodeURIComponent(symbol)}` : to;
 
   return (
     <div className="app-shell">
       <header className="app-header">
         <div className="brand">
           <img src={FinCortextLogo} alt="FinCortext logo" className="brand-logo" />
-          <h1>FinCortext</h1>
+          <div className="brand-text">
+            <h1>FinCortext</h1>
+            <span className="brand-tagline">Investment intelligence</span>
+          </div>
         </div>
         <nav className="app-nav" aria-label="Main navigation">
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
-              to={item.to}
+              to={withSymbol(item.to)}
               end={item.end}
               className={({ isActive }) =>
                 isActive ? 'nav-link active' : 'nav-link'
@@ -52,11 +59,14 @@ export default function App() {
           ))}
         </nav>
       </header>
-      <main className="app-main" key={location.pathname}>
+      {/* NOTE: no `key` on <main> — keying by pathname used to remount every
+          page on navigation, discarding the company selection and analysis
+          results. Research state lives in FinCortextProvider instead. */}
+      <main className="app-main">
         <Routes>
           <Route path="/" element={<DashboardPage />} />
 
-          {/* Data */}
+          {/* Data tooling — internal routes, intentionally unlinked */}
           <Route path="/data/sources" element={<DataSourcesPage />} />
           <Route path="/data/pipeline" element={<DataPipelinePage />} />
           <Route path="/data/market" element={<MarketDataPage />} />
@@ -107,7 +117,6 @@ export default function App() {
               />
             }
           />
-          <Route path="/portfolio" element={<Navigate to="/portfolio" replace />} />
 
           {/* Research — future placeholders only */}
           <Route
@@ -143,8 +152,16 @@ export default function App() {
         </Routes>
       </main>
       <footer className="app-footer">
-        <span>FinCortext v0.1.0 — investment intelligence research demo</span>
+        <span>FinCortext — investment intelligence research demo</span>
       </footer>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <FinCortextProvider>
+      <Shell />
+    </FinCortextProvider>
   );
 }

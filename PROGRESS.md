@@ -145,6 +145,67 @@ FinCortext. It is updated after every milestone.
   (fake model; unavailable/degraded/OK), integration fixture-provider→
   storage→sentiment→API + missing-key graceful endpoints
 
+### Milestone 10 — Product Polish + Navigation State ✅
+**Navigation-state fix (root causes, not symptoms):**
+
+- `App.tsx` rendered `<main key={location.pathname}>`, remounting every page
+  on each route change. Removed — research state now lives in the session
+  provider, not in mount lifetime.
+- Company selection was split (Dashboard local state vs `?symbol=` on analyst
+  pages). New `frontend/src/app/FinCortextContext.tsx` owns one selection,
+  mirrored to `?symbol=` (header nav carries it; `localStorage` fallback).
+- Backend reads (universe, prices, outputs history, news, market coverage) are
+  cached per symbol per session with in-flight dedup — navigation never
+  refetches. Fresh `AgentOutput`s are recorded into the run cache (and folded
+  into the history cache) on production, so pages restore previous results with
+  timestamps instead of re-running. Verified live: firm 59.2 DEGRADED/buy,
+  industry 69.2 OK/buy (auto-prepared TCS+INFY), sentiment 56.9 OK/buy.
+
+**Dashboard redesign (real data only):** company identity + sector meta, latest
+close / day change / last-session OHLCV / stored-days KPIs, stored-OHLCV chart
+with 1M–All range selector + volume bars, animated score rings per analyst,
+combined scores, stored-news panel, sector peer table from universe +
+`GET /api/market/status`, evidence strip (trading days · articles · ingested
+filings). No index values (no index feed exists — none invented). Real logo +
+tagline in header; footer/backend-version internals removed from demo UI.
+
+**Docs:** README rewritten to the current build (32 sections, implemented /
+partial / future split, no `.env.example` fiction — table is the reference);
+ARCHITECTURE.md gained the session-state design, industry auto-preparation
+section, and the vision-diagram scope note (`SystemArchitecture.jpeg` stays a
+product asset in `frontend/src/utils/`).
+
+### Milestone 11 — Multi-Company Analysis + Terminal Dashboard ✅
+
+**Root cause of the multi-company problem (traced selector → analyst):**
+the frontend flow was already symbol-generic — the gap was data + messaging.
+Only TCS had the full trio (prices + outputs + news); RELIANCE/INFY had prices
+but zero stored news (sentiment UNAVAILABLE); RELIANCE as a single-member
+Energy sector scored industry UNAVAILABLE with a *wrong* diagnosis ("No
+peer/company price data — refresh market data") despite 506 stored bars.
+Fixed with real data (news refresh: 50 articles each for RELIANCE/INFY;
+universe market refresh: all 10 symbols now hold ~500 LIVE bars) plus an
+honest peer-less diagnosis in `IndustryAgent` (messaging only — methodology,
+weights, availability logic unchanged) and product-worded sentiment guidance
+(no endpoint names in analyst output).
+
+**Dashboard redesigned as a market terminal:** company identity header
+(symbol, name, ticker/sector/industry/exchange chips, price, day change,
+freshness badge with LIVE-only pulse) → 6 market KPI cards (day high/low,
+volume, day range, 30-day change, 90-day momentum — all from stored bars,
+short windows render "—" when history is insufficient) → price/volume chart
+with 1M/3M/6M/1Y/All → sector peers (click a peer to switch the terminal) +
+recent stored news → analysis links (navigation only) → freshness strip.
+Removed: analyst score rings/cards and Combined Intelligence duplication,
+dead ring/analyst CSS, unused imports. No indices, no market cap, no invented
+statistics anywhere.
+
+**Tests:** backend 127 (new single-member-sector test pins peer-less wording,
+evidence and unchanged UNAVAILABLE status); frontend 16 (terminal rendering
+per company, selector switching TCS→INFY, RELIANCE single-member peers,
+no-refetch on remount, Dashboard→all-four-analysts→Dashboard symbol
+persistence with RELIANCE, localStorage isolation between tests).
+
 ## CURRENT STATE
 
 - Backend: 126 tests passing. Market pipeline, filing ingestion, Firm
@@ -165,10 +226,10 @@ FinCortext. It is updated after every milestone.
 
 ## TEST STATUS
 
-- `cd backend && python -m pytest` — **126 passed** (120 previous + 6 added
-  by Industry data-preparation tests)
-- Frontend `npm test` — **10 passed** (3 new App navigation/hidden-route
-  tests)
+- `cd backend && python -m pytest` — **127 passed**
+- Frontend `npm test` — **16 passed** (terminal rendering, company switching,
+  single-member peers, no-refetch on remount, full Dashboard→analysts→Dashboard
+  persistence, localStorage test isolation)
 - Frontend `npm run build` — passing
 
 ## KNOWN LIMITATIONS

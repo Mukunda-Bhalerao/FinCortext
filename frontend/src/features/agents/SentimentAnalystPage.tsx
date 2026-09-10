@@ -1,27 +1,34 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import AgentOutputCard from '../../components/common/AgentOutputCard';
 import CompanySelector from '../../components/common/CompanySelector';
 import StatusBadge from '../../components/common/StatusBadge';
+import { useFinCortext } from '../../app/FinCortextContext';
 import { api, ApiRequestError } from '../../services/api';
 import type { AgentOutput, NewsStatusResponse } from '../../types/api';
 
+const AGENT_ID = 'sentiment_analyst';
+
 /** Sentiment Analyst — news retrieval status + agent run.
  *
- * The selected company is kept in the URL (`?symbol=`) so a choice made on
- * the Dashboard or any intelligence page carries across the demo flow.
+ * Company selection and results are shared session-wide; returning to this
+ * page restores the previous result instead of re-running the model.
  */
 export default function SentimentAnalystPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const symbol = searchParams.get('symbol') ?? 'TCS';
-  const setSymbol = (next: string) =>
-    setSearchParams(next ? { symbol: next } : {}, { replace: true });
-  const [output, setOutput] = useState<AgentOutput | null>(null);
+  const {
+    symbol,
+    setSymbol,
+    runOf,
+    runErrorOf,
+    recordRun,
+    recordRunError,
+    invalidateNews,
+  } = useFinCortext();
+  const [output, setOutput] = useState<AgentOutput | null>(() => runOf(symbol, AGENT_ID) ?? null);
   const [newsStatus, setNewsStatus] = useState<NewsStatusResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => runErrorOf(symbol, AGENT_ID) ?? null);
 
   const loadNewsStatus = () => {
     api.news
@@ -35,15 +42,25 @@ export default function SentimentAnalystPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    setOutput(runOf(symbol, AGENT_ID) ?? null);
+    setError(runErrorOf(symbol, AGENT_ID) ?? null);
+    setMessage(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol]);
+
   const run = async () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await api.agents.run('sentiment_analyst', symbol);
+      const result = await api.agents.run(AGENT_ID, symbol);
       setOutput(result);
+      recordRun(symbol, AGENT_ID, result);
     } catch (e) {
-      setError(e instanceof ApiRequestError ? e.message : String(e));
+      const message = e instanceof ApiRequestError ? e.message : String(e);
+      setError(message);
       setOutput(null);
+      recordRunError(symbol, AGENT_ID, message);
     } finally {
       setLoading(false);
     }
@@ -60,6 +77,7 @@ export default function SentimentAnalystPage() {
           ? `Stored ${result.stored} new article(s) (${result.duplicates} duplicates skipped).`
           : result.message ?? `News status: ${result.status}`,
       );
+      invalidateNews(symbol);
     } catch (e) {
       setError(e instanceof ApiRequestError ? e.message : String(e));
     } finally {
@@ -83,9 +101,16 @@ export default function SentimentAnalystPage() {
           {refreshing ? 'Fetching news…' : 'Fetch news'}
         </button>
         <button className="btn btn-primary" onClick={run} disabled={loading || !symbol}>
-          {loading ? 'Running…' : 'Run analysis'}
+          {loading ? 'Running…' : output ? 'Run fresh analysis' : 'Run analysis'}
         </button>
       </div>
+
+      {output && !loading && (
+        <p className="muted">
+          Showing result from {new Date(output.generated_at).toLocaleString()} — run again
+          for a fresh analysis.
+        </p>
+      )}
 
       {newsStatus && (
         <div className="prereq-card">

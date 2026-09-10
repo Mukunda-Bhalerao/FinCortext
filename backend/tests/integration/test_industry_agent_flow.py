@@ -89,6 +89,31 @@ def test_industry_agent_no_data_unavailable(stack):
     assert output.signal.value == "unavailable"
 
 
+def test_industry_agent_single_member_sector_names_cause_not_refresh(stack):
+    """RELIANCE is the only Energy company in the universe. With company
+    price history present, the output must say the sector has no peers —
+    never advise a market refresh that cannot help."""
+    agent_service, market_repo, _ = stack
+    _seed_series(market_repo, "RELIANCE", 0.002)
+
+    output = agent_service.run_agent("industry_analyst", "RELIANCE")
+
+    assert output.score is None
+    assert output.status == "UNAVAILABLE"
+    assert output.provenance["peer_count"] == 0
+    # Every factor stays unavailable (peer-relative by methodology — unchanged).
+    assert all(not f.available for f in output.factors)
+    # ... but the diagnosis names the peer-less sector, not missing prices.
+    assert any("only Energy company" in lim for lim in output.data_limitations)
+    assert "no sector peers" in output.rationale or "only Energy company" in output.rationale
+    assert "Refresh market data" not in output.data_limitations[0]
+    # Company history is still attached as evidence, not silently dropped.
+    assert any(
+        e.data_type == "market_price" and e.reference.startswith("RELIANCE/")
+        for e in output.evidence
+    )
+
+
 def test_industry_agent_api_endpoint(tmp_path, monkeypatch, stack):
     agent_service, market_repo, _ = stack
     _seed_series(market_repo, "TCS", 0.005)

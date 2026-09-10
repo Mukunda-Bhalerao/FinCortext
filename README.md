@@ -1,42 +1,85 @@
 # FinCortext
 
-**AI-Powered Investment Intelligence and Agentic Portfolio Management Platform**
+**Investment intelligence research platform — fundamentals, industry position, and news sentiment, with the evidence attached.**
 
-FinCortext is a research-oriented financial intelligence platform. It ingests market,
-official-filing and news data through replaceable provider adapters, normalizes it into
-canonical domain data, and runs deterministic, explainable analyst agents whose
-standardized outputs are designed to be consumed by a future Portfolio Agent.
+FinCortext reads a listed company from three independent angles — a Firm Analyst (fundamentals + market
+behavior), an Industry Analyst (peer and sector-relative position), and a Sentiment Analyst (financial-news
+tone) — and shows the views side by side with the data behind each one. Every score carries its factors,
+rationale, evidence references, limitations, and provenance. Missing data is reported honestly; nothing is
+fabricated to fill a gap.
 
 ---
 
-## 1. Current implementation scope (V1)
+## 1. What FinCortext is
 
-**Implemented (real working logic):**
+A research-oriented financial intelligence platform for Indian NSE large-caps. It ingests market prices,
+official filing data, and financial news through replaceable provider adapters, normalizes them into
+canonical domain data stored in DuckDB, and runs deterministic analyst agents whose standardized outputs
+are designed to be consumed by a future Portfolio Agent.
 
-- Foundation layer: configuration, logging, error handling, health endpoint
-- Canonical domain models + standardized `AgentOutput` contract
-- DuckDB analytical storage with provenance and point-in-time metadata
-- Versioned stock universe (10 Indian NSE large-caps)
-- Market data pipeline: yfinance adapter → validation → normalization → DuckDB → API
-- Official filing ingestion: CSV / XBRL / XML parsers + limited PDF fallback, with
-  full provenance and point-in-time (`period_end` vs `available_at`) metadata
-- **Firm Analyst** — deterministic fundamental/valuation/momentum scoring
-- **Industry Analyst** — peer-group and sector-relative deterministic scoring
-- **News + Sentiment pipeline** — NewsAPI provider, local FinBERT sentiment model,
-  deterministic time-aware aggregation
-- React + TypeScript dashboard frontend with explicit data-status labels
-  (LIVE / CACHED / IMPORTED OFFICIAL / SAMPLE / UNAVAILABLE / ERROR)
+The current demo covers the **Data → Intelligence** half of the vision
+(Data → Intelligence → Decision → Optimization → Evaluation). Decision, optimization, and evaluation
+layers are explicitly future work.
 
-**NOT implemented (explicit placeholders only):**
+## 2. Problem being addressed
 
-- Macro Analyst
-- Portfolio Agent / orchestration
-- Risk & constraint engine, portfolio optimization
-- Backtesting, performance evaluation, scenario/stress testing
-- Explainability module beyond per-agent rationale/evidence
-- Authentication, deployment infrastructure, licensed data providers
+Retail-grade research tooling typically gives you either raw prices with no interpretation, or opaque
+scores with no evidence. FinCortext targets the middle: every analytical claim must be traceable to the
+stored data it was computed from, and every gap in the data must be visible as a gap — not silently
+papered over.
 
-## 2. Architecture overview
+## 3. Project objective
+
+Build a working, testable foundation for explainable investment intelligence:
+
+1. Canonical data layer with provenance and point-in-time correctness.
+2. Deterministic analyst agents with documented methodologies.
+3. A standardized output contract (`AgentOutput`) that a future Portfolio Agent can consume.
+4. A demo frontend that reads like a research product, not an admin console.
+
+## 4. Current scope
+
+**IMPLEMENTED (working, tested):**
+
+- Configuration, structured logging with secret redaction, domain exception hierarchy, `GET /health`.
+- Canonical domain models + standardized `AgentOutput` contract (`OK` / `DEGRADED` / `UNAVAILABLE`).
+- DuckDB analytical storage with provenance log and point-in-time metadata.
+- Versioned 10-symbol NSE large-cap universe with sector/industry metadata.
+- Market data pipeline: yfinance adapter → validation → normalization → DuckDB → API.
+- Official filing ingestion: CSV / XBRL / XML parsers + limited PDF fallback, content-hash dedup.
+- **Firm Analyst** — fundamental/valuation/momentum scoring.
+- **Industry Analyst** — peer-group and sector-relative scoring, with automatic market-data preparation.
+- **News + Sentiment pipeline** — NewsAPI provider, local FinBERT model, deterministic time-aware aggregation.
+- React + TypeScript research frontend (Dashboard, three analysts, Combined Summary) with explicit
+  data-status labels (`LIVE` / `CACHED` / `IMPORTED OFFICIAL` / `SAMPLE` / `UNAVAILABLE` / `ERROR`).
+- Session-wide frontend research state: company selection and results survive navigation without
+  re-running analyses.
+
+**PARTIALLY IMPLEMENTED:**
+
+- PDF filing parsing (basic text-extraction fallback only — documented as unreliable for arbitrary reports).
+- Sample-data support (served only on explicit request, never silently substituted).
+
+**FUTURE (explicit placeholders, not implemented):**
+
+- Macro Analyst, Portfolio Agent / orchestration, risk & constraint engine, portfolio optimization,
+  backtesting, performance evaluation, scenario/stress testing, explainability module beyond
+  per-agent rationale/evidence, authentication, deployment infrastructure, licensed data providers.
+
+## 5. Core design philosophy
+
+1. **Source-agnostic agents.** Analysts consume canonical domain data through repositories/services —
+   never external providers or websites.
+2. **Replaceable providers.** Every external source sits behind a narrow interface
+   (`MarketDataProvider`, `FundamentalDataProvider`, `NewsProvider`).
+3. **Deterministic intelligence.** Scores come from documented, testable formulas — no randomness, no
+   invented conclusions.
+4. **Provenance and point-in-time correctness.** Every observation records where it came from and when
+   it became available (`period_end` vs `available_at`), so future backtests stay honest.
+5. **Honest degradation.** Missing keys, provider outages, or unavailable models produce explicit
+   statuses — never silently substituted data.
+
+## 6. System architecture
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full description. In brief:
 
@@ -49,86 +92,243 @@ DuckDB canonical storage (+ provenance, point-in-time metadata)
         ↓  repositories / services (source-agnostic)
 Agent Layer (Firm Analyst | Industry Analyst | Sentiment Analyst)
         ↓  standardized AgentOutput contract
-API (FastAPI)  →  Frontend (React + TS)   …   future Portfolio Agent
+FastAPI services/routes  →  React frontend   …   future Portfolio Agent
 ```
 
-Agents never call external providers directly; they consume canonical domain data
-through repositories/services.
+Agents never call external providers directly; data acquisition lives in provider/service layers.
+Route handlers only parse requests, call services, and shape responses.
 
-## 3. Repository structure
+## 7. Data → Intelligence flow
+
+1. **Acquire** — provider adapters fetch market/news data; filing files are uploaded and parsed.
+2. **Validate & normalize** — sanity checks (positive prices, high ≥ low, dedup); raw payloads become
+   canonical Pydantic models at the boundary.
+3. **Store** — DuckDB tables hold normalized observations plus provenance events.
+4. **Analyze** — agents read repositories only, compute deterministic factors, emit `AgentOutput`.
+5. **Persist & present** — outputs are stored (`agent_outputs`) and served to the frontend, which shows
+   scores together with evidence and limitations.
+
+## 8. Backend architecture
 
 ```
-fincortext/
-├── frontend/          React + TypeScript + Vite dashboard
-├── backend/           FastAPI application (app/) + tests/
-├── data/              raw/ filings & fixtures, processed/ (DuckDB), sample/
-├── docs/              data model, agent contracts, data sources, notes
-├── scripts/           helper scripts
-├── ARCHITECTURE.md    module boundaries and data flow
-├── PROGRESS.md        milestone status — read this to continue development
-└── README.md
+backend/app/
+├── core/          config (env/.env, no hardcoded secrets), logging, exceptions
+├── domain/
+│   ├── models/    MarketPrice, FinancialObservation, FilingDocument,
+│   │              NewsArticle, SentimentResult, UniverseEntry, Provenance,
+│   │              DataStatus / DataSourceType enums
+│   └── contracts/ provider interfaces + AgentOutput contract
+├── data/
+│   ├── providers/    market/ (yfinance), fundamentals/ (fallback), news/ (NewsAPI)
+│   ├── ingestion/    filings (CSV/XBRL/XML/PDF-limited)
+│   ├── validation/   per-type sanity checks; rejections reported with reasons
+│   ├── storage/      DuckDB connection + schema
+│   └── universe/     versioned stock universe configuration
+├── repositories/  typed DuckDB access (market, financial, news, filings,
+│                  agent_output, universe mirror, provenance log)
+├── agents/
+│   ├── base/       shared agent interface + AgentOutput builder
+│   ├── firm/       Firm Analyst (+ documented methodology module)
+│   ├── industry/   Industry Analyst (+ documented methodology module)
+│   └── sentiment/  Sentiment Analyst (injectable model + methodology module)
+├── services/      MarketService, FilingService, NewsService, AgentService,
+│                  composition-root container
+└── api/routes/    thin FastAPI modules: health, universe, market, filings,
+                   news, agents
 ```
 
-## 4. Technology stack
+## 9. Frontend architecture
 
-| Layer     | Technology |
-|-----------|------------|
-| Frontend  | React 18, TypeScript, Vite, Recharts |
-| Backend   | Python 3.11+, FastAPI, Pydantic |
-| Storage   | DuckDB (local analytical DB), Parquet/CSV for raw artifacts |
-| Market    | yfinance (behind a replaceable provider interface) |
-| News      | NewsAPI (behind a replaceable provider interface) |
-| Sentiment | Hugging Face transformers (FinBERT — local, no paid API) |
-| Testing   | pytest (backend), Vitest (frontend) |
+React 18 + TypeScript + Vite, organized by feature:
 
-## 5. Prerequisites
+```
+frontend/src/
+├── app/            App shell + flat product nav, FinCortextContext
+│                   (session research state), dark theme styles
+├── components/     common/ reusable UI (StatusBadge, CompanySelector,
+│                   AgentOutputCard, ScoreRing) 
+├── features/       dashboard/ · data/ (sources, pipeline, market, filings,
+│                   quality — internal routes, unlinked from demo nav) ·
+│                   agents/ (firm, industry, sentiment, summary) ·
+│                   portfolio/ · research/ (future placeholders)
+├── services/       api.ts — the ONLY module that talks to the backend
+├── types/          api.ts — typed mirrors of backend response contracts
+└── utils/          FinCortextLogo.png (real product logo, used in the header)
+```
 
-- Python 3.11+
-- Node.js 18+ (tested with Node 24)
-- npm
+Rules: typed API service layer, feature separation, loading/error/unavailable states everywhere,
+explicit data-status badges, honest empty states. The company selection is mirrored to `?symbol=` so
+links stay shareable, cached per symbol for the session, and persisted to `localStorage` as a fallback.
+Navigating between pages never refetches cached reads and never re-runs analyses; fresh results are
+recorded into the session cache (and the outputs-history cache) the moment they are produced.
 
-## 6. Environment setup
+## 10. Data providers
+
+| Source | Adapter | Notes |
+|---|---|---|
+| Market prices | `YFinanceMarketProvider` (yfinance) | NSE `.NS` ticker mapping from universe config; all failures wrapped as `ProviderError`. Canonical storage key is always the internal symbol (`TCS`), never the provider ticker (`TCS.NS`). |
+| News | `NewsAPINewsProvider` (NewsAPI) | Key **only** from `NEWS_API_KEY`; missing key → graceful `UNAVAILABLE`, never a crash. 401/403 → unavailable, 429 → rate-limit error. |
+| Fundamentals | Ingested official filings (primary truth) | `FundamentalDataProvider` exists as a fallback/enrichment seam only. |
+| Future | Licensed feeds, RSS/GDELT, industry reports | Seams reserved at the provider boundary. |
+
+## 11. Market data pipeline
+
+`MarketService.refresh_symbol` → provider fetch → validation (positive prices, high ≥ low,
+open/close within range, duplicates) → normalization → DuckDB → provenance event → API
+(`POST /api/market/refresh[/{symbol}]`, `GET /api/market/prices/{symbol}` with
+`LIVE`/`CACHED`/`UNAVAILABLE` status, `GET /api/market/status` for universe-wide coverage).
+Per-symbol failure isolation: one bad symbol never blocks the rest of the universe.
+
+## 12. News pipeline
+
+Provider fetch → canonical `NewsArticle` (stable `article_id` = SHA-256 of URL, `content_hash` audit
+hash, source metadata, publication/collection timestamps) → `NewsService` entity association +
+dedup-on-store + provenance → DuckDB → API (`GET /api/news/status`,
+`POST /api/news/refresh/{symbol}`, `GET /api/news/{symbol}`). Missing key degrades gracefully; the
+backend and all unrelated modules keep working.
+
+## 13. Firm Analyst
+
+Deterministic scoring over 6 documented factors — profitability 0.25, revenue growth 0.20, financial
+health 0.20, return on equity 0.15, valuation 0.10, market momentum 0.10 — with linear score bounds,
+weight redistribution for missing factors, and confidence = coverage × quality tier. Consumes
+`FinancialRepository` (ingested filings = primary truth) + `MarketRepository` (90-day momentum).
+Methodology: `backend/app/agents/firm/methodology.py`.
+
+## 14. Industry Analyst
+
+Deterministic scoring over 4 documented factors — peer momentum 0.30, relative strength 0.30,
+peer fundamentals 0.25, sector volatility 0.15 — with median-based peer stats (company excluded from
+peer medians) and a documented volatility convention (simple daily returns, population std-dev,
+× √252). Peer grouping comes from the versioned universe config. Methodology:
+[docs/industry_methodology.md](docs/industry_methodology.md).
+
+## 15. Sentiment Analyst
+
+Relevance filter (name/symbol) → local FinBERT (ProsusAI/finbert default, configurable; lazy-loaded,
+~440 MB first download) → polarity P(pos) − P(neg) → recency-weighted aggregation with 7-day
+half-life anchored to the latest article timestamp → composite 0–100 score with confidence =
+0.35·coverage + 0.25·model_confidence + 0.25·consistency + 0.15·recency. Model load/inference
+failures → explicit `UNAVAILABLE`, never a crash. Methodology:
+[docs/sentiment_methodology.md](docs/sentiment_methodology.md).
+
+## 16. Combined Summary
+
+Runs the three analysts for one company and shows their standardized scores side by side. Each
+analyst is independent — they share only the `AgentOutput` contract. **No blending into a single
+score, no recommendations, no weights**: portfolio synthesis is reserved for the future Portfolio
+Agent.
+
+## 17. AgentOutput contract
+
+Every agent emits the same shape (see [docs/agent_contracts.md](docs/agent_contracts.md)):
+
+`agent_id, entity_id, score (0–100 | null), signal (strong_buy … strong_sell | unavailable),
+confidence, factors[], rationale, evidence[], data_limitations[], generated_at, data_version,
+provenance, status`.
+
+- `OK` — score from full-quality evidence.
+- `DEGRADED` — score computed from less than half of the documented factor weight.
+- `UNAVAILABLE` — no analyzable data (score is `null`, signal `unavailable`).
+
+`signal_from_score()` mapping is shared by all agents. Outputs persist to `agent_outputs` and are
+listed via `GET /api/agents/outputs?agent_id=…&symbol=…&limit=…` (newest first).
+
+## 18. Provenance / evidence philosophy
+
+The UI communicates the product, not the source code: "Price history used for market momentum",
+"17 relevant financial articles analysed", "Peer price history used for industry comparison".
+Every analytical output links evidence entries (data type, reference, source, timestamp, note) and
+lists its limitations. Developer internals — DB paths, endpoint names, repo files — stay out of the
+demo UI.
+
+## 19. Missing-data handling
+
+Missing data reduces evidence and confidence; it never invents values. Firm needs ≥ 2 price points
+for momentum; single-period filings leave revenue growth unavailable; single-member sectors produce
+no peer factors; absent FinBERT or `NEWS_API_KEY` yields explicit `UNAVAILABLE`. `DEGRADED` vs `OK`
+is decided by documented factor-weight coverage (< 50% → `DEGRADED`).
+
+## 20. Industry automatic data preparation
+
+Before every Industry Analyst run, `AgentService` calls
+`MarketService.ensure_history(symbols, min_bars, max_age_days=7)` for the company and its sector
+peers: sufficient **fresh** cached history is reused as-is (provider not called); only missing/stale
+symbols go through the normal refresh pipeline; provider failures are isolated per symbol and never
+raised, so analysis still runs on valid cached data with honest limitations. A transparent
+`data_preparation` summary (cached/refreshed/failed per symbol) is recorded in the output provenance.
+Agents stay repository-only — no provider coupling.
+
+## 21. Database / storage
+
+Single local DuckDB file (default `data/processed/fincortext.duckdb`, overridable via
+`FINCORTEXT_DB_PATH`): `market_prices, universe_metadata, financial_observations,
+filing_documents, news_articles, sentiment_results, agent_outputs, data_provenance`.
+Thread-safe wrapper, hash-dedup on filings/news, startup repair keeps market rows keyed by canonical
+internal symbol. Raw artifacts archived under `data/raw/`; sample fixtures under `data/sample/`.
+
+## 22. API structure
+
+| Method & path | Purpose |
+|---|---|
+| `GET /health` | Service status + safe config summary (no secrets) |
+| `GET /api/universe`, `GET /api/universe/{symbol}` | Versioned universe entries |
+| `POST /api/market/refresh`, `POST /api/market/refresh/{symbol}` | Refresh OHLCV (synchronous) |
+| `GET /api/market/prices/{symbol}?start=&end=` | Stored series + status |
+| `GET /api/market/status` | Per-symbol storage coverage |
+| `POST /api/filings/import` | Multipart official-file ingestion |
+| `GET /api/filings?symbol=` | Ingested documents |
+| `GET /api/news/status` | Provider configuration status |
+| `POST /api/news/refresh/{symbol}?days=&page_size=` | Fetch live news |
+| `GET /api/news/{symbol}?limit=` | Stored articles |
+| `POST /api/agents/{agent}/{symbol}/run` | Run firm/industry/sentiment (`firm` aliases accepted; macro/portfolio → explicit 404) |
+| `GET /api/agents/outputs?agent_id=&symbol=&limit=` | Output history, newest first |
+
+## 23. Frontend routes
+
+Demo nav (the product): `/` Dashboard · `/intelligence/firm` · `/intelligence/industry` ·
+`/intelligence/sentiment` · `/intelligence/summary`. Internal tooling stays mounted but unlinked:
+`/data/*` (sources, pipeline, market, filings, quality); future placeholders: `/intelligence/macro`,
+`/portfolio*`, `/research/*`.
+
+## 24. Configuration / environment variables
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `NEWS_API_KEY` | (empty) | NewsAPI key; absent → news `UNAVAILABLE`, everything else works |
+| `FINCORTEXT_DB_PATH` | `data/processed/fincortext.duckdb` | DuckDB location |
+| `FINCORTEXT_HOST` / `FINCORTEXT_PORT` | `127.0.0.1` / `8000` | Backend bind |
+| `FINCORTEXT_CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Dev CORS |
+| `FINCORTEXT_LOG_LEVEL` | `INFO` | Logging (secrets redacted) |
+| `FINCORTEXT_MARKET_HISTORY_DAYS` | `730` | Lookback for market refresh |
+| `FINCORTEXT_SENTIMENT_MODEL` | `ProsusAI/finbert` | HF model id |
+| `FINCORTEXT_SENTIMENT_CACHE_DIR` | `data/cache/sentiment-model` | Local model cache |
+| `FINCORTEXT_ALLOW_SAMPLE_DATA` | `true` | Sample fixtures only on explicit request |
+
+Put them in a root `.env` file (loaded automatically; real environment variables win) — never commit
+secrets. There is no `.env.example` checked in; the table above is the reference.
+
+## 25. Installation
 
 ```bash
-# 1. Backend dependencies
-pip install -r backend/requirements.txt
+# Backend
+pip install -r backend/requirements.txt   # Python 3.11+
 
-# 2. Frontend dependencies
-cd frontend && npm install
+# Frontend
+cd frontend && npm install                 # Node.js 18+
 ```
 
-Create your environment file:
-
-```bash
-cp .env.example .env
-```
-
-## 7. Configuring NEWS_API_KEY
-
-1. Get a free key at https://newsapi.org
-2. Put it in `.env` (never commit this file):
-
-```
-NEWS_API_KEY=your-key-here
-```
-
-If the key is absent the backend still starts; the Sentiment Analyst reports
-news retrieval as **UNAVAILABLE** and can use explicitly selected sample data.
-
-Other useful settings (see `.env.example`): `FINCORTEXT_DB_PATH`,
-`FINCORTEXT_PORT`, `FINCORTEXT_LOG_LEVEL`, `FINCORTEXT_SENTIMENT_MODEL`.
-
-## 8. Running the backend
+## 26. Running the backend
 
 ```bash
 cd backend
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
-- Health check: http://127.0.0.1:8000/health
+- Health: http://127.0.0.1:8000/health
 - API docs: http://127.0.0.1:8000/docs
 
-## 9. Running the frontend
+## 27. Running the frontend
 
 ```bash
 cd frontend
@@ -137,109 +337,55 @@ npm run dev
 
 Open http://localhost:5173 (API calls are proxied to the backend).
 
-## 10. Ingesting official financial files
-
-Use the **Data → Filing Import** page in the UI, or POST the file directly:
+## 28. Testing
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/filings/import \
-  -F "file=@data/raw/filings/reliance_annual.csv" \
-  -F "symbol=RELIANCE" \
-  -F "source_name=Company Annual Report FY2024"
+cd backend && python -m pytest            # unit + integration; add -m network for live-provider tests
+cd frontend && npm test                   # Vitest component tests
+cd frontend && npm run build              # production build (tsc + vite)
 ```
 
-Supported formats (priority order):
+Markers: `unit` (fast, isolated), `integration` (cross-module), `system` (end-to-end style),
+`network` (internet required, deselected by default).
 
-1. **XBRL/XML** — structured financial facts (best quality)
-2. **CSV** — structured exports (see `data/sample/sample_filing.csv` for the schema)
-3. **PDF** — *limited fallback*: basic text extraction only. Arbitrary PDF annual
-   reports cannot be reliably parsed; the system reports extraction quality
-   limitations explicitly rather than inventing data.
+## 29. Current test status
 
-Every ingestion preserves provenance: source name/type, filing date, content hash,
-ingestion timestamp, and the point-in-time distinction between the financial
-period end and when the information became publicly available.
+- Backend: **126 passed** (`python -m pytest`).
+- Frontend: **14 passed** (`npm test`) — dashboard honesty, navigation/state persistence, no-refetch
+  on remount, badge/card rendering.
+- Frontend production build: clean.
 
-## 11. Retrieving market and news data
+## 30. Current limitations
 
-```bash
-# Refresh market prices for the whole universe (yfinance)
-curl -X POST http://127.0.0.1:8000/api/market/refresh
-
-# Refresh prices for one symbol
-curl -X POST http://127.0.0.1:8000/api/market/refresh/TCS
-
-# Stored price series with explicit LIVE/CACHED/UNAVAILABLE status
-curl http://127.0.0.1:8000/api/market/prices/TCS
-
-# News provider configuration status
-curl http://127.0.0.1:8000/api/news/status
-
-# Fetch live news for one company (requires NEWS_API_KEY; graceful
-# UNAVAILABLE response when the key is missing — never an error/crash)
-curl -X POST http://127.0.0.1:8000/api/news/refresh/TCS
-
-# Stored (cached) articles for a company
-curl http://127.0.0.1:8000/api/news/TCS
-```
-
-## 12. Running the agents
-
-```bash
-curl -X POST http://127.0.0.1:8000/api/agents/firm/RELIANCE/run
-curl -X POST http://127.0.0.1:8000/api/agents/industry/RELIANCE/run
-curl -X POST http://127.0.0.1:8000/api/agents/sentiment/RELIANCE/run
-```
-
-Each returns the standardized `AgentOutput` contract (score, signal, confidence,
-factors, rationale, evidence, limitations) with an explicit `status`:
-`OK` (score from full-quality evidence), `DEGRADED` (score computed from less
-than half of the documented factor weight — required data is missing), or
-`UNAVAILABLE` (no analyzable data). Outputs are persisted and can be
-listed via `GET /api/agents/outputs?agent_id=firm_analyst&symbol=RELIANCE`.
-
-Methodology documentation (weights, formulas, confidence rules, determinism):
-
-- Firm Analyst: `backend/app/agents/firm/methodology.py`
-- Industry Analyst: [docs/industry_methodology.md](docs/industry_methodology.md)
-- Sentiment Analyst: [docs/sentiment_methodology.md](docs/sentiment_methodology.md)
-
-The **Intelligence → Combined Summary** page runs all three analysts for one
-company and shows their scores together. Portfolio synthesis is explicitly
-reserved for the future Portfolio Agent — no recommendations or weights are
-generated.
-
-## 13. Running tests
-
-```bash
-# Backend (unit + integration; add -m network for live-provider tests)
-cd backend && python -m pytest
-
-# Frontend
-cd frontend && npm test
-```
-
-## 14. Current limitations
-
-- PDF filing parsing is a basic extraction fallback, not a reliable parser for
-  arbitrary annual reports.
-- yfinance/NewsAPI are unofficial/free services: rate limits and outages happen;
-  all failures are surfaced as explicit provider errors, never silent gaps.
-- The FinBERT model downloads on first use (~440 MB) and needs internet once;
-  without it the Sentiment Analyst reports degraded status.
-- Universe metadata (sector/industry) is configuration, not verified against a
-  licensed classification provider.
+- Live yfinance/NewsAPI untested in CI (network-dependent; adapters covered by fakes/mocked HTTP).
+- `POST /api/market/refresh` is synchronous — a full-universe refresh takes ~10–30s live.
+- PDF filing parsing is a basic extraction fallback, not a reliable parser for arbitrary annual reports.
+- Firm momentum needs ≥ 2 price points; single-period filings leave revenue growth unavailable.
+- Industry peer set is limited to the 10-symbol universe; single-member sectors yield no peer factors.
+- FinBERT downloads on first sentiment run (~440 MB); until then sentiment reports `UNAVAILABLE`.
+- Sentiment relevance matching is lexical; NewsAPI free tier caps history (~30 days).
+- Universe sector/industry metadata is configuration, not verified against a licensed classifier.
 - Single-user local research tool: no auth, no multi-tenancy.
 
-## 15. Not implemented yet
+## 31. Demo workflow
 
-Macro Analyst, Portfolio Agent, risk/constraint engine, optimization, backtesting,
-performance evaluation, scenario/stress testing, explainability module, alerts,
-authentication/deployment, licensed data providers. These exist only as explicit
-"Coming soon" UI placeholders and architecture seams.
+1. Open the Dashboard — pick a company (e.g. **TCS**, which ships with verified stored data).
+2. Review the market panel (latest close, day change, last session, stored history chart with range
+   selector), sector peers, and recent stored news.
+3. Press **Analyze Company** (or use the nav) → Firm Analyst → run.
+4. Industry Analyst → run (peer history is prepared automatically).
+5. Sentiment Analyst → fetch news (if configured), then run.
+6. Combined Summary → run all three; views sit side by side with evidence and limitations.
+7. Navigate freely — company choice and results persist; nothing re-runs unless you ask.
 
-## 16. Continuing development
+## 32. Future roadmap
 
-Read **[PROGRESS.md](PROGRESS.md)** — it records completed milestones, current
-state, test status, known limitations, and the exact next recommended milestone.
-Then read [ARCHITECTURE.md](ARCHITECTURE.md) and [docs/agent_contracts.md](docs/agent_contracts.md).
+Macro Analyst → Portfolio Agent (consumes `AgentOutput`s, confidence-weighted) → risk/constraint
+engine → optimization → backtesting on the preserved point-in-time metadata → performance evaluation
+→ scenario/stress testing → licensed data providers → auth/deployment. The architecture seams
+(provider interfaces, `AgentOutput` contract, provenance log) are already in place for these.
+
+---
+
+*Continuing development? Read [PROGRESS.md](PROGRESS.md), then [ARCHITECTURE.md](ARCHITECTURE.md)
+and [docs/agent_contracts.md](docs/agent_contracts.md).*

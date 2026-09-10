@@ -92,8 +92,10 @@ class SentimentAgent(BaseAgent):
         if not articles:
             return self._unavailable_output(
                 entity,
-                "No stored news articles for this entity. Configure NEWS_API_KEY "
-                "and refresh news (POST /api/news/refresh/{symbol}), then re-run.",
+                "No stored news articles for this company yet. Use Fetch news "
+                "on the Sentiment Analyst page (needs a configured news "
+                "provider), then re-run — nothing is scored until real "
+                "articles exist.",
                 provenance={"methodology": "sentiment_analyst_v1", "articles_stored": 0},
             )
 

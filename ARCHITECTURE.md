@@ -148,21 +148,60 @@ React 18 + TypeScript + Vite (`frontend/`), organized by feature:
 
 ```
 frontend/src/
-├── app/            App shell, routing (sectioned nav), dark theme styles
+├── app/            App shell, flat product nav, FinCortextContext
+│                   (session research state), dark theme styles
 ├── components/      common/ reusable UI (StatusBadge, CompanySelector,
-│                    AgentOutputCard) + ui/
+│                    AgentOutputCard, ScoreRing)
 ├── features/        dashboard/ · data/ (sources, pipeline, market, filings,
-│                    quality) · agents/ (firm, industry, sentiment, summary)
-│                    · portfolio/ · research/
+│                    quality — internal routes, unlinked from demo nav) ·
+│                    agents/ (firm, industry, sentiment, summary) ·
+│                    portfolio/ · research/ (future placeholders)
 ├── services/        api.ts — the ONLY module that talks to the backend
-└── types/           api.ts — typed mirrors of backend response contracts
+├── types/           api.ts — typed mirrors of backend response contracts
+└── utils/           FinCortextLogo.png — product logo asset (header branding)
 ```
 
 Rules: typed API service layer, feature separation, loading/error/unavailable
 states everywhere, explicit data-status badges (LIVE / CACHED / IMPORTED
-OFFICIAL / SAMPLE / UNAVAILABLE / ERROR), and honest "Coming soon"
-placeholders for Macro/Portfolio/Research. The combined intelligence summary
-states that portfolio synthesis is reserved for the future Portfolio Agent.
+OFFICIAL / SAMPLE / UNAVAILABLE / ERROR), and honest empty states. The combined
+intelligence summary states that portfolio synthesis is reserved for the future
+Portfolio Agent.
+
+### Session research state (`app/FinCortextContext.tsx`)
+
+A single `FinCortextProvider` owns the demo's research state so navigation never
+destroys it:
+
+- **Company selection** — single source of truth, mirrored to `?symbol=` (links
+  stay shareable, header nav carries it across pages) with a `localStorage`
+  fallback. The Dashboard and all analyst pages consume the same value.
+- **Per-symbol caches** — universe list, price series, agent-output history,
+  stored news, and market coverage are fetched once per symbol per session
+  (in-flight dedup included). Route changes remount page components but never
+  refetch.
+- **Run-result cache** — fresh `AgentOutput`s are recorded the moment they are
+  produced (and folded into the outputs-history cache), so returning to an
+  analyst or the Dashboard shows the previous result with its timestamp instead
+  of re-running the model/data pipeline. Only an explicit user action runs an
+  analysis or refreshes data.
+
+Historical note: the app shell previously rendered `<main key={location.pathname}>`,
+which remounted every page on navigation, while the Dashboard kept its symbol in
+local component state — company choice and results were discarded on every route
+change and cheap reads re-ran. Both causes are removed; regression tests pin the
+no-refetch and cross-page symbol behavior.
+
+### Industry Analyst automatic data preparation
+
+`AgentService` (optionally wired with `MarketService`, default `None` so existing
+constructions are unaffected) calls
+`MarketService.ensure_history(symbols, min_bars, max_age_days=7)` for the company
+and its sector peers before every industry run: sufficient fresh cached history is
+reused, only missing/stale symbols go through the normal provider → validation →
+storage pipeline, per-symbol provider failures are isolated (recorded as
+`refresh_failed`, never raised), and a transparent `data_preparation` summary is
+recorded in the output provenance. The `IndustryAgent` itself stays
+repository-only — no provider coupling, no architectural drift.
 
 ## 9. Future Portfolio Agent integration
 
@@ -179,3 +218,17 @@ A future Portfolio Agent would: read the latest persisted `AgentOutput` per
 (OK/DEGRADED/UNAVAILABLE), apply the future risk/constraint engine, and hand
 candidate weights to the future optimizer — all through the existing
 contract and repository seams, with no agent-to-agent calls.
+
+## 10. Vision diagram vs implemented scope
+
+`frontend/src/utils/SystemArchitecture.jpeg` is the full-vision overview diagram
+(Data Sources → Data Pipeline → Agent Layer → Portfolio Layer → Execution &
+Backtesting → Outputs & Interfaces, over a cross-cutting Foundation Layer). It
+deliberately shows the destination, not the current build: of its six blocks,
+only **1. Data Sources** (market/news/filings adapters), **2. Data Pipeline**,
+the **Firm / Industry / Sentiment** agents of 3. Agent Layer, the **Agent Outputs**
+contract, and **6. Web Dashboard + APIs** are implemented. Macro Analyst,
+Portfolio Layer, Execution & Backtesting, and the remaining interfaces are future
+placeholders. The asset lives next to the product logo in `frontend/src/utils/`
+because it is a product/vision asset, not a code module — normative technical
+documentation stays in this file, `README.md`, and `docs/`.
