@@ -5,6 +5,7 @@ import StatusBadge from '../../components/common/StatusBadge';
 import { useFinCortext } from '../../app/FinCortextContext';
 import { deltaClass, fmtInt, fmtPrice, fmtSigned, snapshot } from './priceStats';
 import { useFilingsCount } from './useFilingsCount';
+import { useFundamentalsCoverage } from './useFundamentalsCoverage';
 import { usePeerQuotes } from './usePeerQuotes';
 
 const ANALYSTS = [
@@ -44,6 +45,7 @@ export default function CompanyAnalysisPage() {
   const outputs = outputsOf(symbol);
   const news = newsOf(symbol);
   const filingsCount = useFilingsCount(symbol);
+  const fundamentals = useFundamentalsCoverage(symbol);
 
   useEffect(() => {
     ensurePrices(symbol).catch(() => undefined);
@@ -79,6 +81,19 @@ export default function CompanyAnalysisPage() {
       .filter(Boolean) as string[];
     return dates.length > 0 ? dates.sort().reverse()[0] : null;
   }, [news]);
+
+  // Intelligence coverage, derived from actual stored outputs: a view counts
+  // as available only when its latest stored result carries a real score.
+  const coverage = useMemo(() => {
+    const byAgent = new Map<string, { score: number | null }>();
+    for (const out of [...(outputs ?? [])].sort((a, b) =>
+      (b.generated_at ?? '').localeCompare(a.generated_at ?? ''),
+    )) {
+      if (!byAgent.has(out.agent_id)) byAgent.set(out.agent_id, out);
+    }
+    const available = ANALYSTS.filter((a) => byAgent.get(a.id)?.score != null);
+    return { available: available.length, total: ANALYSTS.length };
+  }, [outputs]);
 
   const go = (to: string) => navigate(`${to}?symbol=${encodeURIComponent(symbol)}`);
   const displayName = entry?.name ?? symbol;
@@ -191,6 +206,14 @@ export default function CompanyAnalysisPage() {
           <p className="muted dash-section-note">
             What the analysts can draw on for {symbol}.
           </p>
+          <p className="coverage-line" aria-label="Intelligence coverage">
+            <strong>
+              Data coverage: {coverage.available}/{coverage.total} intelligence views available
+            </strong>
+            {filingsCount === 0 && (
+              <span className="muted"> — Coverage: Partial, official filings unavailable.</span>
+            )}
+          </p>
           <dl className="stat-list">
             <div>
               <dt className="muted">Market prices</dt>
@@ -226,6 +249,30 @@ export default function CompanyAnalysisPage() {
                 {filingsCount === null
                   ? 'None ingested — fundamental factors will unlock when filings are added.'
                   : `${filingsCount} ingested official filing${filingsCount === 1 ? '' : 's'}.`}
+              </dd>
+            </div>
+            <div>
+              <dt className="muted">Fundamentals</dt>
+              <dd>
+                {fundamentals === null ? (
+                  'Loading…'
+                ) : fundamentals.metric_count === 0 ? (
+                  'Unavailable — no fundamental metrics stored'
+                ) : (
+                  <>
+                    {fundamentals.metric_count} metrics
+                    {fundamentals.has_official && ' · official filings'}
+                    {fundamentals.has_official && fundamentals.has_provider && ' + '}
+                    {fundamentals.has_provider && 'provider data (Yahoo Finance)'}
+                    {(() => {
+                      const dated = Object.values(fundamentals.metrics)
+                        .map((m) => m.period_end)
+                        .filter((d): d is string => d !== null)
+                        .sort();
+                      return dated.length > 0 ? <>, latest period {dated[dated.length - 1]}</> : null;
+                    })()}
+                  </>
+                )}
               </dd>
             </div>
             {ANALYSTS.map((a) => {

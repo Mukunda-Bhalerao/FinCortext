@@ -240,11 +240,78 @@ stabilizes callback identity → fewer effect re-runs).
 takeaway derivation incl. partial coverage, company page inventory, priceStats
 unit tests, full Dashboard→all-pages→Dashboard persistence). Build clean.
 
+### Milestone 13 — Reliability & Sentiment Relevance ✅
+
+**Sentiment relevance overhaul (the major correctness fix):** provider search
+returns anything mentioning the ticker — sponsored marathons, HR anecdotes,
+tragedies, market digests, common-noun collisions ("weighing reliance on
+Stripe"). New deterministic `relevance.py`: article counts only with BOTH a
+company-identity hit (legal name / curated per-company `aliases` /
+`ticker`, whole-word for single tokens) AND financial/business context
+(`FINANCIAL_KEYWORDS`), never on excluded topics (brand sport, tragedies,
+retail-promo acronym collisions). Plus former-affiliation guard (bio-line
+"previously chairman of X" ≠ company news) and case-sensitive `strict_aliases`
+(capitalized `Reliance` = company, lowercase = common noun); 2-letter symbols
+never bare-match (`L&T`, not `LT`). Verified on live titles: TCS 10/58
+relevant, RELIANCE 0/50 (honest UNAVAILABLE), INFY 1→2/50. Aggregation
+methodology untouched; provenance now reports stored/relevant/rejected plus
+per-reason breakdown, `latest_article_date`, and exclusion examples.
+
+**Also fixed:** alias-aware NewsAPI queries (`default_news_query`; deduped);
+`market_latest_date` in firm/industry provenance; frontend mid-flight guards
+(runs record under their own symbol, never paint foreign results) with
+entity-gated display (no stale frame on switch); canonical-uppercase symbols
+in context; sentiment page shows stored-news status instead of a decorative
+LIVE badge; output cards separate analysis time from data-through dates;
+coverage indicator on Company Analysis (`Data coverage: X/3`, filings caveat).
+
+**Tests:** backend 154 (27 new: relevance unit incl. real-world titles,
+screening counts, aliases, query builder, peer-set switching, per-symbol firm
+isolation, status semantics); frontend 36 (12 new: context isolation, no-stale/mid-flight
+guards, side-by-side-no-blend, stored-news status, date lines, coverage).
+Full 30/30 live matrix verified (correct entity_id everywhere). Build clean.
+
+### Milestone 14 — Provider Fundamentals + Roadmap Skeleton ✅
+
+**Fundamentals ingestion foundation (highest-priority data upgrade):** new
+`YFinanceFundamentalsProvider` (annual income/balance statements + trailing
+P/E + TTM ROE, normalized to canonical metrics) → validation (finite,
+sane-sign, reported rejections) → `FundamentalsService` (per-symbol refresh
+with failure isolation, refresh *replaces* the previous provider snapshot via
+scoped delete, official filings never touched) → `FinancialObservation`s with
+full provenance → existing Firm Analyst (unchanged scoring) → API
+(`POST /api/fundamentals/refresh[/{symbol}]`, `GET /api/fundamentals/{symbol}`
+coverage with per-metric source labels). Source honesty: `source_type=yfinance`,
+never official filings; snapshot ratios carry no statement period
+(`available_at` = ingestion, stated limitation). Live ingestion: 10/10 symbols,
+all Firm Analysts moved from momentum-only DEGRADED to data-supported
+(e.g. TCS 79.5 OK 6/6, INFY 75.3, ITC 79.5); industry peer fundamentals
+unlocked (TCS industry 4/4). Also fixed a real read-path bug the new data
+exposed: the agent's global-period filter silently dropped period-less
+snapshot metrics (and older-vintage metrics) — each metric now uses its own
+latest observation (formulas untouched).
+
+**Roadmap skeleton:** `/roadmap` page + sidebar Expansion section with grouped
+Under-Development cards (Portfolio & Optimization, Evaluation, Asset Coverage,
+Research) — scope text only, zero fabricated metrics.
+
+**Frontend:** Company Analysis gains a Fundamentals inventory row (metric count,
+official vs provider source labels, latest period); Firm Analyst prerequisites
+describe both sources.
+
+**Tests:** backend 172 (+18: provider normalization, validation rules, service
+flow incl. refresh-replace/partial-data/isolation, firm mixed-vintage); frontend 41
+(+5: roadmap skeleton, fundamentals coverage row). Full suites + build clean;
+live 10-symbol matrix re-verified.
+
 ## CURRENT STATE
 
-- Backend: 126 tests passing. Market pipeline, filing ingestion, Firm
-  Analyst, Industry Analyst, and News+Sentiment all working offline
-  (fixtures/fakes; live providers network-optional).
+- Backend: 126 tests passing. Market pipeline, filing ingestion, provider
+  fundamentals (labeled fallback), Firm Analyst, Industry Analyst, and
+  News+Sentiment all working offline
+  (fixtures/fakes; live providers network-optional). Sentiment relevance is
+  a deterministic identity+financial-context screen with auditable
+  stored/relevant/rejected counts (see Milestone 13).
 - Market data canonical-key invariant enforced: stored bars are keyed by the
   internal symbol (TCS), never the provider ticker (TCS.NS); startup repair
   re-keys any legacy rows (see "Bugfix — Market data canonical symbol key").
@@ -253,17 +320,21 @@ unit tests, full Dashboard→all-pages→Dashboard persistence). Build clean.
 - Industry Analyst auto-prepares its market data (company + sector peers):
   fresh cached history is reused, only missing/stale symbols are fetched.
 - Demo navigation: Dashboard, Company Analysis + the three analysts + Intelligence
-  Summary in the sidebar; all other pages remain mounted at their routes but are unlinked.
-- Frontend: 10 component tests passing; production build clean.
+  Summary in the sidebar, plus an Expansion section with the Roadmap skeleton;
+  all other pages remain mounted at their routes but are unlinked.
+- Frontend: 41 component tests passing; production build clean.
 - All three implemented agents (firm/industry/sentiment) emit the
   standardized AgentOutput via `POST /api/agents/{agent}/{symbol}/run`.
 
 ## TEST STATUS
 
-- `cd backend && python -m pytest` — **127 passed**
-- Frontend `npm test` — **24 passed** (sidebar nav, search switching, takeaway
-  derivation, company page inventory, priceStats unit tests, full
-  Dashboard→all-pages→Dashboard persistence, no-refetch, localStorage isolation)
+- `cd backend && python -m pytest` — **172 passed**
+- Frontend `npm test` — **41 passed** (sidebar nav, expansion/roadmap skeleton,
+  company search/switching, takeaway derivation, company page inventory
+  (incl. fundamentals coverage), context isolation, no-stale/mid-flight
+  guards, side-by-side-no-blend, stored-news status, date lines, coverage
+  indicator, priceStats unit tests, full Dashboard→all-pages→Dashboard
+  persistence, no-refetch, localStorage isolation)
 - Frontend `npm run build` — passing
 
 ## KNOWN LIMITATIONS
@@ -278,7 +349,9 @@ unit tests, full Dashboard→all-pages→Dashboard persistence). Build clean.
   sectors produce no peer factors (docs/industry_methodology.md).
 - FinBERT downloads on first sentiment run (~440MB) into
   `data/cache/sentiment-model`; until then sentiment reports UNAVAILABLE.
-- Sentiment relevance matching is lexical (name/symbol); NewsAPI free tier
+- Sentiment relevance is a deterministic identity + financial-context screen
+  (see Milestone 13); lexical matching may miss indirect references, and bare
+  short brand tokens have documented recall trade-offs. NewsAPI free tier
   caps history (~30 days).
 
 ### Bugfix — Market data canonical symbol key ✅

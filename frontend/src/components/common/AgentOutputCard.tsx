@@ -30,6 +30,14 @@ function ScoreDial({ score, status }: { score: number | null; status: string }) 
 export default function AgentOutputCard({ output }: { output: AgentOutput }) {
   const availableFactors = output.factors.filter((f) => f.available);
   const missingFactors = output.factors.filter((f) => !f.available);
+  // Analysis time and data-through dates are different things: the run may be
+  // fresh while the stored market/news data ends on an earlier trading date.
+  // Both come from the backend provenance — never invented here.
+  const provenance = (output.provenance ?? {}) as Record<string, unknown>;
+  const marketThrough =
+    typeof provenance.market_latest_date === 'string' ? provenance.market_latest_date : null;
+  const newsThrough =
+    typeof provenance.latest_article_date === 'string' ? provenance.latest_article_date : null;
 
   return (
     <article className={`agent-card status-${output.status.toLowerCase()}`}>
@@ -104,8 +112,10 @@ export default function AgentOutputCard({ output }: { output: AgentOutput }) {
       )}
 
       <footer className="agent-card-footer muted">
-        Generated {new Date(output.generated_at).toLocaleString()} · methodology:{' '}
-        {String(output.provenance?.methodology ?? output.data_version)}
+        Analysed {new Date(output.generated_at).toLocaleString()}
+        {marketThrough && <> · market data through {marketThrough}</>}
+        {newsThrough && <> · news through {newsThrough}</>}
+        {' '}· methodology: {String(output.provenance?.methodology ?? output.data_version)}
       </footer>
     </article>
   );

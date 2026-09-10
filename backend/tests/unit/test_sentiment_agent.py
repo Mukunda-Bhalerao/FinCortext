@@ -5,7 +5,9 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from app.agents.sentiment.sentiment_agent import SentimentAgent, clean_text, is_relevant
+from app.agents.sentiment.sentiment_agent import SentimentAgent, clean_text
+from app.agents.sentiment.relevance import assess_relevance
+from app.data.universe.universe_config import get_universe_entry
 from app.core.exceptions import ModelUnavailableError
 from app.data.storage.duckdb_storage import DuckDBStorage
 from app.domain.models.news import NewsArticle
@@ -78,13 +80,27 @@ def test_clean_text_collapses_whitespace():
     assert clean_text(None, None) == ""
 
 
-def test_is_relevant_name_or_symbol():
-    assert is_relevant("Tata Consultancy Services wins deal", "Tata Consultancy Services", "TCS")
-    assert is_relevant("TCS shares surge", "Tata Consultancy Services", "TCS")
-    assert is_relevant("tcs lower-case match", "Tata Consultancy Services", "TCS")
+def _verdict(text, symbol="TCS"):
+    entry = get_universe_entry(symbol)
+    return assess_relevance(text, None, None, entry)
+
+
+def test_relevance_needs_identity_and_financial_context():
+    assert _verdict("Tata Consultancy Services wins large deal").relevant
+    assert _verdict("TCS shares surge").relevant
+    assert _verdict("TCS beats quarterly estimates").relevant
     # Symbol must match as a whole word — not inside other words
-    assert not is_relevant("switches and circuits", "Tata Consultancy Services", "TCS")
-    assert not is_relevant("Unrelated commodity news", "Tata Consultancy Services", "TCS")
+    assert not _verdict("switches and circuits").relevant
+    assert not _verdict("Unrelated commodity news").relevant
+    # Identity alone is not enough: no financial/business context
+    v = _verdict("From TCS to Microsoft, techie details 6 things different")
+    assert not v.relevant and v.reason == "no_financial_context"
+    # Sponsored sport carries no investment signal even with a mention
+    v = _verdict("How to Watch the TCS Sydney Marathon 2026")
+    assert not v.relevant and v.reason == "excluded_topic"
+    # Personal tragedy is not analyzable company news
+    v = _verdict("TCS engineer on way home dies after reversing earthmover rams bike")
+    assert not v.relevant and v.reason == "excluded_topic"
 
 
 # -- agent behavior -----------------------------------------------------------------
@@ -194,3 +210,64 @@ def test_deterministic_rerun(stack):
     assert out1.confidence == out2.confidence
     assert out1.rationale == out2.rationale
     assert [f.contribution for f in out1.factors] == [f.contribution for f in out2.factors]
+
+
+def test_screening_counts_and_excludes_noise(stack):
+    """Mixed real-world store: only company-financial articles are scored;
+    sponsorships, anecdotes and digests are rejected with auditable counts."""
+    news_repo, output_repo = stack
+    base = datetime(2024, 7, 15, tzinfo=timezone.utc)
+    _seed(
+        news_repo,
+        [
+            _article("https://x.com/1", "TCS employees get 50-70% variable in Q1", base),
+            _article(
+                "https://x.com/2",
+                "Tejas Networks shares zoom 13% after TCS's Rs 1,537-crore LOI",
+                base - timedelta(days=1),
+            ),
+            _article("https://x.com/3", "How to Watch the TCS Sydney Marathon 2026", base),
+            _article(
+                "https://x.com/4",
+                "From TCS to Microsoft, techie details 6 things different",
+                base,
+            ),
+            _article("https://x.com/5", "Sensex today: Nifty ends flat", base),
+        ],
+    )
+    agent = SentimentAgent(news_repo, output_repo, FakeSentimentModel())
+    out = agent.analyze("TCS")
+    assert out.status in {"OK", "DEGRADED"}
+    assert out.provenance["articles_stored"] == 5
+    assert out.provenance["articles_relevant"] == 2
+    assert out.provenance["articles_rejected"] == 3
+    assert out.provenance["rejected_no_identity"] == 1  # Sensex digest
+    assert out.provenance["rejected_no_financial_context"] == 1  # career anecdote
+    assert out.provenance["rejected_excluded_topic"] == 1  # marathon
+    # Only the 2 relevant articles were scored and persisted.
+    assert len(news_repo.get_sentiment_results("TCS")) == 2
+    titles = " ".join((e.note or "") for e in out.evidence)
+    assert "Marathon" not in titles
+    assert "Microsoft" not in titles
+    # Limitations disclose the screening, never hide it.
+    assert any("5 stored" in lim and "2 relevant" in lim for lim in out.data_limitations)
+
+
+def test_identity_without_financial_context_unavailable(stack):
+    """Mentions without business context score nothing — with examples."""
+    news_repo, output_repo = stack
+    base = datetime(2024, 7, 15, tzinfo=timezone.utc)
+    _seed(
+        news_repo,
+        [
+            _article("https://x.com/1", "How to Watch the TCS Sydney Marathon 2026", base),
+            _article("https://x.com/2", "TCS engineer dies in road accident", base),
+        ],
+    )
+    agent = SentimentAgent(news_repo, output_repo, FakeSentimentModel())
+    out = agent.analyze("TCS")
+    assert out.status == "UNAVAILABLE"
+    assert out.score is None
+    assert out.provenance["articles_relevant"] == 0
+    assert out.provenance["articles_rejected"] == 2
+    assert any("financial/business context" in lim for lim in out.data_limitations)

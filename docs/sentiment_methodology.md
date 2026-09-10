@@ -1,7 +1,7 @@
 # Sentiment Analyst — Methodology
 
 > Implementation: `backend/app/agents/sentiment/`
-> (`methodology.py`, `sentiment_agent.py`, `model.py`)
+> (`methodology.py`, `sentiment_agent.py`, `model.py`, `relevance.py`)
 > Version: `sentiment_analyst_v1` (recorded in every output's `provenance`)
 
 ## Purpose
@@ -14,11 +14,56 @@ It scores stored news articles with a **local** financial sentiment model
 (FinBERT — no paid LLM API) and aggregates them deterministically into the
 standardized `AgentOutput`.
 
+## Relevance screening (financial relevance, not keyword hits)
+
+Provider search (`"Company Name" OR SYMBOL`) returns anything that merely
+mentions the ticker — sponsored marathons, HR anecdotes, tragedies, market
+digests, even common-noun collisions ("weighing reliance on Stripe"). Scoring
+those as company sentiment would fabricate signal from noise, so every stored
+article passes a deterministic two-gate screen (`relevance.py`) before it can
+influence the score. An article is **relevant** only if it has BOTH:
+
+1. **Company identity** — the full legal name (substring) or a curated alias /
+   ticker from the universe entry. Single-token identifiers match whole-word
+   only (`TCS` never fires inside "switches"); tokens shorter than 3
+   characters never bare-match (`LT` would collide constantly — only `L&T`
+   or the full name identifies Larsen & Toubro); bare forms that collide with
+   ordinary words stay out of `aliases` (documented per company in
+   `universe_config.py`), except case-sensitive brand tokens in
+   `strict_aliases` (capitalized `Reliance` = the company, lowercase
+   `reliance` = the common noun).
+2. **Financial/business context** — at least one term from the documented
+   `FINANCIAL_KEYWORDS` set (earnings & results, corporate actions, leadership
+   & workforce, market action & analyst views, regulatory/legal, money),
+   matched whole-word over title + description.
+
+And never when it is about an **excluded topic** (`EXCLUDED_TOPICS` plus
+`EXCLUDED_PATTERNS`): brand-run sport/sponsorship events (marathons, cricket,
+golf, sponsorships), personal tragedies/accidents, and retail-discount flyers
+where a promo acronym collides with the ticker (Harbor Freight's "Inside
+Track Club" sales vs bare `ITC`) — a ticker mention there carries no
+investment signal. Exclusion wins over everything else.
+
+Consequences, all honest: a sponsored-marathon article, a career anecdote
+("From TCS to Microsoft…"), an employee tragedy, or a market digest that never
+names the company is rejected; an earnings beat, an order win, a leadership
+change, or a sector rally that names the company is kept. Every verdict
+carries a machine-readable reason (`relevant` / `no_identity` /
+`no_financial_context` / `excluded_topic`); the output reports
+`articles_stored` / `articles_relevant` / `articles_rejected` plus the
+per-reason breakdown in provenance, names up to two excluded examples in
+limitations, and the `news_volume` factor details the same counts. If nothing
+relevant remains, the result is UNAVAILABLE — nothing is scored from noise.
+
+Retrieval favors recall so the screen has material to work with: the default
+NewsAPI query is built from the legal name plus curated aliases
+(`default_news_query` in `news_service.py`), not just name-or-symbol.
+
 ## Pipeline
 
 ```
 stored articles (NewsRepository, DuckDB)
-    → relevance filter (entity name substring OR symbol whole-word match)
+    → relevance screen (identity AND financial context, minus excluded topics)
     → text preparation (title + description, whitespace-collapsed)
     → FinBERT inference (local, eval mode, no sampling)
     → per-article polarity = P(positive) − P(negative)   ∈ [−1, +1]
@@ -92,7 +137,7 @@ No randomness anywhere. Empty input → `score = None`, `confidence = 0`.
 | situation | status | score |
 |---|---|---|
 | no stored articles | UNAVAILABLE | None |
-| stored articles but none mention the entity | UNAVAILABLE | None |
+| stored articles but none relevant (no mention, no financial context, or excluded topics) | UNAVAILABLE | None |
 | sentiment model unavailable / load / inference failure | UNAVAILABLE | None |
 | 1–2 relevant articles (thin evidence) | DEGRADED | computed |
 | ≥ 3 relevant articles | OK | computed |
@@ -109,8 +154,10 @@ converted into explicit UNAVAILABLE outputs with limitations.
 - rationale: deterministic summary with distribution
 - limitations: coverage, missing timestamps, thin evidence, model/language
   caveats, "not investment advice"
-- provenance: methodology version, model id, article counts, reference
-  timestamp, weighted mean polarity, confidence components
+- provenance: methodology version, model id, article counts
+  (stored / relevant / rejected + per-reason breakdown), reference
+  timestamp, latest analyzed article date, weighted mean polarity,
+  confidence components
 
 Per-article `SentimentResult`s (label + 3 probabilities + model id +
 confidence) are persisted to the `sentiment_results` table.
@@ -119,8 +166,11 @@ confidence) are persisted to the `sentiment_results` table.
 
 - FinBERT is trained on English financial text; non-English or garbled text
   may score unreliably (flagged in limitations).
-- Relevance matching is lexical (name/symbol); it may miss articles that
-  refer to the company only indirectly (e.g. "Tata group IT arm").
+- Relevance screening is lexical (identifiers + business vocabulary); it may
+  miss articles that refer to the company only indirectly (e.g. "Tata group
+  IT arm"), and bare short brand tokens ("Reliance" headlines without other
+  identifiers) match case-sensitively by design — documented trade-offs in
+  `relevance.py` / `universe_config.py`.
 - NewsAPI free tiers cap history (~30 days) and volume; coverage depends on
   the configured plan.
 - Sentiment reflects news tone only — it is not investment advice and

@@ -122,3 +122,61 @@ def test_firm_agent_api_endpoint(tmp_path, monkeypatch, stack):
     r = client.post("/api/agents/macro/RELIANCE/run")
     assert r.status_code == 404
     assert "not implemented" in r.json()["error"]["message"]
+
+
+def test_firm_agent_per_symbol_isolation(stack):
+    """Sequential runs for different symbols use only each symbol's data:
+    momentum-only DEGRADED where filings are missing, full OK where the
+    filing was ingested — never cross-contamination, never fabrication."""
+    from app.domain.models.market import MarketPrice
+
+    filing_service, agent_service, market_repo = stack
+
+    def seed(symbol, start_price, daily):
+        prices, d, price = [], date(2024, 1, 1), start_price
+        while len(prices) < 100:
+            if d.weekday() < 5:
+                prices.append(
+                    MarketPrice(
+                        symbol=symbol,
+                        provider_ticker=f"{symbol}.NS",
+                        trade_date=d,
+                        open=price,
+                        high=price * 1.01,
+                        low=price * 0.99,
+                        close=price,
+                        volume=1000,
+                    )
+                )
+                price *= 1 + daily
+            d += timedelta(days=1)
+        market_repo.upsert_bars(prices)
+
+    seed("TCS", 100.0, 0.005)   # strong momentum
+    seed("INFY", 100.0, -0.004)  # weak momentum
+    filing_service.ingest_file(
+        "annual.csv", SAMPLE_CSV.read_bytes(), symbol="RELIANCE",
+        source_name="Annual Report FY2024",
+    )
+    seed("RELIANCE", 100.0, 0.002)
+
+    tcs = agent_service.run_agent("firm_analyst", "TCS")
+    infy = agent_service.run_agent("firm_analyst", "INFY")
+    rel = agent_service.run_agent("firm_analyst", "RELIANCE")
+
+    assert (tcs.entity_id, infy.entity_id, rel.entity_id) == ("TCS", "INFY", "RELIANCE")
+    # No filings for TCS/INFY → momentum-only DEGRADED, fundamentals unavailable
+    for out in (tcs, infy):
+        assert out.status == "DEGRADED"
+        assert sum(1 for f in out.factors if f.available) == 1
+        assert next(f for f in out.factors if f.name == "market_momentum").available
+    # Opposite momenta produce opposite momentum values (not copied).
+    mom = lambda o: next(f for f in o.factors if f.name == "market_momentum").value
+    assert mom(tcs) is not None and mom(infy) is not None and mom(tcs) > 0 > mom(infy)
+    # RELIANCE has the ingested filing → fuller coverage and OK status.
+    assert rel.status == "OK"
+    assert any(f.name == "profitability" and f.available for f in rel.factors)
+    # History stays per symbol.
+    assert len(agent_service.list_outputs("firm_analyst", "TCS")) == 1
+    assert len(agent_service.list_outputs("firm_analyst", "INFY")) == 1
+    assert agent_service.list_outputs("firm_analyst", "HDFCBANK") == []

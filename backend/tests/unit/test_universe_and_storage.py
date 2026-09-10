@@ -50,6 +50,20 @@ def test_universe_unknown_symbol_raises_not_found():
         get_universe_entry("NOPE")
 
 
+def test_universe_aliases_support_relevance_matching():
+    """Curated aliases exist for ticker-style references; ambiguous bare
+    forms stay out of `aliases` (LT) or live in `strict_aliases` (Reliance)."""
+    assert "TCS" in get_universe_entry("TCS").aliases
+    assert "INFY" in get_universe_entry("INFY").aliases
+    assert "L&T" in get_universe_entry("LT").aliases
+    assert "LT" not in get_universe_entry("LT").aliases
+    assert "SBI" in get_universe_entry("SBIN").aliases
+    assert "HUL" in get_universe_entry("HINDUNILVR").aliases
+    assert "RIL" in get_universe_entry("RELIANCE").aliases
+    assert "Reliance" in get_universe_entry("RELIANCE").strict_aliases
+    assert "Reliance" not in get_universe_entry("RELIANCE").aliases
+
+
 # --- Storage fixtures ------------------------------------------------------------
 
 

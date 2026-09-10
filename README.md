@@ -171,7 +171,7 @@ recorded into the session cache (and the outputs-history cache) the moment they 
 |---|---|---|
 | Market prices | `YFinanceMarketProvider` (yfinance) | NSE `.NS` ticker mapping from universe config; all failures wrapped as `ProviderError`. Canonical storage key is always the internal symbol (`TCS`), never the provider ticker (`TCS.NS`). |
 | News | `NewsAPINewsProvider` (NewsAPI) | Key **only** from `NEWS_API_KEY`; missing key → graceful `UNAVAILABLE`, never a crash. 401/403 → unavailable, 429 → rate-limit error. |
-| Fundamentals | Ingested official filings (primary truth) | `FundamentalDataProvider` exists as a fallback/enrichment seam only. |
+| Fundamentals | Ingested official filings (primary truth) + provider annual statements (fallback) | `YFinanceFundamentalsProvider` implements the `FundamentalDataProvider` seam: annual income/balance rows with real fiscal periods plus snapshot P/E + ROE. Stored as `source_type=yfinance`, never as official filings. |
 | Future | Licensed feeds, RSS/GDELT, industry reports | Seams reserved at the provider boundary. |
 
 ## 11. Market data pipeline
@@ -195,8 +195,9 @@ backend and all unrelated modules keep working.
 Deterministic scoring over 6 documented factors — profitability 0.25, revenue growth 0.20, financial
 health 0.20, return on equity 0.15, valuation 0.10, market momentum 0.10 — with linear score bounds,
 weight redistribution for missing factors, and confidence = coverage × quality tier. Consumes
-`FinancialRepository` (ingested filings = primary truth) + `MarketRepository` (90-day momentum).
-Methodology: `backend/app/agents/firm/methodology.py`.
+`FinancialRepository` (ingested filings = primary truth, provider annual statements = labeled
+fallback) + `MarketRepository` (90-day momentum). Each metric uses its own latest observation, so
+mixed-vintage data never silently drops a factor. Methodology: `backend/app/agents/firm/methodology.py`.
 
 ## 14. Industry Analyst
 
@@ -208,8 +209,12 @@ peer medians) and a documented volatility convention (simple daily returns, popu
 
 ## 15. Sentiment Analyst
 
-Relevance filter (name/symbol) → local FinBERT (ProsusAI/finbert default, configurable; lazy-loaded,
-~440 MB first download) → polarity P(pos) − P(neg) → recency-weighted aggregation with 7-day
+Deterministic financial-relevance screen (`relevance.py`: company identity AND
+financial/business context required, brand-sport/tragedy/retail-promo topics
+excluded, former-affiliation bio-lines disqualified; stored/relevant/rejected
+counts with per-reason breakdown in every output) → local FinBERT
+(ProsusAI/finbert default, configurable; lazy-loaded, ~440 MB first download)
+→ polarity P(pos) − P(neg) → recency-weighted aggregation with 7-day
 half-life anchored to the latest article timestamp → composite 0–100 score with confidence =
 0.35·coverage + 0.25·model_confidence + 0.25·consistency + 0.15·recency. Model load/inference
 failures → explicit `UNAVAILABLE`, never a crash. Methodology:
@@ -281,6 +286,8 @@ internal symbol. Raw artifacts archived under `data/raw/`; sample fixtures under
 | `GET /api/market/status` | Per-symbol storage coverage |
 | `POST /api/filings/import` | Multipart official-file ingestion |
 | `GET /api/filings?symbol=` | Ingested documents |
+| `POST /api/fundamentals/refresh`, `POST /api/fundamentals/refresh/{symbol}` | Refresh provider fundamentals (supplements filings; per-symbol failure isolation) |
+| `GET /api/fundamentals/{symbol}` | Metric coverage with per-metric source labels |
 | `GET /api/news/status` | Provider configuration status |
 | `POST /api/news/refresh/{symbol}?days=&page_size=` | Fetch live news |
 | `GET /api/news/{symbol}?limit=` | Stored articles |
@@ -292,7 +299,8 @@ internal symbol. Raw artifacts archived under `data/raw/`; sample fixtures under
 Demo sidebar (the product): `/` Dashboard (market overview: price, chart, sector peers,
 stored intelligence, news, derived takeaway) · `/company` Company Analysis (price statistics,
 data inventory, analyst run history, peers) · `/intelligence/firm` · `/intelligence/industry` ·
-`/intelligence/sentiment` · `/intelligence/summary`. Internal tooling stays mounted but unlinked:
+`/intelligence/sentiment` · `/intelligence/summary` · `/roadmap` (future-module skeletons,
+all labeled Under Development). Internal tooling stays mounted but unlinked:
 `/data/*` (sources, pipeline, market, filings, quality); future placeholders: `/intelligence/macro`,
 `/portfolio*`, `/research/*`. No index, market-cap or blended-score figures exist anywhere —
 the backend provides none, so the UI invents none.
@@ -356,10 +364,13 @@ Markers: `unit` (fast, isolated), `integration` (cross-module), `system` (end-to
 
 ## 29. Current test status
 
-- Backend: **127 passed** (`python -m pytest`).
-- Frontend: **24 passed** (`npm test`) — sidebar navigation, company search/switching,
-  dashboard honesty (no invented indices/scores), takeaway derivation, company analysis page,
-  price-stat unit tests, symbol persistence, no-refetch on remount, badge/card rendering.
+- Backend: **172 passed** (`python -m pytest`).
+- Frontend: **41 passed** (`npm test`) — sidebar navigation, expansion/roadmap skeleton,
+  company search/switching, dashboard honesty (no invented indices/scores), takeaway
+  derivation, company analysis page (incl. fundamentals coverage), context isolation,
+  no-stale/mid-flight run guards, side-by-side-no-blend summary, stored-news status,
+  analysis-vs-data dates, coverage indicator, price-stat unit tests, symbol persistence,
+  no-refetch on remount, badge/card rendering.
 - Frontend production build: clean.
 
 ## 30. Current limitations
@@ -370,7 +381,13 @@ Markers: `unit` (fast, isolated), `integration` (cross-module), `system` (end-to
 - Firm momentum needs ≥ 2 price points; single-period filings leave revenue growth unavailable.
 - Industry peer set is limited to the 10-symbol universe; single-member sectors yield no peer factors.
 - FinBERT downloads on first sentiment run (~440 MB); until then sentiment reports `UNAVAILABLE`.
-- Sentiment relevance matching is lexical; NewsAPI free tier caps history (~30 days).
+- Provider fundamentals supplement official filings (labeled `source_type=yfinance`,
+  never official): annual statements carry real fiscal periods; snapshot P/E + ROE carry
+  no statement period (`available_at` = ingestion time) and must not be used for historical
+  evaluation. No website scraping — Yahoo Finance API via yfinance; no Screener.in.
+- Sentiment relevance screening is deterministic and lexical (identity +
+  financial context, documented trade-offs for short brand tokens); NewsAPI free tier
+  caps history (~30 days).
 - Universe sector/industry metadata is configuration, not verified against a licensed classifier.
 - Single-user local research tool: no auth, no multi-tenancy.
 
@@ -379,14 +396,16 @@ Markers: `unit` (fast, isolated), `integration` (cross-module), `system` (end-to
 1. Open the Dashboard — search a company in the top bar (e.g. **TCS**, **RELIANCE**, **INFY**).
 2. Review the identity header (price, day change, day high/low, volume), the stored-history
    chart with range selector, sector peers with real quotes, stored intelligence and news.
-3. Press **▶ Analyze Company** → Company Analysis (price statistics, data inventory, peers).
-4. Firm Analyst → run. Industry Analyst → run (peer history is prepared automatically).
+3. Press **▶ Analyze Company** → Company Analysis (price statistics, data inventory
+   incl. fundamentals coverage with source labels, peers).
+4. Firm Analyst → run (fundamentals + momentum; missing inputs stay honestly unavailable).
 5. Sentiment Analyst → fetch news (if configured), then run.
 6. Intelligence Summary → run all three; views sit side by side with evidence and limitations.
 7. Navigate freely — company choice and results persist; nothing re-runs unless you ask.
 
 ## 32. Future roadmap
 
+`/roadmap` in the app lists the planned modules as labeled skeletons (no functionality):
 Macro Analyst → Portfolio Agent (consumes `AgentOutput`s, confidence-weighted) → risk/constraint
 engine → optimization → backtesting on the preserved point-in-time metadata → performance evaluation
 → scenario/stress testing → licensed data providers → auth/deployment. The architecture seams

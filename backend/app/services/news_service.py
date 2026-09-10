@@ -30,6 +30,35 @@ logger = get_logger("services.news")
 DEFAULT_LOOKBACK_DAYS = 7
 
 
+def default_news_query(entry) -> str:
+    """Retrieval query from the universe entry: legal name plus curated
+    aliases (quoted when multi-word). Bare single-token aliases that collide
+    with common words are excluded in `universe_config`, not here — retrieval
+    favors recall (the Sentiment Analyst's relevance screen enforces
+    precision deterministically downstream). The bare internal symbol is
+    included only when it is long enough to be distinctive on its own."""
+    terms: list[str] = []
+    seen: set[str] = set()
+
+    def add(raw: str) -> None:
+        text = (raw or "").strip()
+        if not text or text.lower() in seen:
+            return
+        seen.add(text.lower())
+        terms.append(f'"{text}"' if " " in text else text)
+
+    add(entry.name)
+    for alias in entry.aliases or []:
+        add(alias)
+    for alias in getattr(entry, "strict_aliases", None) or []:
+        add(alias)
+    if len(entry.symbol) >= 3 and entry.symbol.upper() not in {
+        t.strip('"').upper() for t in terms
+    }:
+        terms.append(entry.symbol)
+    return " OR ".join(terms)
+
+
 class NewsService:
     def __init__(
         self,
@@ -91,7 +120,7 @@ class NewsService:
                 "retrieval unavailable.",
             }
 
-        effective_query = query or f'"{entry.name}" OR {entry.symbol}'
+        effective_query = query or default_news_query(entry)
         to_date = date.today()
         from_date = to_date - timedelta(days=max(1, int(days)))
 

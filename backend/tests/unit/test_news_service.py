@@ -10,7 +10,7 @@ from app.domain.models.base import DataStatus
 from app.domain.models.news import NewsArticle
 from app.repositories.news_repository import NewsRepository
 from app.repositories.provenance_repository import ProvenanceRepository
-from app.services.news_service import NewsService
+from app.services.news_service import NewsService, default_news_query
 
 
 class FixtureNewsProvider(NewsProvider):
@@ -120,3 +120,41 @@ def test_get_entity_news_status(stack):
     assert article["source"] == "Fixture Times"
     assert article["published_at"] is not None
     assert article["content_hash"]
+
+
+def test_default_news_query_uses_aliases():
+    """Retrieval query favors recall (name + curated aliases); the agent's
+    relevance screen enforces precision downstream."""
+    from app.data.universe.universe_config import get_universe_entry
+
+    q = default_news_query(get_universe_entry("RELIANCE"))
+    assert '"Reliance Industries"' in q
+    assert "RIL" in q
+    assert '"Reliance Jio"' in q
+
+    q = default_news_query(get_universe_entry("LT"))
+    assert "Larsen & Toubro" in q
+    assert "L&T" in q
+    # Two-letter bare symbol excluded from the query too.
+    assert " OR LT" not in q and not q.endswith(" LT")
+
+    q = default_news_query(get_universe_entry("TCS"))
+    assert '"Tata Consultancy Services"' in q and "TCS" in q
+
+
+def test_refresh_uses_alias_query(stack):
+    """The effective provider query carries aliases (observable in result)."""
+    news_repo, provenance_repo = stack
+
+    seen = {}
+
+    class RecordingProvider(FixtureNewsProvider):
+        def fetch_articles(self, query, from_date=None, to_date=None, page_size=50):
+            seen["query"] = query
+            return super().fetch_articles(query, from_date, to_date, page_size)
+
+    service = NewsService(RecordingProvider(), news_repo, provenance_repo)
+    result = service.refresh_entity_news("SBIN")
+    assert result["query"] == seen["query"]
+    assert '"State Bank of India"' in seen["query"]
+    assert "SBI" in seen["query"]

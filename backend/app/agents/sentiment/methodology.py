@@ -5,7 +5,9 @@ Answers: "What does recent relevant news sentiment say about the company?"
 ## Pipeline
 
     stored articles (NewsRepository)
-        → relevance filter (entity name/symbol match, deterministic)
+        → relevance filter (company identity AND financial/business context,
+          excluded sponsorship/tragedy topics; deterministic — see
+          relevance.py for the documented identifier and keyword sets)
         → text preparation (title + description, whitespace-collapsed)
         → FinBERT inference (local model, eval mode, no sampling)
         → per-article polarity = P(positive) − P(negative)  ∈ [−1, +1]

@@ -167,6 +167,9 @@ class IndustryAgent(BaseAgent):
             "peers_with_prices": peers_with_prices,
             "methodology": "industry_analyst_v1",
         }
+        company_latest = self.market_repo.latest_trade_date(entity)
+        if company_latest is not None:
+            provenance["market_latest_date"] = company_latest.isoformat()
         if data_preparation is not None:
             # Transparent record of automatic data preparation: which symbols
             # were served from cache and which were fetched (or failed).

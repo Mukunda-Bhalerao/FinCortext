@@ -157,3 +157,41 @@ def test_firm_agent_negative_growth_scores_low():
     out = agent.analyze("RELIANCE")
     growth_factor = next(f for f in out.factors if f.name == "revenue_growth")
     assert growth_factor.contribution == 0.0  # clamped at worst bound
+
+
+def _snapshot_obs(metric, value):
+    """Provider snapshot ratio: no statement period (period_end=None)."""
+    return FinancialObservation(
+        entity_id="RELIANCE",
+        metric=metric,
+        value=value,
+        unit="ratio",
+        source_name="yfinance fundamentals (snapshot ratios)",
+        period_end=None,
+    )
+
+
+def test_firm_agent_uses_per_metric_latest_including_snapshots():
+    """Mixed-vintage data + period-less snapshot ratios: each metric uses its
+    own latest observation instead of a single global period filter dropping
+    metrics whose latest filing is older (or undated)."""
+    obs = [
+        _obs("total_revenue", 1100, period_end=date(2024, 3, 31)),
+        _obs("total_revenue", 1000, period_end=date(2023, 3, 31)),
+        _obs("net_income", 150, period_end=date(2024, 3, 31)),
+        # Debt/equity latest filing is a year older — still usable, not dropped.
+        _obs("total_debt", 50, period_end=date(2023, 3, 31)),
+        _obs("total_equity", 500, period_end=date(2023, 3, 31)),
+        _snapshot_obs("pe_ratio", 22.5),
+        _snapshot_obs("roe", 0.19),
+    ]
+    agent = FirmAgent(FakeFinancialRepo(obs), FakeMarketRepo([]))
+    out = agent.analyze("RELIANCE")
+    by_name = {f.name: f for f in out.factors}
+    assert by_name["profitability"].available
+    assert by_name["revenue_growth"].available
+    assert by_name["financial_health"].available
+    assert by_name["return_on_equity"].available
+    assert by_name["valuation"].available
+    assert by_name["valuation"].value == 22.5
+    assert out.status == "OK"

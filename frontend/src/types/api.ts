@@ -194,6 +194,25 @@ export interface FilingImportResult {
   detail?: Record<string, unknown>;
 }
 
+export interface FundamentalsMetricCoverage {
+  value: number;
+  unit: string;
+  period_end: string | null;
+  source_type: string;
+  source_name: string;
+  available_at: string | null;
+}
+
+export interface FundamentalsCoverageResponse {
+  symbol: string;
+  name: string;
+  status: DataStatusValue;
+  metric_count: number;
+  has_official: boolean;
+  has_provider: boolean;
+  metrics: Record<string, FundamentalsMetricCoverage>;
+}
+
 export interface ApiError {
   error: {
     code: string;

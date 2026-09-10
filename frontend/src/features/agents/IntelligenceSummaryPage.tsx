@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import AgentOutputCard from '../../components/common/AgentOutputCard';
-import { useFinCortext } from '../../app/FinCortextContext';
+import { sameSymbol, useFinCortext } from '../../app/FinCortextContext';
 import { api, ApiRequestError } from '../../services/api';
 import type { AgentOutput } from '../../types/api';
 
@@ -19,6 +19,13 @@ type Entry = AgentOutput | { error: string };
  */
 export default function IntelligenceSummaryPage() {
   const { symbol, runOf, runErrorOf, recordRun, recordRunError } = useFinCortext();
+  // Mid-flight guard: a run-all started for one company records under its
+  // own symbol but never paints under another company's header.
+  const symbolRef = useRef(symbol);
+  useEffect(() => {
+    symbolRef.current = symbol;
+  }, [symbol]);
+
   const restore = (s: string): Record<string, Entry> => {
     const restored: Record<string, Entry> = {};
     for (const agent of AGENTS) {
@@ -32,46 +39,60 @@ export default function IntelligenceSummaryPage() {
     return restored;
   };
   const [outputs, setOutputs] = useState<Record<string, Entry>>(() => restore(symbol));
-  const [running, setRunning] = useState(false);
-  const [runError, setRunError] = useState<string | null>(null);
-  const [fromCache, setFromCache] = useState(() => Object.keys(restore(symbol)).length > 0);
+  // Which company the entries above belong to — anything else falls back to
+  // that company's restored results, never stale foreign data.
+  const [outputsSymbol, setOutputsSymbol] = useState(symbol);
+  const [runningSymbol, setRunningSymbol] = useState<string | null>(null);
+  const [completedRunSymbol, setCompletedRunSymbol] = useState<string | null>(null);
+  const [runError, setRunError] = useState<{ forSymbol: string; message: string } | null>(null);
 
-  useEffect(() => {
-    const restored = restore(symbol);
-    setOutputs(restored);
-    setFromCache(Object.keys(restored).length > 0);
-    setRunError(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbol]);
+  const running = runningSymbol !== null && sameSymbol(runningSymbol, symbol);
+  const isCurrent = sameSymbol(outputsSymbol, symbol);
+  const visible = isCurrent ? outputs : restore(symbol);
+  const anyResult = Object.keys(visible).length > 0;
+  const showCacheNote =
+    anyResult &&
+    !running &&
+    (!isCurrent || !sameSymbol(completedRunSymbol ?? '\0', symbol));
+  const visibleRunError =
+    runError && sameSymbol(runError.forSymbol, symbol) ? runError.message : null;
 
   const runAll = async () => {
-    setRunning(true);
+    const requested = symbol;
+    setRunningSymbol(requested);
     setRunError(null);
     setOutputs({});
-    setFromCache(false);
+    setOutputsSymbol(requested);
+    setCompletedRunSymbol(null);
     const results: Record<string, Entry> = {};
     for (const agent of AGENTS) {
       try {
-        const out = await api.agents.run(agent.id, symbol);
-        results[agent.id] = out;
-        recordRun(symbol, agent.id, out);
+        const out = await api.agents.run(agent.id, requested);
+        recordRun(requested, agent.id, out);
+        if (sameSymbol(symbolRef.current, requested)) {
+          results[agent.id] = out;
+          setOutputs({ ...results });
+        }
       } catch (e) {
         const message = e instanceof ApiRequestError ? e.message : String(e);
-        results[agent.id] = { error: message };
-        recordRunError(symbol, agent.id, message);
+        recordRunError(requested, agent.id, message);
+        if (sameSymbol(symbolRef.current, requested)) {
+          results[agent.id] = { error: message };
+          setOutputs({ ...results });
+        }
       }
-      setOutputs({ ...results });
     }
-    setRunning(false);
+    if (sameSymbol(symbolRef.current, requested)) {
+      setCompletedRunSymbol(requested);
+    }
+    setRunningSymbol((cur) => (cur !== null && sameSymbol(cur, requested) ? null : cur));
   };
 
   const scoreOf = (id: string): number | null => {
-    const out = outputs[id];
+    const out = visible[id];
     if (!out || 'error' in out) return null;
     return out.score;
   };
-
-  const anyResult = Object.keys(outputs).length > 0;
 
   return (
     <section className="page">
@@ -89,9 +110,9 @@ export default function IntelligenceSummaryPage() {
         </button>
       </div>
 
-      {runError && <p className="error-text">{runError}</p>}
+      {visibleRunError && <p className="error-text">{visibleRunError}</p>}
 
-      {anyResult && fromCache && !running && (
+      {showCacheNote && (
         <p className="muted">
           Showing previous results for {symbol} — run again for a fresh analysis.
         </p>
@@ -103,7 +124,7 @@ export default function IntelligenceSummaryPage() {
           <div className="summary-scores">
             {AGENTS.map((agent) => {
               const score = scoreOf(agent.id);
-              const out = outputs[agent.id];
+              const out = visible[agent.id];
               const failed = out && 'error' in out;
               return (
                 <div key={agent.id} className="summary-score">
@@ -124,7 +145,7 @@ export default function IntelligenceSummaryPage() {
 
       <div className="agent-grid">
         {AGENTS.map((agent) => {
-          const out = outputs[agent.id];
+          const out = visible[agent.id];
           if (!out) return null;
           if ('error' in out) {
             return (

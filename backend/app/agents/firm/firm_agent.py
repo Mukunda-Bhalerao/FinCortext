@@ -69,7 +69,11 @@ class FirmAgent(BaseAgent):
 
     def analyze(self, symbol: str) -> AgentOutput:
         entry_symbol = symbol.upper()
-        observations = self.financial_repo.get_observations(entry_symbol)
+        # latest_period=False: each metric contributes its own latest
+        # observation (see _latest_by_metric). A global-period filter would
+        # silently drop metrics whose latest filing is older — or snapshot
+        # ratios that carry no statement period at all.
+        observations = self.financial_repo.get_observations(entry_symbol, latest_period=False)
         by_metric = self._latest_by_metric(observations)
 
         computations: list[FactorComputation] = [
@@ -120,6 +124,7 @@ class FirmAgent(BaseAgent):
 
         evidence = self._build_evidence(entry_symbol, observations, by_metric)
         rationale = self._build_rationale(entry_symbol, score, confidence, computations)
+        market_latest = self.market_repo.latest_trade_date(entry_symbol)
 
         return AgentOutput(
             agent_id=self.agent_id,
@@ -135,6 +140,9 @@ class FirmAgent(BaseAgent):
                 "financial_observation_count": len(observations),
                 "metrics_available": sorted(by_metric.keys()),
                 "market_rows_used": self.market_repo.count(entry_symbol),
+                "market_latest_date": (
+                    market_latest.isoformat() if market_latest else None
+                ),
                 "methodology": "firm_analyst_v1",
             },
             status=status,

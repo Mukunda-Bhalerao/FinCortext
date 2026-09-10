@@ -102,6 +102,27 @@ class FinancialRepository:
         obs.sort(key=lambda o: (o.period_end or date.min), reverse=True)
         return obs[0]
 
+    def delete_observations(self, entity_id: str, source_type: str) -> int:
+        """Delete observations for one entity from one source type.
+
+        Used by provider refresh flows (refresh replaces the last provider
+        snapshot instead of accumulating duplicates). Official filing
+        observations are never touched by this path — callers pass the
+        provider source type explicitly.
+        """
+        rows = self.storage.fetch_all(
+            "SELECT COUNT(*) AS n FROM financial_observations "
+            "WHERE entity_id = ? AND source_type = ?",
+            [entity_id.upper(), source_type],
+        )
+        count = int(rows[0]["n"]) if rows else 0
+        if count:
+            self.storage.execute(
+                "DELETE FROM financial_observations WHERE entity_id = ? AND source_type = ?",
+                [entity_id.upper(), source_type],
+            )
+        return count
+
     def _row_to_observation(self, r: dict) -> FinancialObservation:
         from app.domain.models.financial import ConsolidationBasis, StatementType
 

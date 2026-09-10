@@ -149,6 +149,52 @@ def test_normalize_symbol_keys_repairs_miskeyed_rows(tmp_path):
     storage.close()
 
 
+def test_price_series_status_semantics(tmp_path):
+    """LIVE = latest stored bar within the freshness window (recently
+    retrieved); CACHED = stored but stale; UNAVAILABLE = no stored rows."""
+    storage = DuckDBStorage(tmp_path / "mkt_status.duckdb")
+    storage.connect()
+
+    class NoopProvider:
+        name = "noop"
+
+        def fetch_ohlcv(self, ticker, start, end):
+            raise AssertionError("must not fetch for a status read")
+
+    repo = MarketRepository(storage)
+    service = MarketService(NoopProvider(), repo, ProvenanceRepository(storage))
+
+    # No rows at all → UNAVAILABLE, never an invented status.
+    assert service.get_price_series("TCS")["status"] == "UNAVAILABLE"
+
+    def seed(symbol, latest, n=5):
+        bars = [
+            MarketPrice(
+                symbol=symbol,
+                provider_ticker=f"{symbol}.NS",
+                trade_date=latest - timedelta(days=i),
+                open=100.0,
+                high=101.0,
+                low=99.0,
+                close=100.0,
+                volume=1000,
+            )
+            for i in range(n - 1, -1, -1)
+        ]
+        repo.upsert_bars(bars)
+
+    # Fresh stored data (within window) → LIVE.
+    seed("TCS", date.today())
+    assert service.get_price_series("TCS")["status"] == "LIVE"
+
+    # Stale stored data (outside window) → CACHED, with real dates attached.
+    seed("INFY", date.today() - timedelta(days=60))
+    stale = service.get_price_series("INFY")
+    assert stale["status"] == "CACHED"
+    assert stale["latest_trade_date"] == (date.today() - timedelta(days=60)).isoformat()
+    storage.close()
+
+
 def test_normalize_symbol_keys_dedups_conflicting_dates(tmp_path):
     """Rows whose trade_date already exists under the internal symbol are
     exact duplicates; the repair keeps the canonical row."""

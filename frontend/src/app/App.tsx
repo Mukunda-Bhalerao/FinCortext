@@ -15,6 +15,7 @@ import FirmAnalystPage from '../features/agents/FirmAnalystPage';
 import IndustryAnalystPage from '../features/agents/IndustryAnalystPage';
 import SentimentAnalystPage from '../features/agents/SentimentAnalystPage';
 import IntelligenceSummaryPage from '../features/agents/IntelligenceSummaryPage';
+import RoadmapPage from '../features/roadmap/RoadmapPage';
 import PlaceholderPage from '../components/common/PlaceholderPage';
 
 interface NavItem {
@@ -155,6 +156,25 @@ function Shell() {
             </NavLink>
           ))}
         </nav>
+        <div className="side-section-label" aria-hidden="true">
+          Expansion
+        </div>
+        <nav className="side-nav side-nav-secondary" aria-label="Expansion">
+          <NavLink
+            to={withSymbol('/roadmap')}
+            className={({ isActive }) =>
+              isActive ? 'nav-link active' : 'nav-link'
+            }
+          >
+            <span className="nav-icon">
+              <svg {...iconProps}>
+                <path d="M3 13.5 13.5 3M13.5 3H8m5.5 0v5.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
+              </svg>
+            </span>
+            Roadmap
+            <span className="badge badge-coming-soon nav-badge">Soon</span>
+          </NavLink>
+        </nav>
         <div className="side-foot">
           <span className="side-flow">Data → Intelligence → Decision</span>
           <span className="muted">FinCortext research demo</span>
@@ -186,6 +206,8 @@ function Shell() {
             <Route path="/intelligence/industry" element={<IndustryAnalystPage />} />
             <Route path="/intelligence/sentiment" element={<SentimentAnalystPage />} />
             <Route path="/intelligence/summary" element={<IntelligenceSummaryPage />} />
+            {/* Roadmap — future-module skeletons only, no functionality */}
+            <Route path="/roadmap" element={<RoadmapPage />} />
             <Route
               path="/intelligence/macro"
               element={

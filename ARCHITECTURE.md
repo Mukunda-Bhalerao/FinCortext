@@ -47,7 +47,8 @@ Business logic lives in services/agents/repositories.
 
 ```
 ┌──────────────────────────── DATA SOURCES ───────────────────────────┐
-│ yfinance (market)   NewsAPI (news)   Official filings (CSV/XBRL/PDF) │
+│ yfinance (market + fundamentals)   NewsAPI (news)                    │
+│ Official filings (CSV/XBRL/PDF)   │                                   │
 │ Future: licensed fundamentals, RSS/GDELT, industry reports           │
 └──────────────────────────────┬──────────────────────────────────────┘
                                ↓ provider adapters / file import
@@ -75,8 +76,11 @@ Business logic lives in services/agents/repositories.
 Conceptual interfaces (see `app/domain/contracts/providers.py`):
 
 - `MarketDataProvider` — `fetch_ohlcv(ticker, start, end) -> list[MarketPrice]`
-- `FundamentalDataProvider` — development/fallback enrichment only; ingested
+- `FundamentalDataProvider` — fallback enrichment only; ingested
   official filings are the primary source of truth for fundamentals.
+  Implemented by `YFinanceFundamentalsProvider` (annual statements + snapshot
+  ratios, stored as `source_type=yfinance`, refresh replaces the previous
+  provider snapshot per symbol via `FundamentalsService`).
 - `NewsProvider` — `fetch_articles(query, from, to) -> list[NewsArticle]`
 
 Adapters translate provider-specific quirks (NSE `.NS` suffixes, NewsAPI payload

@@ -81,7 +81,10 @@ export function FinCortextProvider({ children }: { children: ReactNode }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const paramSymbol = searchParams.get('symbol');
   const [symbolOverride, setSymbolOverride] = useState<string | null>(null);
-  const symbol = paramSymbol ?? symbolOverride ?? initialSymbol(null);
+  // Canonical uppercase: universe symbols are uppercase, the backend matches
+  // case-insensitively, and every cache key must be identical for `tcs` and
+  // `TCS` — otherwise one company's reads/results could leak into another's.
+  const symbol = (paramSymbol ?? symbolOverride ?? initialSymbol(null)).toUpperCase();
 
   const [universe, setUniverse] = useState<UniverseEntry[] | null>(null);
   const [universeError, setUniverseError] = useState<string | null>(null);
@@ -370,4 +373,11 @@ export function useFinCortext(): FinCortextContextValue {
   const ctx = useContext(FinCortextContext);
   if (!ctx) throw new Error('useFinCortext must be used inside <FinCortextProvider>');
   return ctx;
+}
+
+/** Case-insensitive symbol equality — backend entity ids are canonical
+ *  uppercase, URL input may not be. Display logic must never treat `tcs`
+ *  and `TCS` as different companies. */
+export function sameSymbol(a: string, b: string): boolean {
+  return a.toUpperCase() === b.toUpperCase();
 }

@@ -75,6 +75,7 @@ def create_app() -> FastAPI:
     from app.api.routes.universe import router as universe_router
     from app.api.routes.market import router as market_router
     from app.api.routes.filings import router as filings_router
+    from app.api.routes.fundamentals import router as fundamentals_router
     from app.api.routes.agents import router as agents_router
     from app.api.routes.news import router as news_router
 
@@ -82,6 +83,7 @@ def create_app() -> FastAPI:
     app.include_router(universe_router)
     app.include_router(market_router)
     app.include_router(filings_router)
+    app.include_router(fundamentals_router)
     app.include_router(agents_router)
     app.include_router(news_router)
 

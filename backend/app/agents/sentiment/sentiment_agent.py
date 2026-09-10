@@ -15,6 +15,12 @@ Behavior:
 - 1–2 relevant articles         -> DEGRADED (score computed, thin evidence)
 - ≥ 3 relevant articles         -> OK
 
+Relevance (see relevance.py): an article counts only with BOTH a company
+identity hit (legal name / curated alias / ticker) AND financial/business
+context, and never when it is about an excluded topic (brand sponsorships).
+Counts (stored / relevant / rejected-by-reason) are reported in provenance
+and limitations so the screening itself is auditable.
+
 Determinism: same stored articles + same model outputs ⇒ identical output.
 Aggregation is anchored to the latest article timestamp, not the wall clock.
 See methodology.py for the documented formulas.
@@ -22,14 +28,13 @@ See methodology.py for the documented formulas.
 
 from __future__ import annotations
 
-import re
-
 from app.agents.base.base_agent import BaseAgent
 from app.agents.sentiment.methodology import (
     FULL_COVERAGE_ARTICLES,
     MIN_ARTICLES_FOR_OK,
     aggregate,
 )
+from app.agents.sentiment.relevance import assess_relevance
 from app.core.exceptions import ModelUnavailableError
 from app.core.logging import get_logger
 from app.data.universe.universe_config import get_universe_entry
@@ -54,19 +59,6 @@ def clean_text(*parts: str | None) -> str:
     """Whitespace-collapse and join non-empty parts (deterministic)."""
     joined = " ".join((p or "").strip() for p in parts if p and p.strip())
     return " ".join(joined.split())
-
-
-def is_relevant(text: str, entity_name: str, symbol: str) -> bool:
-    """Deterministic relevance: entity name (case-insensitive substring) or
-    symbol as a whole word must appear in the article text."""
-    if not text:
-        return False
-    lowered = text.lower()
-    if entity_name and entity_name.lower() in lowered:
-        return True
-    if symbol:
-        return re.search(rf"\b{re.escape(symbol.lower())}\b", lowered) is not None
-    return False
 
 
 class SentimentAgent(BaseAgent):
@@ -99,20 +91,61 @@ class SentimentAgent(BaseAgent):
                 provenance={"methodology": "sentiment_analyst_v1", "articles_stored": 0},
             )
 
-        relevant = [
-            a for a in articles
-            if is_relevant(clean_text(a.title, a.description, a.content), entry.name, entity)
-        ]
+        relevant = []
+        rejected_by_reason: dict[str, int] = {
+            "no_identity": 0,
+            "no_financial_context": 0,
+            "excluded_topic": 0,
+        }
+        rejected_examples: list[str] = []
+        for a in articles:
+            verdict = assess_relevance(a.title, a.description, a.content, entry)
+            if verdict.relevant:
+                relevant.append(a)
+            else:
+                rejected_by_reason[verdict.reason] = (
+                    rejected_by_reason.get(verdict.reason, 0) + 1
+                )
+                if len(rejected_examples) < 2:
+                    rejected_examples.append((a.title or "")[:80])
+        articles_rejected = len(articles) - len(relevant)
+        relevance_note = (
+            f"{len(relevant)} relevant of {len(articles)} stored "
+            f"({articles_rejected} excluded: "
+            f"{rejected_by_reason.get('no_identity', 0)} no company mention, "
+            f"{rejected_by_reason.get('no_financial_context', 0)} no "
+            f"financial/business context, "
+            f"{rejected_by_reason.get('excluded_topic', 0)} excluded topic)"
+        )
         if not relevant:
+            if rejected_by_reason.get("no_identity", 0) == len(articles):
+                limitation = (
+                    f"{len(articles)} stored article(s) contain no mention of "
+                    f"{entry.name} / {entity} — no relevant evidence to score "
+                    "(nothing fabricated)."
+                )
+            else:
+                examples = "; ".join(f"'{t}'" for t in rejected_examples if t)
+                limitation = (
+                    f"No analyzable evidence for {entity}: {relevance_note}."
+                    + (f" Excluded examples — e.g. {examples}." if examples else "")
+                    + " Nothing fabricated."
+                )
             return self._unavailable_output(
                 entity,
-                f"{len(articles)} stored article(s) contain no mention of "
-                f"{entry.name} / {entity} — no relevant evidence to score "
-                "(nothing fabricated).",
+                limitation,
                 provenance={
                     "methodology": "sentiment_analyst_v1",
                     "articles_stored": len(articles),
                     "articles_relevant": 0,
+                    "articles_rejected": articles_rejected,
+                    "rejected_no_identity": rejected_by_reason.get("no_identity", 0),
+                    "rejected_no_financial_context": rejected_by_reason.get(
+                        "no_financial_context", 0
+                    ),
+                    "rejected_excluded_topic": rejected_by_reason.get(
+                        "excluded_topic", 0
+                    ),
                 },
             )
 
@@ -167,7 +200,9 @@ class SentimentAgent(BaseAgent):
         components = agg["confidence_components"]
 
         status = "OK" if len(relevant) >= MIN_ARTICLES_FOR_OK else "DEGRADED"
-        limitations = self._build_limitations(articles, relevant, agg)
+        limitations = self._build_limitations(
+            articles, relevant, agg, relevance_note, rejected_examples
+        )
 
         factors = [
             AgentFactor(
@@ -177,7 +212,7 @@ class SentimentAgent(BaseAgent):
                 weight=None,
                 contribution=round(components["coverage"] * 100, 1),
                 available=True,
-                detail=f"{len(relevant)} relevant of {len(articles)} stored "
+                detail=f"{relevance_note} "
                 f"(full coverage at {FULL_COVERAGE_ARTICLES} articles) "
                 f"→ coverage {components['coverage']:.0%}",
             ),
@@ -242,7 +277,16 @@ class SentimentAgent(BaseAgent):
                 "model_id": getattr(self.model, "model_id", "unknown"),
                 "articles_stored": len(articles),
                 "articles_relevant": len(relevant),
+                "articles_rejected": articles_rejected,
+                "rejected_no_identity": rejected_by_reason.get("no_identity", 0),
+                "rejected_no_financial_context": rejected_by_reason.get(
+                    "no_financial_context", 0
+                ),
+                "rejected_excluded_topic": rejected_by_reason.get(
+                    "excluded_topic", 0
+                ),
                 "reference_ts": agg["reference_ts"].isoformat(),
+                "latest_article_date": agg["reference_ts"].date().isoformat(),
                 "weighted_mean_polarity": agg["weighted_mean_polarity"],
                 "confidence_components": agg["confidence_components"],
             },
@@ -267,8 +311,15 @@ class SentimentAgent(BaseAgent):
         )
 
     @staticmethod
-    def _build_limitations(articles, relevant, agg) -> list[str]:
-        limitations: list[str] = []
+    def _build_limitations(articles, relevant, agg, relevance_note, rejected_examples) -> list[str]:
+        limitations: list[str] = [relevance_note + "."]
+        examples = [t for t in rejected_examples if t]
+        if examples:
+            limitations.append(
+                "Excluded as non-financial/off-topic — e.g. "
+                + "; ".join(f"'{t}'" for t in examples)
+                + ". Only company-specific financial/business news is scored."
+            )
         if len(relevant) < FULL_COVERAGE_ARTICLES:
             limitations.append(
                 f"Only {len(relevant)} relevant article(s) analyzed — coverage "

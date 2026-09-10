@@ -34,6 +34,27 @@
 - Duplicate detection via SHA-256 content hash.
 - Raw files archived under `data/raw/filings/`.
 
+### Provider fundamentals — yfinance annual statements (fallback/enrichment)
+- Adapter: `backend/app/data/providers/fundamentals/yfinance_fundamentals.py`
+  (`FundamentalDataProvider`); orchestration: `FundamentalsService`
+  (`POST /api/fundamentals/refresh[/{symbol}]`, `GET /api/fundamentals/{symbol}`).
+- Annual income-statement + balance-sheet rows (up to 4 fiscal years) mapped
+  to canonical metrics (`total_revenue`, `net_income`, `total_assets`,
+  `total_equity`, `total_debt`); trailing P/E and TTM ROE from the quote
+  snapshot. Unmapped labels and rejected values are reported, never guessed.
+- **Source honesty:** stored with `source_type=yfinance`
+  (`source_name="yfinance fundamentals …"`), never as official filings. Firm
+  Agent reads the shared repository generically and does not depend on this
+  provider; official filings stay primary wherever present.
+- **Point-in-time honesty:** annual values carry real fiscal `period_end`
+  dates; snapshot ratios carry no statement period, so their `available_at`
+  falls back to ingestion time (stated as a limitation on every refresh).
+  Refresh replaces the previous provider snapshot per symbol (scoped delete);
+  official filing observations are never touched.
+- No website scraping involved — Yahoo Finance API via the yfinance client,
+  the same provider family already used for market data. No Screener.in, no
+  fabricated values.
+
 ### News — NewsAPI (`NewsProvider` adapter)
 - Adapter: `backend/app/data/providers/news/` (Milestone 7)
 - API key loaded only from `NEWS_API_KEY` env var (never committed)

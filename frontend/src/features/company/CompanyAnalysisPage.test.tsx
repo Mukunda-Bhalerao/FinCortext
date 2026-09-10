@@ -158,4 +158,92 @@ describe('CompanyAnalysisPage', () => {
     expect(screen.queryByText(/market cap/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/\/100/)).not.toBeInTheDocument();
   });
+
+  it('shows fundamentals coverage with honest source labels', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === '/api/fundamentals/TCS') {
+          return new Response(
+            JSON.stringify({
+              symbol: 'TCS',
+              name: 'Tata Consultancy Services',
+              status: 'CACHED',
+              metric_count: 7,
+              has_official: false,
+              has_provider: true,
+              metrics: {
+                total_revenue: {
+                  value: 2670210000000,
+                  unit: 'INR',
+                  period_end: '2026-03-31',
+                  source_type: 'yfinance',
+                  source_name: 'yfinance fundamentals (annual statements)',
+                  available_at: '2026-09-10T10:00:00Z',
+                },
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        const body = fullMocks[url];
+        if (body === undefined) {
+          return new Response(JSON.stringify({}), { status: 404 });
+        }
+        return new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+    render(
+      <MemoryRouter initialEntries={['/company']}>
+        <FinCortextProvider>
+          <CompanyAnalysisPage />
+        </FinCortextProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/7 metrics/)).toBeInTheDocument();
+    });
+    // Provider data is labeled as such — never presented as official filings.
+    expect(screen.getByText(/provider data \(Yahoo Finance\)/)).toBeInTheDocument();
+    expect(screen.getByText(/latest period 2026-03-31/)).toBeInTheDocument();
+  });
+
+  it('derives the coverage indicator from actual stored intelligence', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const body = fullMocks[String(input)];
+        if (body === undefined) {
+          return new Response(JSON.stringify({}), { status: 404 });
+        }
+        return new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+    render(
+      <MemoryRouter initialEntries={['/company']}>
+        <FinCortextProvider>
+          <CompanyAnalysisPage />
+        </FinCortextProvider>
+      </MemoryRouter>,
+    );
+
+    // Only the firm view has a stored score → 1/3, with the filings caveat
+    // (the fixture reports zero ingested filings).
+    await waitFor(() => {
+      expect(
+        screen.getByText('Data coverage: 1/3 intelligence views available'),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(/Coverage: Partial, official filings unavailable\./),
+    ).toBeInTheDocument();
+  });
 });

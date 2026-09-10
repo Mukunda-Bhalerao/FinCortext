@@ -20,6 +20,12 @@ UNIVERSE: list[UniverseEntry] = [
         ticker="RELIANCE.NS",
         sector="Energy",
         industry="Integrated Oil & Gas",
+        # Bare "Reliance" is case-sensitive: capitalized it overwhelmingly
+        # denotes this company in business headlines, while lowercase
+        # "reliance" is the common noun ("banks' reliance on deposits").
+        # The financial-context gate rejects any residue.
+        aliases=["RIL", "Reliance Jio", "Jio Platforms", "Mukesh Ambani"],
+        strict_aliases=["Reliance"],
     ),
     UniverseEntry(
         symbol="TCS",
@@ -28,6 +34,8 @@ UNIVERSE: list[UniverseEntry] = [
         ticker="TCS.NS",
         sector="Information Technology",
         industry="IT Services & Consulting",
+        # Bare "Tata" deliberately excluded: Tata Motors/Tata Steel/etc.
+        aliases=["TCS", "Tata Consultancy"],
     ),
     UniverseEntry(
         symbol="INFY",
@@ -36,6 +44,7 @@ UNIVERSE: list[UniverseEntry] = [
         ticker="INFY.NS",
         sector="Information Technology",
         industry="IT Services & Consulting",
+        aliases=["INFY"],
     ),
     UniverseEntry(
         symbol="HDFCBANK",
@@ -44,6 +53,8 @@ UNIVERSE: list[UniverseEntry] = [
         ticker="HDFCBANK.NS",
         sector="Financial Services",
         industry="Private Sector Bank",
+        # Bare "HDFC" excluded: HDFC Life / HDFC AMC are separate companies.
+        aliases=["HDFC Bank", "HDFCBANK"],
     ),
     UniverseEntry(
         symbol="ICICIBANK",
@@ -52,6 +63,8 @@ UNIVERSE: list[UniverseEntry] = [
         ticker="ICICIBANK.NS",
         sector="Financial Services",
         industry="Private Sector Bank",
+        # Bare "ICICI" excluded: ICICI Prudential / ICICI Lombard differ.
+        aliases=["ICICI Bank", "ICICIBANK"],
     ),
     UniverseEntry(
         symbol="BHARTIARTL",
@@ -60,6 +73,8 @@ UNIVERSE: list[UniverseEntry] = [
         ticker="BHARTIARTL.NS",
         sector="Telecommunication",
         industry="Telecom Services",
+        # Bare "Bharti" excluded: Bharti Hexacom is separately listed.
+        aliases=["Bharti Airtel", "Airtel", "BHARTIARTL", "Sunil Mittal"],
     ),
     UniverseEntry(
         symbol="ITC",
@@ -68,6 +83,7 @@ UNIVERSE: list[UniverseEntry] = [
         ticker="ITC.NS",
         sector="Fast Moving Consumer Goods",
         industry="Diversified FMCG",
+        aliases=["ITC", "ITC Ltd", "ITC Limited", "ITC Infotech"],
     ),
     UniverseEntry(
         symbol="LT",
@@ -76,6 +92,9 @@ UNIVERSE: list[UniverseEntry] = [
         ticker="LT.NS",
         sector="Construction",
         industry="Engineering & Construction",
+        # Bare "LT" excluded: two-letter tokens collide constantly
+        # (e.g. "LT Foods", abbreviations). "L&T" is the press standard.
+        aliases=["Larsen & Toubro", "Larsen and Toubro", "L&T"],
     ),
     UniverseEntry(
         symbol="SBIN",
@@ -84,6 +103,7 @@ UNIVERSE: list[UniverseEntry] = [
         ticker="SBIN.NS",
         sector="Financial Services",
         industry="Public Sector Bank",
+        aliases=["State Bank", "SBI", "SBIN"],
     ),
     UniverseEntry(
         symbol="HINDUNILVR",
@@ -92,6 +112,7 @@ UNIVERSE: list[UniverseEntry] = [
         ticker="HINDUNILVR.NS",
         sector="Fast Moving Consumer Goods",
         industry="Household & Personal Products",
+        aliases=["Hindustan Unilever", "HUL", "HINDUNILVR"],
     ),
 ]
 

@@ -32,6 +32,31 @@ describe('App demo navigation', () => {
     expect(nav).not.toHaveTextContent('Experiments');
   });
 
+  it('shows a separate expansion area with the roadmap marked as upcoming', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <App />
+      </MemoryRouter>,
+    );
+    const expansion = screen.getByRole('navigation', { name: 'Expansion' });
+    expect(expansion).toHaveTextContent('Roadmap');
+    expect(expansion).toHaveTextContent('Soon');
+    // Primary nav stays clean — the roadmap lives outside it.
+    const nav = screen.getByRole('navigation', { name: 'Main navigation' });
+    expect(nav).not.toHaveTextContent('Roadmap');
+  });
+
+  it('routes to the roadmap skeleton with under-development modules', async () => {
+    render(
+      <MemoryRouter initialEntries={['/roadmap']}>
+        <App />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('heading', { name: 'Roadmap' })).toBeInTheDocument();
+    expect(screen.getAllByText('Under Development').length).toBeGreaterThan(0);
+    expect(screen.getByText('Backtesting')).toBeInTheDocument();
+  });
+
   it('keeps hidden routes reachable (Market Data page still mounted)', () => {
     render(
       <MemoryRouter initialEntries={['/data/market']}>

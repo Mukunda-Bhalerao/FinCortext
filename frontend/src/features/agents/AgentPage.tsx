@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import AgentOutputCard from '../../components/common/AgentOutputCard';
-import { useFinCortext } from '../../app/FinCortextContext';
+import { sameSymbol, useFinCortext } from '../../app/FinCortextContext';
 import { api, ApiRequestError } from '../../services/api';
 import type { AgentOutput } from '../../types/api';
 
@@ -27,30 +27,47 @@ export default function AgentPage({
   prerequisites,
 }: AgentPageProps) {
   const { symbol, runOf, runErrorOf, recordRun, recordRunError } = useFinCortext();
+  // Tracks the selected company across async runs: a run started for TCS
+  // must never paint TCS data under a RELIANCE header if the user switches
+  // mid-flight. The run is still recorded under its own symbol.
+  const symbolRef = useRef(symbol);
+  useEffect(() => {
+    symbolRef.current = symbol;
+  }, [symbol]);
+
   const [output, setOutput] = useState<AgentOutput | null>(() => runOf(symbol, agentId) ?? null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(() => runErrorOf(symbol, agentId) ?? null);
+  const [error, setError] = useState<{ forSymbol: string; message: string } | null>(() => {
+    const message = runErrorOf(symbol, agentId);
+    return message ? { forSymbol: symbol, message } : null;
+  });
 
-  // Switching companies restores that company's previous result (if any)
-  // instead of clearing the page or re-running the analysis.
-  useEffect(() => {
-    setOutput(runOf(symbol, agentId) ?? null);
-    setError(runErrorOf(symbol, agentId) ?? null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbol, agentId]);
+  // Displayed result/error always belongs to the CURRENT company: the raw
+  // state may briefly hold another company's run (switch mid-flight), which
+  // must never be mistaken for this company's result.
+  const cached = runOf(symbol, agentId);
+  const visibleOutput =
+    output && sameSymbol(output.entity_id, symbol) ? output : (cached ?? null);
+  const visibleError =
+    error && sameSymbol(error.forSymbol, symbol)
+      ? error.message
+      : (runErrorOf(symbol, agentId) ?? null);
 
   const run = async () => {
+    const requested = symbol;
     setLoading(true);
     setError(null);
     try {
-      const result = await api.agents.run(agentId, symbol);
-      setOutput(result);
-      recordRun(symbol, agentId, result);
+      const result = await api.agents.run(agentId, requested);
+      recordRun(requested, agentId, result);
+      if (sameSymbol(symbolRef.current, requested)) setOutput(result);
     } catch (e) {
       const message = e instanceof ApiRequestError ? e.message : String(e);
-      setError(message);
-      setOutput(null);
-      recordRunError(symbol, agentId, message);
+      recordRunError(requested, agentId, message);
+      if (sameSymbol(symbolRef.current, requested)) {
+        setOutput(null);
+        setError({ forSymbol: requested, message });
+      }
     } finally {
       setLoading(false);
     }
@@ -66,13 +83,13 @@ export default function AgentPage({
 
       <div className="run-bar">
         <button className="btn btn-primary" onClick={run} disabled={loading || !symbol}>
-          {loading ? 'Running…' : output ? 'Run fresh analysis' : 'Run analysis'}
+          {loading ? 'Running…' : visibleOutput ? 'Run fresh analysis' : 'Run analysis'}
         </button>
       </div>
 
-      {output && !loading && (
+      {visibleOutput && !loading && (
         <p className="muted">
-          Showing result from {new Date(output.generated_at).toLocaleString()} — run again
+          Showing result from {new Date(visibleOutput.generated_at).toLocaleString()} — run again
           for a fresh analysis.
         </p>
       )}
@@ -90,11 +107,11 @@ export default function AgentPage({
         </p>
       </div>
 
-      {error && <p className="error-text">Error: {error}</p>}
+      {visibleError && <p className="error-text">Error: {visibleError}</p>}
 
-      {output && <AgentOutputCard output={output} />}
+      {visibleOutput && <AgentOutputCard output={visibleOutput} />}
 
-      {!output && !error && !loading && (
+      {!visibleOutput && !visibleError && !loading && (
         <p className="muted">Select a company and run the analysis to see results.</p>
       )}
     </section>

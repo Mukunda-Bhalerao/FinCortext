@@ -5,6 +5,7 @@ import type {
   AgentOutputSummary,
   FilingsListResponse,
   FilingImportResult,
+  FundamentalsCoverageResponse,
   HealthInfo,
   MarketStatusResponse,
   NewsListResponse,
@@ -104,6 +105,13 @@ export const api = {
       request<NewsRefreshResponse>(
         `/api/news/refresh/${encodeURIComponent(symbol)}?days=${days}`,
         { method: 'POST' },
+      ),
+  },
+
+  fundamentals: {
+    coverage: (symbol: string) =>
+      request<FundamentalsCoverageResponse>(
+        `/api/fundamentals/${encodeURIComponent(symbol)}`,
       ),
   },
 

@@ -89,6 +89,38 @@ def test_industry_agent_no_data_unavailable(stack):
     assert output.signal.value == "unavailable"
 
 
+def test_industry_peer_set_follows_selected_company(stack):
+    """Switching companies re-derives peers: TCS↔INFY compare against each
+    other; SBIN uses Financial Services peers; the subject is never its own
+    peer and histories never cross symbols."""
+    agent_service, market_repo, _ = stack
+    _seed_series(market_repo, "TCS", 0.005)
+    _seed_series(market_repo, "INFY", 0.001)
+    _seed_series(market_repo, "HDFCBANK", 0.002)
+    _seed_series(market_repo, "SBIN", 0.003)
+
+    tcs = agent_service.run_agent("industry_analyst", "TCS")
+    assert tcs.entity_id == "TCS"
+    assert tcs.provenance["peers_with_prices"] == ["INFY"]
+    assert tcs.provenance["sector"] == "Information Technology"
+
+    infy = agent_service.run_agent("industry_analyst", "INFY")
+    assert infy.entity_id == "INFY"
+    assert infy.provenance["peers_with_prices"] == ["TCS"]
+    # Opposite relative-strength signs: no shared/copied computation.
+    rs_tcs = next(f for f in tcs.factors if f.name == "relative_strength").value
+    rs_infy = next(f for f in infy.factors if f.name == "relative_strength").value
+    assert rs_tcs is not None and rs_infy is not None
+    assert (rs_tcs > 0) != (rs_infy > 0)
+
+    sbin = agent_service.run_agent("industry_analyst", "SBIN")
+    assert sbin.entity_id == "SBIN"
+    assert sbin.provenance["sector"] == "Financial Services"
+    assert "SBIN" not in sbin.provenance["peers_with_prices"]
+    assert "HDFCBANK" in sbin.provenance["peers_with_prices"]
+    assert "TCS" not in sbin.provenance["peers_with_prices"]
+
+
 def test_industry_agent_single_member_sector_names_cause_not_refresh(stack):
     """RELIANCE is the only Energy company in the universe. With company
     price history present, the output must say the sector has no peers —

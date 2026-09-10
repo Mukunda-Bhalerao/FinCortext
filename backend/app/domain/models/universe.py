@@ -17,3 +17,19 @@ class UniverseEntry(BaseModel):
     ticker: str = Field(description="Provider ticker, e.g. RELIANCE.NS")
     sector: str
     industry: str
+    aliases: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Alternate names/tickers matched by the Sentiment Analyst's "
+            "relevance filter (whole-word for single tokens). Deliberately "
+            "excludes bare forms that collide with common words (e.g. bare "
+            "'Reliance', bare 'LT') — see universe_config for per-company notes."
+        ),
+    )
+    strict_aliases: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Aliases matched case-sensitively (capitalized form only): brand "
+            "tokens that double as ordinary lowercase words."
+        ),
+    )

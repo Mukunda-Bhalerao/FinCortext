@@ -9,6 +9,9 @@ from __future__ import annotations
 from functools import lru_cache
 
 from app.agents.sentiment.model import get_sentiment_model
+from app.data.providers.fundamentals.yfinance_fundamentals import (
+    YFinanceFundamentalsProvider,
+)
 from app.data.providers.market.yfinance_provider import YFinanceMarketProvider
 from app.data.providers.news.newsapi_provider import NewsAPINewsProvider
 from app.data.storage.duckdb_storage import DuckDBStorage
@@ -22,6 +25,7 @@ from app.repositories.provenance_repository import ProvenanceRepository
 from app.repositories.universe_repository import UniverseRepository
 from app.services.agent_service import AgentService
 from app.services.filing_service import FilingService
+from app.services.fundamentals_service import FundamentalsService
 from app.services.market_service import MarketService
 from app.services.news_service import NewsService
 
@@ -44,12 +48,19 @@ class Container:
         symbol_to_ticker = {e.symbol: e.ticker for e in get_universe()}
         self.market_provider = YFinanceMarketProvider(symbol_to_ticker)
         self.news_provider = NewsAPINewsProvider(settings.news_api_key)
+        # Provider fundamentals (fallback/enrichment): the Firm Agent reads
+        # the shared financial repository generically and never depends on
+        # this provider specifically — official filings stay primary.
+        self.fundamentals_provider = YFinanceFundamentalsProvider(symbol_to_ticker)
 
         # Services
         self.market_service = MarketService(
             self.market_provider, self.market_repo, self.provenance_repo
         )
         self.filing_service = FilingService(self.financial_repo, self.provenance_repo)
+        self.fundamentals_service = FundamentalsService(
+            self.fundamentals_provider, self.financial_repo, self.provenance_repo
+        )
         self.news_service = NewsService(
             self.news_provider, self.news_repo, self.provenance_repo
         )

@@ -8,7 +8,7 @@ export default function FirmAnalystPage() {
       description="Deterministic fundamental + market-behavior scoring from ingested official filings and stored prices."
       methodologyDoc="Deterministic methodology v1 — documented weights, thresholds and confidence rules."
       prerequisites={[
-        'Official ingested filings provide the profitability, growth, leverage, ROE and valuation factors.',
+        'Fundamentals come from ingested official filings (primary) supplemented by provider annual-statement data — each observation carries its source.',
         'Stored market history drives the 90-day momentum factor.',
         'Missing inputs are reported as limitations — values are never fabricated.',
       ]}

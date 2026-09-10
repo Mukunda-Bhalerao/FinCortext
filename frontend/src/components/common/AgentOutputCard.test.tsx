@@ -99,4 +99,38 @@ describe('AgentOutputCard', () => {
     // Status appears in both the score dial and the status badge
     expect(screen.getAllByText('UNAVAILABLE').length).toBeGreaterThanOrEqual(1);
   });
+
+  it('shows analysis time separately from data-through dates', () => {
+    render(
+      <AgentOutputCard
+        output={{
+          ...baseOutput,
+          provenance: {
+            methodology: 'firm_analyst_v1',
+            market_latest_date: '2026-09-04',
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText(/Analysed/)).toBeInTheDocument();
+    expect(screen.getByText(/market data through 2026-09-04/)).toBeInTheDocument();
+    expect(screen.queryByText(/news through/)).not.toBeInTheDocument();
+  });
+
+  it('shows news-through dates for sentiment outputs', () => {
+    render(
+      <AgentOutputCard
+        output={{
+          ...baseOutput,
+          agent_id: 'sentiment_analyst',
+          provenance: {
+            methodology: 'sentiment_analyst_v1',
+            latest_article_date: '2026-09-05',
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText(/news through 2026-09-05/)).toBeInTheDocument();
+    expect(screen.queryByText(/market data through/)).not.toBeInTheDocument();
+  });
 });
