@@ -206,6 +206,40 @@ per company, selector switching TCS→INFY, RELIANCE single-member peers,
 no-refetch on remount, Dashboard→all-four-analysts→Dashboard symbol
 persistence with RELIANCE, localStorage isolation between tests).
 
+### Milestone 12 — Sidebar Terminal + Company Analysis ✅
+
+**Reference-driven frontend rebuild (no backend changes):** left sidebar with
+logo + six demo destinations (Dashboard, Company Analysis, Firm/Industry/
+Sentiment Analysts, Intelligence Summary); Data/Research sections removed from
+the visible UI, routes stay mounted but unlinked. One global company search in
+the topbar (filterable, keyboard navigable) feeds every page — page-level
+selectors removed. Topbar freshness pill mirrors the real stored-series status
+(LIVE-only pulse) plus the latest available trading date; no fake "live" claims.
+
+**Dashboard** follows the reference layout with real data only: identity header
+(price, day change, day high/low, volume, Analyze → Company Analysis), anchor
+tabs, price-performance chart (1M/3M/6M/1Y/All), Market Context with real
+stored peer quotes, compact stored intelligence (latest output per analyst +
+detail links), recent stored news, and a Key Takeaway deterministically derived
+from stored outputs (missing views reported, never hidden). No Nifty/indices,
+no market cap, no blended scores — the backend provides none.
+
+**New Company Analysis page** (`/company`): stored price statistics, data
+inventory (prices/news/filings/analyst run history), sector peers. Shared
+derivations extracted to `features/company/` (`priceStats` + unit tests,
+`usePeerQuotes`, `useFilingsCount`, `PeerTable`).
+
+**Company-selection reliability:** re-verified live (RELIANCE firm 56.0
+DEGRADED, INFY sentiment 79.4 DEGRADED + firm 35.9 DEGRADED, RELIANCE industry
+honestly UNAVAILABLE as single-member Energy sector). Frontend flow stays fully
+symbol-generic; `FinCortextContext` hardened with ref-mirror caches so stale
+closures after rapid switches can never duplicate a settled fetch (also
+stabilizes callback identity → fewer effect re-runs).
+
+**Tests:** backend 127 unchanged; frontend 24 (sidebar nav, search switching,
+takeaway derivation incl. partial coverage, company page inventory, priceStats
+unit tests, full Dashboard→all-pages→Dashboard persistence). Build clean.
+
 ## CURRENT STATE
 
 - Backend: 126 tests passing. Market pipeline, filing ingestion, Firm
@@ -218,8 +252,8 @@ persistence with RELIANCE, localStorage isolation between tests).
   than half of the documented factor weight.
 - Industry Analyst auto-prepares its market data (company + sector peers):
   fresh cached history is reused, only missing/stale symbols are fetched.
-- Demo navigation: Dashboard + the three analysts + Combined Summary; all
-  other pages remain mounted at their routes but are unlinked.
+- Demo navigation: Dashboard, Company Analysis + the three analysts + Intelligence
+  Summary in the sidebar; all other pages remain mounted at their routes but are unlinked.
 - Frontend: 10 component tests passing; production build clean.
 - All three implemented agents (firm/industry/sentiment) emit the
   standardized AgentOutput via `POST /api/agents/{agent}/{symbol}/run`.
@@ -227,9 +261,9 @@ persistence with RELIANCE, localStorage isolation between tests).
 ## TEST STATUS
 
 - `cd backend && python -m pytest` — **127 passed**
-- Frontend `npm test` — **16 passed** (terminal rendering, company switching,
-  single-member peers, no-refetch on remount, full Dashboard→analysts→Dashboard
-  persistence, localStorage test isolation)
+- Frontend `npm test` — **24 passed** (sidebar nav, search switching, takeaway
+  derivation, company page inventory, priceStats unit tests, full
+  Dashboard→all-pages→Dashboard persistence, no-refetch, localStorage isolation)
 - Frontend `npm run build` — passing
 
 ## KNOWN LIMITATIONS

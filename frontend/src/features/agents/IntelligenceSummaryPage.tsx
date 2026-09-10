@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import AgentOutputCard from '../../components/common/AgentOutputCard';
-import CompanySelector from '../../components/common/CompanySelector';
 import { useFinCortext } from '../../app/FinCortextContext';
 import { api, ApiRequestError } from '../../services/api';
 import type { AgentOutput } from '../../types/api';
@@ -19,7 +18,7 @@ type Entry = AgentOutput | { error: string };
  * away and back restores the previous results with no re-run.
  */
 export default function IntelligenceSummaryPage() {
-  const { symbol, setSymbol, runOf, runErrorOf, recordRun, recordRunError } = useFinCortext();
+  const { symbol, runOf, runErrorOf, recordRun, recordRunError } = useFinCortext();
   const restore = (s: string): Record<string, Entry> => {
     const restored: Record<string, Entry> = {};
     for (const agent of AGENTS) {
@@ -78,13 +77,13 @@ export default function IntelligenceSummaryPage() {
     <section className="page">
       <h2>Combined Intelligence Summary</h2>
       <p className="muted page-description">
-        The three analysts read the same company through different evidence —
+        The three analysts read <strong>{symbol}</strong> through different evidence —
         fundamentals, industry peers, and news tone. Their views sit side by side;
-        FinCortext does not blend them into one overall score.
+        FinCortext does not blend them into one overall score. Change the company
+        in the search bar above.
       </p>
 
       <div className="run-bar">
-        <CompanySelector value={symbol} onChange={setSymbol} />
         <button className="btn btn-primary" onClick={runAll} disabled={running || !symbol}>
           {running ? 'Running all analysts…' : anyResult ? 'Run fresh analysis' : 'Run all analysts'}
         </button>

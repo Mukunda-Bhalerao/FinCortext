@@ -1,7 +1,11 @@
+import { useEffect } from 'react';
 import { Routes, Route, NavLink, Navigate } from 'react-router-dom';
 import FinCortextLogo from '../utils/FinCortextLogo.png';
 import { FinCortextProvider, useFinCortext } from './FinCortextContext';
+import CompanySelector from '../components/common/CompanySelector';
+import StatusBadge from '../components/common/StatusBadge';
 import DashboardPage from '../features/dashboard/DashboardPage';
+import CompanyAnalysisPage from '../features/company/CompanyAnalysisPage';
 import DataSourcesPage from '../features/data/DataSourcesPage';
 import DataPipelinePage from '../features/data/DataPipelinePage';
 import MarketDataPage from '../features/data/MarketDataPage';
@@ -17,26 +21,118 @@ interface NavItem {
   to: string;
   label: string;
   end?: boolean;
+  icon: JSX.Element;
 }
 
-/** Product navigation — the five demo destinations. Internal data tooling
- *  stays reachable by URL but out of the demo path. */
+const iconProps = {
+  viewBox: '0 0 16 16',
+  width: 15,
+  height: 15,
+  'aria-hidden': true,
+} as const;
+
+/** Product navigation — the six demo destinations. Internal data tooling
+ *  stays reachable by URL but out of the demo UI. */
 const NAV_ITEMS: NavItem[] = [
-  { to: '/', label: 'Dashboard', end: true },
-  { to: '/intelligence/firm', label: 'Firm Analyst' },
-  { to: '/intelligence/industry', label: 'Industry Analyst' },
-  { to: '/intelligence/sentiment', label: 'Sentiment Analyst' },
-  { to: '/intelligence/summary', label: 'Combined Summary' },
+  {
+    to: '/',
+    label: 'Dashboard',
+    end: true,
+    icon: (
+      <svg {...iconProps}>
+        <rect x="1.5" y="1.5" width="5" height="5" rx="1" fill="none" stroke="currentColor" strokeWidth="1.4" />
+        <rect x="9.5" y="1.5" width="5" height="5" rx="1" fill="none" stroke="currentColor" strokeWidth="1.4" />
+        <rect x="1.5" y="9.5" width="5" height="5" rx="1" fill="none" stroke="currentColor" strokeWidth="1.4" />
+        <rect x="9.5" y="9.5" width="5" height="5" rx="1" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      </svg>
+    ),
+  },
+  {
+    to: '/company',
+    label: 'Company Analysis',
+    icon: (
+      <svg {...iconProps}>
+        <rect x="2.5" y="5" width="11" height="9" rx="1" fill="none" stroke="currentColor" strokeWidth="1.4" />
+        <path d="M5.5 5V3.5h5V5M5.5 8h2M5.5 10.5h2M9.5 8h1M9.5 10.5h1" stroke="currentColor" strokeWidth="1.3" />
+      </svg>
+    ),
+  },
+  {
+    to: '/intelligence/firm',
+    label: 'Firm Analyst',
+    icon: (
+      <svg {...iconProps}>
+        <path d="M2.5 13.5V8l3.5-4 3.5 4v5.5M9.5 13.5V9.5l4-2.5v6.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      </svg>
+    ),
+  },
+  {
+    to: '/intelligence/industry',
+    label: 'Industry Analyst',
+    icon: (
+      <svg {...iconProps}>
+        <circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
+        <path d="M8 2.5v11M2.5 8h11" stroke="currentColor" strokeWidth="1.1" />
+      </svg>
+    ),
+  },
+  {
+    to: '/intelligence/sentiment',
+    label: 'Sentiment Analyst',
+    icon: (
+      <svg {...iconProps}>
+        <path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2v-7z" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      </svg>
+    ),
+  },
+  {
+    to: '/intelligence/summary',
+    label: 'Intelligence Summary',
+    icon: (
+      <svg {...iconProps}>
+        <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h7" stroke="currentColor" strokeWidth="1.4" />
+      </svg>
+    ),
+  },
 ];
 
+/** Right side of the topbar: real data freshness for the selected company.
+ *  Never claims "live" — the badge mirrors the stored series status and the
+ *  latest available trading date. */
+function FreshnessPill() {
+  const { symbol, pricesOf, ensurePrices } = useFinCortext();
+  const series = pricesOf(symbol);
+  // Warm the shared per-symbol cache so the pill is live on every page.
+  useEffect(() => {
+    ensurePrices(symbol).catch(() => undefined);
+  }, [symbol, ensurePrices]);
+  if (series === undefined) {
+    return <span className="muted freshness-pill">Loading market data…</span>;
+  }
+  if (series === null) {
+    return <span className="muted freshness-pill">Market data unavailable</span>;
+  }
+  return (
+    <span className="freshness-pill">
+      <StatusBadge status={series.status} />
+      {series.status === 'LIVE' && (
+        <span className="live-dot" title="Latest available data" aria-label="Latest available data" />
+      )}
+      <span className="muted">
+        {series.latest_trade_date ? `As of ${series.latest_trade_date}` : 'No trading date'}
+      </span>
+    </span>
+  );
+}
+
 function Shell() {
-  const { symbol } = useFinCortext();
+  const { symbol, setSymbol } = useFinCortext();
   const withSymbol = (to: string) =>
     symbol ? `${to}?symbol=${encodeURIComponent(symbol)}` : to;
 
   return (
     <div className="app-shell">
-      <header className="app-header">
+      <aside className="sidebar">
         <div className="brand">
           <img src={FinCortextLogo} alt="FinCortext logo" className="brand-logo" />
           <div className="brand-text">
@@ -44,7 +140,7 @@ function Shell() {
             <span className="brand-tagline">Investment intelligence</span>
           </div>
         </div>
-        <nav className="app-nav" aria-label="Main navigation">
+        <nav className="side-nav" aria-label="Main navigation">
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
@@ -54,106 +150,118 @@ function Shell() {
                 isActive ? 'nav-link active' : 'nav-link'
               }
             >
+              <span className="nav-icon">{item.icon}</span>
               {item.label}
             </NavLink>
           ))}
         </nav>
-      </header>
-      {/* NOTE: no `key` on <main> — keying by pathname used to remount every
-          page on navigation, discarding the company selection and analysis
-          results. Research state lives in FinCortextProvider instead. */}
-      <main className="app-main">
-        <Routes>
-          <Route path="/" element={<DashboardPage />} />
+        <div className="side-foot">
+          <span className="side-flow">Data → Intelligence → Decision</span>
+          <span className="muted">FinCortext research demo</span>
+        </div>
+      </aside>
+      <div className="shell-main">
+        {/* NOTE: no `key` on <main> — keying by pathname used to remount every
+            page on navigation, discarding the company selection and analysis
+            results. Research state lives in FinCortextProvider instead. */}
+        <header className="topbar">
+          <CompanySelector value={symbol} onChange={setSymbol} />
+          <FreshnessPill />
+        </header>
+        <main className="app-main">
+          <Routes>
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/company" element={<CompanyAnalysisPage />} />
 
-          {/* Data tooling — internal routes, intentionally unlinked */}
-          <Route path="/data/sources" element={<DataSourcesPage />} />
-          <Route path="/data/pipeline" element={<DataPipelinePage />} />
-          <Route path="/data/market" element={<MarketDataPage />} />
-          <Route path="/data/filings" element={<FilingImportPage />} />
-          <Route path="/data/quality" element={<DataQualityPage />} />
-          <Route path="/data" element={<Navigate to="/data/sources" replace />} />
+            {/* Data tooling — internal routes, intentionally unlinked */}
+            <Route path="/data/sources" element={<DataSourcesPage />} />
+            <Route path="/data/pipeline" element={<DataPipelinePage />} />
+            <Route path="/data/market" element={<MarketDataPage />} />
+            <Route path="/data/filings" element={<FilingImportPage />} />
+            <Route path="/data/quality" element={<DataQualityPage />} />
+            <Route path="/data" element={<Navigate to="/data/sources" replace />} />
 
-          {/* Intelligence */}
-          <Route path="/intelligence/firm" element={<FirmAnalystPage />} />
-          <Route path="/intelligence/industry" element={<IndustryAnalystPage />} />
-          <Route path="/intelligence/sentiment" element={<SentimentAnalystPage />} />
-          <Route path="/intelligence/summary" element={<IntelligenceSummaryPage />} />
-          <Route
-            path="/intelligence/macro"
-            element={
-              <PlaceholderPage
-                title="Macro Analyst"
-                note="Coming soon — macro-economic analysis is not implemented. It will join the standardized AgentOutput contract when built."
-              />
-            }
-          />
+            {/* Intelligence */}
+            <Route path="/intelligence/firm" element={<FirmAnalystPage />} />
+            <Route path="/intelligence/industry" element={<IndustryAnalystPage />} />
+            <Route path="/intelligence/sentiment" element={<SentimentAnalystPage />} />
+            <Route path="/intelligence/summary" element={<IntelligenceSummaryPage />} />
+            <Route
+              path="/intelligence/macro"
+              element={
+                <PlaceholderPage
+                  title="Macro Analyst"
+                  note="Coming soon — macro-economic analysis is not implemented. It will join the standardized AgentOutput contract when built."
+                />
+              }
+            />
 
-          {/* Portfolio — future placeholders only */}
-          <Route
-            path="/portfolio"
-            element={
-              <PlaceholderPage
-                title="Portfolio Agent"
-                note="Reserved for the future Portfolio Agent. It will consume the standardized outputs of the implemented analysts — no portfolio recommendations or weights are generated today."
-              />
-            }
-          />
-          <Route
-            path="/portfolio/risk"
-            element={
-              <PlaceholderPage
-                title="Risk & Constraints"
-                note="Future risk/constraint engine — not implemented."
-              />
-            }
-          />
-          <Route
-            path="/portfolio/optimization"
-            element={
-              <PlaceholderPage
-                title="Optimization"
-                note="Future portfolio optimization — not implemented. No random or fake weights will ever be shown."
-              />
-            }
-          />
+            {/* Portfolio — future placeholders only */}
+            <Route
+              path="/portfolio"
+              element={
+                <PlaceholderPage
+                  title="Portfolio Agent"
+                  note="Reserved for the future Portfolio Agent. It will consume the standardized outputs of the implemented analysts — no portfolio recommendations or weights are generated today."
+                />
+              }
+            />
+            <Route
+              path="/portfolio/risk"
+              element={
+                <PlaceholderPage
+                  title="Risk & Constraints"
+                  note="Future risk/constraint engine — not implemented."
+                />
+              }
+            />
+            <Route
+              path="/portfolio/optimization"
+              element={
+                <PlaceholderPage
+                  title="Optimization"
+                  note="Future portfolio optimization — not implemented. No random or fake weights will ever be shown."
+                />
+              }
+            />
 
-          {/* Research — future placeholders only */}
-          <Route
-            path="/research/backtesting"
-            element={
-              <PlaceholderPage
-                title="Backtesting"
-                note="Future backtesting engine — not implemented. Point-in-time metadata is already preserved to support it later."
-              />
-            }
-          />
-          <Route
-            path="/research/performance"
-            element={
-              <PlaceholderPage
-                title="Performance"
-                note="Future performance evaluation — not implemented."
-              />
-            }
-          />
-          <Route
-            path="/research/experiments"
-            element={
-              <PlaceholderPage
-                title="Experiments"
-                note="Future experiment tracking — not implemented."
-              />
-            }
-          />
-          <Route path="/research" element={<Navigate to="/research/backtesting" replace />} />
+            {/* Research — future placeholders only */}
+            <Route
+              path="/research/backtesting"
+              element={
+                <PlaceholderPage
+                  title="Backtesting"
+                  note="Future backtesting engine — not implemented. Point-in-time metadata is already preserved to support it later."
+                />
+              }
+            />
+            <Route
+              path="/research/performance"
+              element={
+                <PlaceholderPage
+                  title="Performance"
+                  note="Future performance evaluation — not implemented."
+                />
+              }
+            />
+            <Route
+              path="/research/experiments"
+              element={
+                <PlaceholderPage
+                  title="Experiments"
+                  note="Future experiment tracking — not implemented."
+                />
+              }
+            />
+            <Route path="/research" element={<Navigate to="/research/backtesting" replace />} />
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
-      <footer className="app-footer">
-        <span>FinCortext — investment intelligence research demo</span>
-      </footer>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
+        <footer className="app-footer">
+          <span>FinCortext — investment intelligence research demo</span>
+        </footer>
+      </div>
     </div>
   );
 }

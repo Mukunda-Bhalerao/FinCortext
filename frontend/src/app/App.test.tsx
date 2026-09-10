@@ -3,20 +3,21 @@ import { MemoryRouter } from 'react-router-dom';
 import App from './App';
 
 describe('App demo navigation', () => {
-  it('shows only Dashboard and the four intelligence entries', () => {
+  it('shows the six demo destinations in the sidebar', () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <App />
       </MemoryRouter>,
     );
-    const nav = screen.getByRole('navigation');
+    const nav = screen.getByRole('navigation', { name: 'Main navigation' });
     expect(nav).toHaveTextContent('Dashboard');
+    expect(nav).toHaveTextContent('Company Analysis');
     expect(nav).toHaveTextContent('Firm Analyst');
     expect(nav).toHaveTextContent('Industry Analyst');
     expect(nav).toHaveTextContent('Sentiment Analyst');
-    expect(nav).toHaveTextContent('Combined Summary');
+    expect(nav).toHaveTextContent('Intelligence Summary');
 
-    // Hidden for the demo — pages/routes still exist, just not in the nav.
+    // No data/backend sections in the demo UI — routes stay reachable by URL.
     expect(nav).not.toHaveTextContent('Data Sources');
     expect(nav).not.toHaveTextContent('Data Pipeline');
     expect(nav).not.toHaveTextContent('Market Data');
@@ -92,12 +93,13 @@ describe('App demo navigation', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    // Dashboard → each analyst → Dashboard must keep the company correct.
+    // Dashboard → each demo page → Dashboard must keep the company correct.
     const legs: Array<{ link: string; heading: string }> = [
+      { link: 'Company Analysis', heading: 'Company Analysis' },
       { link: 'Firm Analyst', heading: 'Firm Analyst' },
       { link: 'Industry Analyst', heading: 'Industry Analyst' },
       { link: 'Sentiment Analyst', heading: 'Sentiment Analyst' },
-      { link: 'Combined Summary', heading: 'Combined Intelligence Summary' },
+      { link: 'Intelligence Summary', heading: 'Combined Intelligence Summary' },
     ];
 
     try {

@@ -1,12 +1,15 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { FinCortextProvider } from '../../app/FinCortextContext';
-import DashboardPage from './DashboardPage';
+import { FinCortextProvider, useFinCortext } from '../../app/FinCortextContext';
+import CompanySelector from '../../components/common/CompanySelector';
+import DashboardPage, { buildTakeaway } from './DashboardPage';
+import type { AgentOutputSummary } from '../../types/api';
 
 /**
- * The Dashboard is a market terminal: identity, price action, history,
- * peers, news, freshness. It shows NO analyst scores (those live on their
- * dedicated pages) and only real backend values — never invented numbers.
+ * The Dashboard is a company/market overview in the terminal layout. It shows
+ * compact stored analyst views and a derived takeaway, but no full
+ * calculations — those live on the dedicated pages. Only real backend values
+ * appear; indices, market caps and scores are never invented.
  */
 
 const universeResp = {
@@ -91,6 +94,43 @@ function newsFor(symbol: string, title: string) {
   };
 }
 
+function outputsFor(
+  symbol: string,
+  rows: Array<{
+    agent: string;
+    score: number | null;
+    signal: AgentOutputSummary['signal'];
+    confidence: number;
+    status: AgentOutputSummary['status'];
+  }>,
+) {
+  return {
+    count: rows.length,
+    outputs: rows.map((r, i) => ({
+      output_id: `${symbol}-${r.agent}-${i}`,
+      agent_id: r.agent,
+      entity_id: symbol,
+      score: r.score,
+      signal: r.signal,
+      confidence: r.confidence,
+      generated_at: `2026-08-3${i}T10:00:00Z`,
+      status: r.status,
+    })),
+  };
+}
+
+const tcsOutputs = outputsFor('TCS', [
+  { agent: 'firm_analyst', score: 59.2, signal: 'buy', confidence: 0.06, status: 'DEGRADED' },
+  { agent: 'industry_analyst', score: 64.1, signal: 'buy', confidence: 0.56, status: 'OK' },
+  { agent: 'sentiment_analyst', score: 57.4, signal: 'buy', confidence: 0.79, status: 'OK' },
+]);
+
+const relianceOutputs = outputsFor('RELIANCE', [
+  { agent: 'firm_analyst', score: 56.0, signal: 'buy', confidence: 0.06, status: 'DEGRADED' },
+  { agent: 'industry_analyst', score: null, signal: 'unavailable', confidence: 0, status: 'UNAVAILABLE' },
+  { agent: 'sentiment_analyst', score: 69.5, signal: 'buy', confidence: 0.71, status: 'OK' },
+]);
+
 const marketStatusResp = {
   symbols: [
     { symbol: 'TCS', name: 'Tata Consultancy Services', rows: 40, latest_trade_date: '2026-08-28', status: 'CACHED' },
@@ -100,6 +140,23 @@ const marketStatusResp = {
 };
 
 const filingsResp = { count: 2, documents: [] };
+
+const fullMocks: Record<string, unknown> = {
+  '/api/universe': universeResp,
+  '/api/market/prices/TCS': tcsSeries,
+  '/api/market/prices/RELIANCE': relianceSeries,
+  '/api/market/prices/INFY': infySeries,
+  '/api/news/TCS?limit=5': newsFor('TCS', 'TCS reports steady quarter'),
+  '/api/news/RELIANCE?limit=5': newsFor('RELIANCE', 'Reliance announces new energy push'),
+  '/api/news/INFY?limit=5': newsFor('INFY', 'Infosys wins large deal'),
+  '/api/market/status': marketStatusResp,
+  '/api/filings?symbol=TCS': filingsResp,
+  '/api/filings?symbol=RELIANCE': filingsResp,
+  '/api/filings?symbol=INFY': filingsResp,
+  '/api/agents/outputs?symbol=TCS&limit=30': tcsOutputs,
+  '/api/agents/outputs?symbol=RELIANCE&limit=30': relianceOutputs,
+  '/api/agents/outputs?symbol=INFY&limit=30': outputsFor('INFY', []),
+};
 
 function mockFetch(responses: Record<string, unknown>) {
   return vi.fn(async (input: RequestInfo | URL) => {
@@ -115,14 +172,6 @@ function mockFetch(responses: Record<string, unknown>) {
   });
 }
 
-const mocksFor = (symbol: string, s: unknown, title: string) => ({
-  '/api/universe': universeResp,
-  [`/api/market/prices/${symbol}`]: s,
-  [`/api/news/${symbol}?limit=5`]: newsFor(symbol, title),
-  '/api/market/status': marketStatusResp,
-  [`/api/filings?symbol=${symbol}`]: filingsResp,
-});
-
 function renderDashboard(initialEntries = ['/']) {
   return render(
     <MemoryRouter initialEntries={initialEntries}>
@@ -133,6 +182,12 @@ function renderDashboard(initialEntries = ['/']) {
   );
 }
 
+/** The topbar search lives in the App shell — harness it for page-level tests. */
+function SelectorHarness() {
+  const { symbol, setSymbol } = useFinCortext();
+  return <CompanySelector value={symbol} onChange={setSymbol} />;
+}
+
 describe('DashboardPage terminal', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -141,72 +196,89 @@ describe('DashboardPage terminal', () => {
     localStorage.clear();
   });
 
-  it('renders the TCS terminal with real price action and no analyst scores', async () => {
-    vi.stubGlobal('fetch', mockFetch(mocksFor('TCS', tcsSeries, 'TCS reports steady quarter')));
+  it('renders the TCS overview with real market data and stored intelligence', async () => {
+    vi.stubGlobal('fetch', mockFetch(fullMocks));
     renderDashboard();
 
     // Company identity.
     await waitFor(() => {
       expect(screen.getByText(/₹2,339\.00/)).toBeInTheDocument(); // latest close
     });
-    expect(
-      screen.getByText('Tata Consultancy Services', { selector: '.term-name' }),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Tata Consultancy Services', { selector: '.term-name' })).toBeInTheDocument();
     expect(screen.getByText('TCS.NS')).toBeInTheDocument();
     expect(screen.getByText('Information Technology', { selector: '.chip' })).toBeInTheDocument();
-    expect(screen.getByText('Day high')).toBeInTheDocument();
-    expect(screen.getByText('Day low')).toBeInTheDocument();
+
+    // Reference-style header stats — all real.
+    expect(screen.getByText('Day High')).toBeInTheDocument();
+    expect(screen.getByText('Day Low')).toBeInTheDocument();
     expect(screen.getByText('Volume')).toBeInTheDocument();
-    expect(screen.getByText('30-day change')).toBeInTheDocument();
-    expect(screen.getByText('90-day momentum')).toBeInTheDocument();
-    // Latest trade date appears in the header, peers and chart note.
-    expect(screen.getAllByText('2026-08-28').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('▶ Analyze Company')).toBeInTheDocument();
+
+    // Section tabs and chart ranges.
+    for (const tab of ['Overview', 'Price Chart', 'Intelligence', 'News', 'Peers']) {
+      expect(screen.getByText(tab, { selector: '.tab-btn' })).toBeInTheDocument();
+    }
+    expect(screen.getByText('Price Performance')).toBeInTheDocument();
+
+    // Market context shows the real peer quote (INFY last close 1739).
+    expect(screen.getByText('Market Context')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/₹1,739\.00/)).toBeInTheDocument();
+    });
+
+    // Compact stored intelligence — pointers, not full calculations.
+    expect(screen.getByText('FinCortext Intelligence')).toBeInTheDocument();
+    expect(screen.getByText('Firm Analyst', { selector: '.intel-label' })).toBeInTheDocument();
+    expect(screen.getByText('DEGRADED')).toBeInTheDocument();
+
+    // Key takeaway derived from the stored outputs.
+    expect(screen.getByText('Key Takeaway')).toBeInTheDocument();
+    expect(screen.getByText(/All three analyst views are stored/)).toBeInTheDocument();
 
     // Real stored news.
     expect(screen.getByText('TCS reports steady quarter')).toBeInTheDocument();
 
-    // Sector peers (IT: TCS + INFY) with peer switching available.
-    expect(screen.getByText('INFY', { selector: '.peer-link' })).toBeInTheDocument();
-
-    // Freshness evidence, including ingested filings.
-    expect(screen.getByText(/2 ingested official filings/)).toBeInTheDocument();
-
-    // No analyst duplication on the Dashboard.
-    expect(screen.queryByText(/Confidence/)).not.toBeInTheDocument();
-    expect(screen.queryByText('Combined Intelligence')).not.toBeInTheDocument();
-    expect(screen.queryByText(/Firm Analyst.*score/i)).not.toBeInTheDocument();
-
-    // Navigation aids point at the dedicated pages instead.
-    expect(screen.getByText('Firm Analyst →')).toBeInTheDocument();
-    expect(screen.getByText('Combined Summary →')).toBeInTheDocument();
+    // Nothing invented: no indices, no market cap, no blended score.
+    expect(screen.queryByText(/nifty/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/market cap/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Contributing factors/)).not.toBeInTheDocument();
   });
 
-  it('renders RELIANCE with its own data and single-member sector', async () => {
-    vi.stubGlobal(
-      'fetch',
-      mockFetch(mocksFor('RELIANCE', relianceSeries, 'Reliance announces new energy push')),
-    );
+  it('renders RELIANCE with its own data and an honest partial takeaway', async () => {
+    vi.stubGlobal('fetch', mockFetch(fullMocks));
     renderDashboard(['/?symbol=RELIANCE']);
 
     await waitFor(() => {
       expect(screen.getByText(/₹1,439\.00/)).toBeInTheDocument();
     });
-    expect(
-      screen.getByText('Reliance Industries', { selector: '.term-name' }),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Reliance Industries', { selector: '.term-name' })).toBeInTheDocument();
     expect(screen.getByText('Energy', { selector: '.chip' })).toBeInTheDocument();
     expect(screen.getByText('Reliance announces new energy push')).toBeInTheDocument();
+
     // Single-member sector: peer table holds only RELIANCE, no fabricated peers.
     expect(screen.queryByText('INFY', { selector: '.peer-link' })).not.toBeInTheDocument();
+
+    // Industry view stored as UNAVAILABLE — shown as-is with its status.
+    expect(
+      screen.getByText('UNAVAILABLE', { selector: '.badge-status-unavailable' }),
+    ).toBeInTheDocument();
+
+    // Takeaway reports partial coverage instead of hiding it.
+    expect(screen.getByText(/2 lean positive/)).toBeInTheDocument();
+    expect(screen.getByText(/Coverage is partial/)).toBeInTheDocument();
   });
 
-  it('switching companies in the selector reloads the terminal with that company', async () => {
-    const fetchMock = mockFetch({
-      ...mocksFor('TCS', tcsSeries, 'TCS reports steady quarter'),
-      ...mocksFor('INFY', infySeries, 'Infosys wins large deal'),
-    });
+  it('switching companies in the search reloads the terminal with that company', async () => {
+    const fetchMock = mockFetch(fullMocks);
     vi.stubGlobal('fetch', fetchMock);
-    renderDashboard();
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <FinCortextProvider>
+          <SelectorHarness />
+          <DashboardPage />
+        </FinCortextProvider>
+      </MemoryRouter>,
+    );
 
     await waitFor(() => {
       expect(screen.getByText(/₹2,339\.00/)).toBeInTheDocument();
@@ -215,13 +287,13 @@ describe('DashboardPage terminal', () => {
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'INFY' } });
 
     await waitFor(() => {
-      expect(screen.getByText(/₹1,739\.00/)).toBeInTheDocument();
+      expect(screen.getByText(/₹1,739\.00/, { selector: '.term-price' })).toBeInTheDocument();
     });
-    expect(
-      screen.getByText('Infosys', { selector: '.term-name' }),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Infosys', { selector: '.term-name' })).toBeInTheDocument();
     expect(screen.getByText('Infosys wins large deal')).toBeInTheDocument();
-    expect(screen.queryByText(/₹2,339\.00/)).not.toBeInTheDocument();
+    // Header price switched; TCS remains visible only as a real peer quote.
+    expect(screen.queryByText(/₹2,339\.00/, { selector: '.term-price' })).not.toBeInTheDocument();
+    expect(screen.getByText('TCS', { selector: '.peer-link' })).toBeInTheDocument();
     // The newly selected company's backend reads were issued exactly once.
     expect(
       fetchMock.mock.calls.filter(([url]) => String(url) === '/api/market/prices/INFY').length,
@@ -240,7 +312,7 @@ describe('DashboardPage terminal', () => {
   });
 
   it('does not refetch cached data when the page remounts (route change)', async () => {
-    const fetchMock = mockFetch(mocksFor('TCS', tcsSeries, 'TCS reports steady quarter'));
+    const fetchMock = mockFetch(fullMocks);
     vi.stubGlobal('fetch', fetchMock);
 
     const { rerender } = render(
@@ -280,5 +352,45 @@ describe('DashboardPage terminal', () => {
     expect(
       fetchMock.mock.calls.filter(([url]) => String(url) === '/api/news/TCS?limit=5').length,
     ).toBe(1);
+  });
+});
+
+describe('buildTakeaway', () => {
+  const row = (
+    agent: string,
+    score: number | null,
+    signal: AgentOutputSummary['signal'],
+    status: AgentOutputSummary['status'],
+  ): AgentOutputSummary => ({
+    output_id: `${agent}-1`,
+    agent_id: agent,
+    entity_id: 'TCS',
+    score,
+    signal,
+    confidence: 0.5,
+    generated_at: '2026-08-30T10:00:00Z',
+    status,
+  });
+
+  it('reports missing coverage instead of inventing a summary', () => {
+    const t = buildTakeaway('TCS', 'Tata Consultancy Services', new Map());
+    expect(t.complete).toBe(false);
+    expect(t.headline).toMatch(/No analyst results stored/);
+  });
+
+  it('counts leaning views from real stored outputs only', () => {
+    const t = buildTakeaway(
+      'TCS',
+      'Tata Consultancy Services',
+      new Map([
+        ['firm_analyst', row('firm_analyst', 59, 'buy', 'DEGRADED')],
+        ['industry_analyst', row('industry_analyst', 64, 'buy', 'OK')],
+        ['sentiment_analyst', row('sentiment_analyst', 40, 'sell', 'OK')],
+      ]),
+    );
+    expect(t.headline).toMatch(/All three analyst views are stored/);
+    expect(t.headline).toMatch(/2 lean positive and 1 leans negative/);
+    expect(t.complete).toBe(false); // DEGRADED present
+    expect(t.lines.join(' ')).toMatch(/Coverage is partial/);
   });
 });

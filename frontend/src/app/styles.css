@@ -21,14 +21,80 @@
 html, body, #root { margin: 0; min-height: 100vh; }
 body { background: var(--bg); color: var(--text); }
 
-.app-shell { display: flex; flex-direction: column; min-height: 100vh; }
+.app-shell { display: flex; min-height: 100vh; }
 
-.app-header {
-  display: flex; align-items: center; justify-content: space-between;
-  flex-wrap: wrap; gap: 12px;
-  padding: 12px 28px;
+/* --- sidebar -------------------------------------------------------------- */
+.sidebar {
+  width: 236px; flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 16px;
+  padding: 18px 14px;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border);
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+}
+.side-nav { display: flex; flex-direction: column; gap: 2px; }
+.side-nav .nav-link { display: flex; align-items: center; gap: 10px; }
+.nav-link {
+  padding: 9px 12px; border-radius: 8px;
+  color: var(--text-muted); text-decoration: none; font-size: 0.88rem;
+}
+.nav-link:hover { color: var(--text); background: var(--accent-soft); }
+.nav-link.active { color: var(--text); background: var(--accent-soft); font-weight: 600; }
+.nav-icon { display: inline-flex; flex-shrink: 0; opacity: 0.85; }
+.nav-link.active .nav-icon { opacity: 1; }
+.side-foot {
+  margin-top: auto; display: flex; flex-direction: column; gap: 4px;
+  padding: 12px 12px 2px; font-size: 0.75rem; color: var(--text-muted);
+}
+.side-flow { letter-spacing: 0.2px; }
+
+.shell-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+/* --- topbar ---------------------------------------------------------------- */
+.topbar {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  padding: 14px 28px;
   background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
+}
+.topbar .company-search { flex: 1; min-width: 240px; max-width: 520px; }
+.freshness-pill { display: flex; align-items: center; gap: 8px; padding-bottom: 8px; white-space: nowrap; }
+
+/* --- company search ---------------------------------------------------------- */
+.company-search { display: flex; flex-direction: column; gap: 4px; min-width: 280px; }
+.company-search > .muted { font-size: 0.75rem; }
+.search-wrap { position: relative; }
+.search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+.search-input {
+  width: 100%;
+  background: var(--bg-card); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px 8px 32px; font-size: 0.9rem;
+}
+.search-input:focus { outline: none; border-color: var(--accent); }
+.search-input:disabled { opacity: 0.6; }
+.search-results {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 40;
+  list-style: none; margin: 0; padding: 4px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 8px; max-height: 260px; overflow-y: auto;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+.search-option {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  width: 100%; text-align: left;
+  background: transparent; border: none; border-radius: 6px;
+  padding: 7px 9px; cursor: pointer; color: var(--text); font-size: 0.86rem;
+}
+.search-option strong { font-size: 0.88rem; }
+.search-option .muted { font-size: 0.76rem; }
+.search-option.highlighted { background: var(--accent-soft); }
+.search-option.current strong { color: var(--accent); }
+.search-empty {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 40;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 12px;
 }
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand-logo {
@@ -40,15 +106,7 @@ body { background: var(--bg); color: var(--text); }
 .brand-text { display: flex; flex-direction: column; }
 .brand-tagline { font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.4px; }
 
-.app-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-.nav-link {
-  padding: 7px 12px; border-radius: 8px;
-  color: var(--text-muted); text-decoration: none; font-size: 0.88rem;
-}
-.nav-link:hover { color: var(--text); background: var(--accent-soft); }
-.nav-link.active { color: var(--text); background: var(--accent-soft); font-weight: 600; }
-
-.app-main { flex: 1; padding: 24px 28px; max-width: 1280px; width: 100%; margin: 0 auto; }
+.app-main { flex: 1; padding: 20px 24px 24px; max-width: 1400px; width: 100%; margin: 0 auto; }
 .page h2 { margin-top: 0; }
 .page-description { max-width: 760px; }
 
@@ -57,6 +115,93 @@ body { background: var(--bg); color: var(--text); }
   padding: 12px 28px; border-top: 1px solid var(--border);
   color: var(--text-muted); font-size: 0.8rem;
 }
+
+/* --- dashboard (terminal) ---------------------------------------------------- */
+.dashboard { display: flex; flex-direction: column; gap: 16px; }
+.dash-head {
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  margin-bottom: 0;
+}
+.dash-identity { display: flex; gap: 14px; align-items: center; min-width: 0; }
+.dash-pricecol { margin-left: auto; text-align: right; }
+.dash-session {
+  display: flex; gap: 18px; margin: 0;
+}
+.dash-session > div { display: flex; flex-direction: column; gap: 2px; }
+.dash-session dt { font-size: 0.7rem; }
+.dash-session dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.btn-analyze { white-space: nowrap; }
+.dash-tabs {
+  display: flex; gap: 4px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--border); padding-bottom: 0;
+}
+.tab-btn {
+  background: transparent; border: none; border-bottom: 2px solid transparent;
+  color: var(--text-muted); font-size: 0.86rem; padding: 8px 14px; cursor: pointer;
+}
+.tab-btn:hover { color: var(--text); }
+.dash-grid { display: grid; grid-template-columns: 1.55fr 1fr; gap: 16px; align-items: start; }
+.dash-grid .card { margin-bottom: 0; }
+.from-stored {
+  font-size: 0.72rem; font-weight: 600;
+  background: rgba(46, 204, 143, 0.12); color: var(--positive);
+  border: 1px solid rgba(46, 204, 143, 0.3); border-radius: 999px;
+  padding: 2px 10px;
+}
+.badge-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.intel-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }
+.intel-card {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 10px; cursor: pointer;
+  color: var(--text); text-align: center;
+  transition: border-color 0.15s ease;
+}
+.intel-card:hover { border-color: var(--accent); }
+.intel-label { font-size: 0.78rem; font-weight: 600; }
+.intel-card strong { font-size: 1.7rem; font-variant-numeric: tabular-nums; }
+.intel-den { font-size: 0.8rem; font-weight: 400; }
+.intel-conf { font-size: 0.74rem; }
+.link-btn {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: var(--accent); font-size: 0.82rem; font-weight: 600; white-space: nowrap;
+}
+.link-btn:hover { text-decoration: underline; }
+.takeaway {
+  display: flex; gap: 16px; align-items: flex-start;
+  border-color: rgba(245, 176, 76, 0.45); margin-bottom: 0;
+}
+.takeaway-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%;
+  background: rgba(245, 176, 76, 0.12); color: var(--warning); font-size: 1rem;
+}
+.takeaway h3 { margin: 0 0 4px; font-size: 0.95rem; color: var(--warning); }
+.takeaway p { margin: 4px 0; }
+.takeaway .btn { margin-left: auto; align-self: center; white-space: nowrap; }
+.takeaway-lines { margin: 6px 0 0; padding-left: 18px; }
+.takeaway-lines li { margin-bottom: 4px; }
+
+/* --- company analysis ---------------------------------------------------------- */
+.eyebrow {
+  margin: 0; font-size: 0.72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1px; color: var(--accent);
+}
+.h2-sub { font-weight: 400; font-size: 1.05rem; }
+.company-analysis { display: flex; flex-direction: column; gap: 16px; }
+.company-analysis .card { margin-bottom: 0; }
+.company-head { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.company-head .dash-identity { flex: 1; min-width: 240px; }
+.company-head .term-side { margin-left: auto; }
+.stat-list { margin: 12px 0 0; }
+.stat-list > div {
+  display: flex; justify-content: space-between; gap: 16px;
+  padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.88rem;
+}
+.stat-list > div:last-child { border-bottom: none; }
+.stat-list dt { color: var(--text-muted); flex-shrink: 0; }
+.stat-list dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.peer-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
 .card {
@@ -101,14 +246,8 @@ body { background: var(--bg); color: var(--text); }
   display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
   margin: 16px 0;
 }
-.company-selector { display: flex; flex-direction: column; gap: 4px; min-width: 280px; }
-.company-selector select,
-.field input,
-.field select {
-  background: var(--bg-card); color: var(--text);
-  border: 1px solid var(--border); border-radius: 8px;
-  padding: 8px 10px; font-size: 0.9rem;
-}
+.company-search { min-width: 280px; }
+.run-bar .company-search { flex: 0 1 340px; }
 .field { display: flex; flex-direction: column; gap: 4px; }
 .form-grid {
   display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
@@ -298,6 +437,9 @@ body { background: var(--bg); color: var(--text); }
 }
 .kpi-skeleton { height: 58px; }
 .skeleton-line { height: 56px; }
+.skeleton-price { display: inline-block; width: 160px; height: 34px; vertical-align: middle; }
+.skeleton-chart { height: 320px; }
+.intel-skeleton { height: 122px; }
 @keyframes shimmer { 100% { transform: translateX(100%); } }
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(8px); }
@@ -310,11 +452,35 @@ body { background: var(--bg); color: var(--text); }
 }
 
 @media (max-width: 720px) {
-  .app-header { flex-direction: column; align-items: flex-start; }
   .agent-grid { grid-template-columns: 1fr; }
   .run-bar { align-items: stretch; flex-direction: column; }
-  .company-selector { min-width: 0; width: 100%; }
+  .run-bar .company-search { flex: 1 1 auto; }
   .dash-two-col { grid-template-columns: 1fr; }
+  .intel-cards { grid-template-columns: 1fr; }
+}
+
+/* --- responsive shell ---------------------------------------------------------- */
+@media (max-width: 960px) {
+  .app-shell { flex-direction: column; }
+  .sidebar {
+    width: auto; height: auto; position: static;
+    flex-direction: row; align-items: center; gap: 12px;
+    padding: 10px 14px; overflow: visible;
+  }
+  .sidebar .brand { flex-shrink: 0; }
+  .brand-tagline { display: none; }
+  .side-nav { flex-direction: row; overflow-x: auto; flex: 1; }
+  .side-nav .nav-link { white-space: nowrap; }
+  .side-foot { display: none; }
+  .topbar { padding: 10px 14px; }
+  .app-main { padding: 14px; }
+  .dash-grid { grid-template-columns: 1fr; }
+  .dash-head { flex-direction: column; align-items: flex-start; }
+  .dash-pricecol { margin-left: 0; text-align: left; }
+  .takeaway { flex-direction: column; }
+  .takeaway .btn { margin-left: 0; align-self: stretch; }
+  .stat-list > div { flex-direction: column; gap: 2px; }
+  .stat-list dd { text-align: left; }
 }
 
 /* --- dashboard research layout ------------------------------------------ */

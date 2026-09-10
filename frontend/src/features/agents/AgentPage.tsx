@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import AgentOutputCard from '../../components/common/AgentOutputCard';
-import CompanySelector from '../../components/common/CompanySelector';
 import { useFinCortext } from '../../app/FinCortextContext';
 import { api, ApiRequestError } from '../../services/api';
 import type { AgentOutput } from '../../types/api';
@@ -27,7 +26,7 @@ export default function AgentPage({
   methodologyDoc,
   prerequisites,
 }: AgentPageProps) {
-  const { symbol, setSymbol, runOf, runErrorOf, recordRun, recordRunError } = useFinCortext();
+  const { symbol, runOf, runErrorOf, recordRun, recordRunError } = useFinCortext();
   const [output, setOutput] = useState<AgentOutput | null>(() => runOf(symbol, agentId) ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(() => runErrorOf(symbol, agentId) ?? null);
@@ -60,10 +59,12 @@ export default function AgentPage({
   return (
     <section className="page">
       <h2>{title}</h2>
-      <p className="muted page-description">{description}</p>
+      <p className="muted page-description">
+        {description} Analysing <strong>{symbol}</strong> — change the company in the
+        search bar above.
+      </p>
 
       <div className="run-bar">
-        <CompanySelector value={symbol} onChange={setSymbol} />
         <button className="btn btn-primary" onClick={run} disabled={loading || !symbol}>
           {loading ? 'Running…' : output ? 'Run fresh analysis' : 'Run analysis'}
         </button>

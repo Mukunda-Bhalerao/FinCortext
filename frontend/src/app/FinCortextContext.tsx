@@ -95,6 +95,12 @@ export function FinCortextProvider({ children }: { children: ReactNode }) {
   const [runs, setRuns] = useState<Record<string, AgentOutput>>({});
   const [runErrors, setRunErrors] = useState<Record<string, string>>({});
   const inflight = useRef<Record<string, Promise<unknown>>>({});
+  // Ref mirrors of the caches below. The `ensure*` callbacks consult these
+  // instead of closing over state: a stale closure after rapid symbol
+  // switches must never issue a duplicate fetch for settled data.
+  const pricesCache = useRef<Record<string, PriceSeriesResponse | null>>({});
+  const outputsCache = useRef<Record<string, AgentOutputSummary[] | null>>({});
+  const newsCache = useRef<Record<string, NewsListResponse | null>>({});
 
   const once = useCallback(<T,>(key: string, fn: () => Promise<T>): Promise<T> => {
     const existing = inflight.current[key];
@@ -156,35 +162,45 @@ export function FinCortextProvider({ children }: { children: ReactNode }) {
 
   const ensurePrices = useCallback(
     (s: string, refresh = false): Promise<PriceSeriesResponse | null> => {
-      if (!refresh && s in prices) return Promise.resolve(prices[s] ?? null);
+      if (!refresh && s in pricesCache.current)
+        return Promise.resolve(pricesCache.current[s] ?? null);
       return once(`prices:${s}`, async () => {
         try {
           const series = await api.market.prices(s);
+          pricesCache.current = { ...pricesCache.current, [s]: series };
           setPrices((prev) => ({ ...prev, [s]: series }));
           setPricesError((prev) => ({ ...prev, [s]: null }));
           return series;
         } catch (e) {
           const message = e instanceof Error ? e.message : String(e);
-          setPrices((prev) => (s in prev ? prev : { ...prev, [s]: null }));
+          if (!(s in pricesCache.current)) {
+            pricesCache.current = { ...pricesCache.current, [s]: null };
+            setPrices((prev) => (s in prev ? prev : { ...prev, [s]: null }));
+          }
           setPricesError((prev) => ({ ...prev, [s]: message }));
           return null;
         }
       });
     },
-    [once, prices],
+    [once],
   );
 
   const ensureOutputs = useCallback(
     (s: string, refresh = false): Promise<AgentOutputSummary[]> => {
-      if (!refresh && s in outputs) return Promise.resolve(outputs[s] ?? []);
+      if (!refresh && s in outputsCache.current)
+        return Promise.resolve(outputsCache.current[s] ?? []);
       return once(`outputs:${s}`, async () => {
         try {
           const r = await api.agents.outputs(undefined, s, OUTPUTS_LIMIT);
+          outputsCache.current = { ...outputsCache.current, [s]: r.outputs };
           setOutputs((prev) => ({ ...prev, [s]: r.outputs }));
           setOutputsError((prev) => ({ ...prev, [s]: null }));
           return r.outputs;
         } catch (e) {
-          setOutputs((prev) => (s in prev ? prev : { ...prev, [s]: [] }));
+          if (!(s in outputsCache.current)) {
+            outputsCache.current = { ...outputsCache.current, [s]: [] };
+            setOutputs((prev) => (s in prev ? prev : { ...prev, [s]: [] }));
+          }
           setOutputsError((prev) => ({
             ...prev,
             [s]: e instanceof Error ? e.message : String(e),
@@ -193,20 +209,25 @@ export function FinCortextProvider({ children }: { children: ReactNode }) {
         }
       });
     },
-    [once, outputs],
+    [once],
   );
 
   const ensureNews = useCallback(
     (s: string, refresh = false): Promise<NewsListResponse | null> => {
-      if (!refresh && s in news) return Promise.resolve(news[s] ?? null);
+      if (!refresh && s in newsCache.current)
+        return Promise.resolve(newsCache.current[s] ?? null);
       return once(`news:${s}`, async () => {
         try {
           const r = await api.news.list(s, NEWS_LIMIT);
+          newsCache.current = { ...newsCache.current, [s]: r };
           setNews((prev) => ({ ...prev, [s]: r }));
           setNewsError((prev) => ({ ...prev, [s]: null }));
           return r;
         } catch (e) {
-          setNews((prev) => (s in prev ? prev : { ...prev, [s]: null }));
+          if (!(s in newsCache.current)) {
+            newsCache.current = { ...newsCache.current, [s]: null };
+            setNews((prev) => (s in prev ? prev : { ...prev, [s]: null }));
+          }
           setNewsError((prev) => ({
             ...prev,
             [s]: e instanceof Error ? e.message : String(e),
@@ -215,10 +236,15 @@ export function FinCortextProvider({ children }: { children: ReactNode }) {
         }
       });
     },
-    [once, news],
+    [once],
   );
 
   const invalidateNews = useCallback((s: string) => {
+    if (s in newsCache.current) {
+      const next = { ...newsCache.current };
+      delete next[s];
+      newsCache.current = next;
+    }
     setNews((prev) => {
       if (!(s in prev)) return prev;
       const next = { ...prev };
@@ -274,6 +300,10 @@ export function FinCortextProvider({ children }: { children: ReactNode }) {
       ...prev,
       [s]: [summary, ...(prev[s] ?? [])].slice(0, OUTPUTS_LIMIT),
     }));
+    outputsCache.current = {
+      ...outputsCache.current,
+      [s]: [summary, ...(outputsCache.current[s] ?? [])].slice(0, OUTPUTS_LIMIT),
+    };
   }, []);
 
   const recordRunError = useCallback((s: string, agentId: string, message: string) => {

@@ -143,22 +143,25 @@ React 18 + TypeScript + Vite, organized by feature:
 
 ```
 frontend/src/
-├── app/            App shell + flat product nav, FinCortextContext
+├── app/            Sidebar + topbar shell, FinCortextContext
 │                   (session research state), dark theme styles
-├── components/     common/ reusable UI (StatusBadge, CompanySelector,
-│                   AgentOutputCard, ScoreRing) 
-├── features/       dashboard/ · data/ (sources, pipeline, market, filings,
+├── components/     common/ reusable UI (StatusBadge, CompanySelector search,
+│                   AgentOutputCard, PeerTable)
+├── features/       dashboard/ (market overview) · company/ (Company Analysis:
+│                   priceStats, peer-quote/news/filings hooks, overview page) ·
+│                   data/ (sources, pipeline, market, filings,
 │                   quality — internal routes, unlinked from demo nav) ·
 │                   agents/ (firm, industry, sentiment, summary) ·
 │                   portfolio/ · research/ (future placeholders)
 ├── services/       api.ts — the ONLY module that talks to the backend
 ├── types/          api.ts — typed mirrors of backend response contracts
-└── utils/          FinCortextLogo.png (real product logo, used in the header)
+└── utils/          FinCortextLogo.png (real product logo, used in the sidebar)
 ```
 
 Rules: typed API service layer, feature separation, loading/error/unavailable states everywhere,
-explicit data-status badges, honest empty states. The company selection is mirrored to `?symbol=` so
-links stay shareable, cached per symbol for the session, and persisted to `localStorage` as a fallback.
+explicit data-status badges, honest empty states. One global company search in the topbar feeds
+every page; the selection is mirrored to `?symbol=` so links stay shareable, cached per symbol
+for the session, and persisted to `localStorage` as a fallback.
 Navigating between pages never refetches cached reads and never re-runs analyses; fresh results are
 recorded into the session cache (and the outputs-history cache) the moment they are produced.
 
@@ -286,10 +289,13 @@ internal symbol. Raw artifacts archived under `data/raw/`; sample fixtures under
 
 ## 23. Frontend routes
 
-Demo nav (the product): `/` Dashboard · `/intelligence/firm` · `/intelligence/industry` ·
+Demo sidebar (the product): `/` Dashboard (market overview: price, chart, sector peers,
+stored intelligence, news, derived takeaway) · `/company` Company Analysis (price statistics,
+data inventory, analyst run history, peers) · `/intelligence/firm` · `/intelligence/industry` ·
 `/intelligence/sentiment` · `/intelligence/summary`. Internal tooling stays mounted but unlinked:
 `/data/*` (sources, pipeline, market, filings, quality); future placeholders: `/intelligence/macro`,
-`/portfolio*`, `/research/*`.
+`/portfolio*`, `/research/*`. No index, market-cap or blended-score figures exist anywhere —
+the backend provides none, so the UI invents none.
 
 ## 24. Configuration / environment variables
 
@@ -350,9 +356,10 @@ Markers: `unit` (fast, isolated), `integration` (cross-module), `system` (end-to
 
 ## 29. Current test status
 
-- Backend: **126 passed** (`python -m pytest`).
-- Frontend: **14 passed** (`npm test`) — dashboard honesty, navigation/state persistence, no-refetch
-  on remount, badge/card rendering.
+- Backend: **127 passed** (`python -m pytest`).
+- Frontend: **24 passed** (`npm test`) — sidebar navigation, company search/switching,
+  dashboard honesty (no invented indices/scores), takeaway derivation, company analysis page,
+  price-stat unit tests, symbol persistence, no-refetch on remount, badge/card rendering.
 - Frontend production build: clean.
 
 ## 30. Current limitations
@@ -369,13 +376,13 @@ Markers: `unit` (fast, isolated), `integration` (cross-module), `system` (end-to
 
 ## 31. Demo workflow
 
-1. Open the Dashboard — pick a company (e.g. **TCS**, which ships with verified stored data).
-2. Review the market panel (latest close, day change, last session, stored history chart with range
-   selector), sector peers, and recent stored news.
-3. Press **Analyze Company** (or use the nav) → Firm Analyst → run.
-4. Industry Analyst → run (peer history is prepared automatically).
+1. Open the Dashboard — search a company in the top bar (e.g. **TCS**, **RELIANCE**, **INFY**).
+2. Review the identity header (price, day change, day high/low, volume), the stored-history
+   chart with range selector, sector peers with real quotes, stored intelligence and news.
+3. Press **▶ Analyze Company** → Company Analysis (price statistics, data inventory, peers).
+4. Firm Analyst → run. Industry Analyst → run (peer history is prepared automatically).
 5. Sentiment Analyst → fetch news (if configured), then run.
-6. Combined Summary → run all three; views sit side by side with evidence and limitations.
+6. Intelligence Summary → run all three; views sit side by side with evidence and limitations.
 7. Navigate freely — company choice and results persist; nothing re-runs unless you ask.
 
 ## 32. Future roadmap

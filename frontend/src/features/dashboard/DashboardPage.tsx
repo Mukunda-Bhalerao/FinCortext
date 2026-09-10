@@ -11,11 +11,20 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import CompanySelector from '../../components/common/CompanySelector';
+import PeerTable from '../../components/common/PeerTable';
 import StatusBadge from '../../components/common/StatusBadge';
+import { SIGNAL_CLASS } from '../../components/common/AgentOutputCard';
 import { useFinCortext } from '../../app/FinCortextContext';
-import { api } from '../../services/api';
-import type { MarketPricePoint } from '../../types/api';
+import type { AgentOutputSummary } from '../../types/api';
+import {
+  deltaClass,
+  fmtInt,
+  fmtPrice,
+  fmtSigned,
+  snapshot,
+} from '../company/priceStats';
+import { useFilingsCount } from '../company/useFilingsCount';
+import { usePeerQuotes } from '../company/usePeerQuotes';
 
 const RANGES = [
   { label: '1M', bars: 22 },
@@ -25,16 +34,19 @@ const RANGES = [
   { label: 'All', bars: Number.POSITIVE_INFINITY },
 ] as const;
 
-const ANALYSIS_LINKS = [
-  { label: 'Firm Analyst', to: '/intelligence/firm', hint: 'How healthy is the company?' },
-  { label: 'Industry Analyst', to: '/intelligence/industry', hint: 'How does it compare with peers?' },
-  { label: 'Sentiment Analyst', to: '/intelligence/sentiment', hint: 'What is financial news saying?' },
-  { label: 'Combined Summary', to: '/intelligence/summary', hint: 'Three views side by side' },
+const ANALYSTS = [
+  { id: 'firm_analyst', label: 'Firm Analyst', to: '/intelligence/firm' },
+  { id: 'industry_analyst', label: 'Industry Analyst', to: '/intelligence/industry' },
+  { id: 'sentiment_analyst', label: 'Sentiment Analyst', to: '/intelligence/sentiment' },
 ] as const;
 
-/** Cheap display-only read, cached per symbol for the session so returning
- *  to the Dashboard never refetches it. */
-const filingsCountCache = new Map<string, number>();
+const TABS = [
+  { label: 'Overview', target: 'dash-overview' },
+  { label: 'Price Chart', target: 'dash-price' },
+  { label: 'Intelligence', target: 'dash-intelligence' },
+  { label: 'News', target: 'dash-news' },
+  { label: 'Peers', target: 'dash-peers' },
+] as const;
 
 /** Animate a number from 0 to `target` once real data arrives (subtle, eased). */
 function useCountUp(target: number | null, duration = 600): number | null {
@@ -64,56 +76,76 @@ function useCountUp(target: number | null, duration = 600): number | null {
   return value;
 }
 
-const fmtPrice = (v: number): string =>
-  v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-const fmtInt = (v: number): string => v.toLocaleString('en-IN');
-
-const fmtSigned = (v: number, digits = 2): string =>
-  `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(digits)}`;
-
-/** Price-behaviour snapshot computed from stored bars only. Windows that need
- *  more history than stored render as unavailable — never extrapolated. */
-function useSnapshot(prices: MarketPricePoint[]) {
-  return useMemo(() => {
-    if (prices.length === 0) return null;
-    const last = prices[prices.length - 1];
-    const prev = prices.length > 1 ? prices[prices.length - 2] : null;
-    const change30 =
-      prices.length >= 31 ? last.close / prices[prices.length - 31].close - 1 : null;
-    const momentum90 =
-      prices.length >= 91 ? last.close / prices[prices.length - 91].close - 1 : null;
-    let hi = prices[0];
-    let lo = prices[0];
-    let volSum = 0;
-    const volWindow = prices.slice(-20);
-    for (const p of prices) {
-      if (p.high > hi.high) hi = p;
-      if (p.low < lo.low) lo = p;
-    }
-    for (const p of volWindow) volSum += p.volume;
+/** Deterministic takeaway composed ONLY from stored analyst outputs.
+ *  Never invents: missing views are reported as missing. */
+export function buildTakeaway(
+  symbol: string,
+  displayName: string,
+  latest: Map<string, AgentOutputSummary>,
+): { headline: string; lines: string[]; complete: boolean } {
+  const present = ANALYSTS.filter((a) => latest.has(a.id));
+  if (present.length === 0) {
     return {
-      last,
-      prev,
-      dayChange: prev ? last.close - prev.close : null,
-      dayChangePct: prev ? ((last.close - prev.close) / prev.close) * 100 : null,
-      change30,
-      momentum90,
-      storedHigh: hi,
-      storedLow: lo,
-      avgVolume20: volWindow.length > 0 ? volSum / volWindow.length : null,
-      dayRangePct: last.close ? ((last.high - last.low) / last.close) * 100 : null,
+      headline: `No analyst results stored for ${displayName} yet.`,
+      lines: [
+        'Run the Firm, Industry and Sentiment analysts — their stored views will be summarized here.',
+      ],
+      complete: false,
     };
-  }, [prices]);
+  }
+  const leaning = (id: string): 'positive' | 'negative' | 'neutral' | 'missing' => {
+    const out = latest.get(id);
+    if (!out || out.score === null) return 'missing';
+    if (out.signal === 'strong_buy' || out.signal === 'buy') return 'positive';
+    if (out.signal === 'sell' || out.signal === 'strong_sell') return 'negative';
+    return 'neutral';
+  };
+  const pos = present.filter((a) => leaning(a.id) === 'positive').length;
+  const neg = present.filter((a) => leaning(a.id) === 'negative').length;
+  const partial =
+    present.some((a) => (latest.get(a.id)?.status ?? '') !== 'OK') ||
+    present.length < ANALYSTS.length;
+  const scope =
+    present.length === ANALYSTS.length
+      ? 'All three analyst views are stored'
+      : `${present.length} of ${ANALYSTS.length} analyst views are stored`;
+  const direction =
+    pos > 0 && neg === 0
+      ? `${pos} lean${pos === 1 ? 's' : ''} positive`
+      : neg > 0 && pos === 0
+        ? `${neg} lean${neg === 1 ? 's' : ''} negative`
+        : pos > 0 && neg > 0
+          ? `${pos} lean${pos === 1 ? 's' : ''} positive and ${neg} lean${neg === 1 ? 's' : ''} negative`
+          : 'none leans clearly positive or negative';
+  const lines = present.map((a) => {
+    const out = latest.get(a.id)!;
+    const score = out.score === null ? 'unavailable' : `${Math.round(out.score)}/100`;
+    return (
+      `${a.label}: ${out.signal.replace(/_/g, ' ')} at ${score}, ` +
+      `confidence ${Math.round(out.confidence * 100)}% (${out.status}).`
+    );
+  });
+  if (partial) {
+    lines.push(
+      'Coverage is partial — DEGRADED or missing views rest on thin evidence. ' +
+        'See the limitations on each analyst page before acting on this summary.',
+    );
+  }
+  return {
+    headline: `${scope} for ${displayName} (${symbol}); ${direction}.`,
+    lines,
+    complete: !partial,
+  };
 }
 
-/** Company terminal: identity, price action, history, peers, news.
+/** Dashboard — company/market overview in the terminal layout.
  *
  * All numbers come from the running backend: stored OHLCV
- * (GET /api/market/prices/{symbol}), stored news (GET /api/news/{symbol}),
- * storage coverage (GET /api/market/status) and filing counts. This page
- * deliberately shows NO analyst scores — those live on their dedicated
- * pages. Unavailable data is labelled honestly, never replaced.
+ * (GET /api/market/prices/{symbol}), stored analyst results
+ * (GET /api/agents/outputs), stored news (GET /api/news/{symbol}) and
+ * storage coverage (GET /api/market/status). Analyst scores shown here are
+ * compact pointers to stored results — full calculations live on their
+ * dedicated pages. Unavailable data is labelled honestly, never replaced.
  */
 export default function DashboardPage() {
   const {
@@ -124,6 +156,9 @@ export default function DashboardPage() {
     ensurePrices,
     pricesOf,
     pricesErrorOf,
+    ensureOutputs,
+    outputsOf,
+    outputsErrorOf,
     ensureNews,
     newsOf,
     newsErrorOf,
@@ -135,45 +170,29 @@ export default function DashboardPage() {
   const series = pricesOf(symbol);
   const seriesError = pricesErrorOf(symbol);
   const seriesLoading = series === undefined && seriesError === null;
+  const outputs = outputsOf(symbol);
+  const outputsError = outputsErrorOf(symbol);
+  const outputsLoading = outputs === undefined && outputsError === null;
   const news = newsOf(symbol);
   const newsError = newsErrorOf(symbol);
   const newsLoading = news === undefined && newsError === null;
 
   const [rangeBars, setRangeBars] = useState<number>(Number.POSITIVE_INFINITY);
-  const [filingsCount, setFilingsCount] = useState<number | null>(null);
+  const filingsCount = useFilingsCount(symbol);
 
   useEffect(() => {
     ensurePrices(symbol).catch(() => undefined);
+    ensureOutputs(symbol).catch(() => undefined);
     ensureNews(symbol).catch(() => undefined);
     ensureMarketStatus().catch(() => undefined);
-  }, [symbol, ensurePrices, ensureNews, ensureMarketStatus]);
-
-  useEffect(() => {
-    const cached = filingsCountCache.get(symbol);
-    if (cached !== undefined) {
-      setFilingsCount(cached);
-      return;
-    }
-    let cancelled = false;
-    api.filings
-      .list(symbol)
-      .then((r) => {
-        if (cancelled) return;
-        filingsCountCache.set(symbol, r.count);
-        setFilingsCount(r.count);
-      })
-      .catch(() => {
-        if (!cancelled) setFilingsCount(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [symbol]);
+  }, [symbol, ensurePrices, ensureOutputs, ensureNews, ensureMarketStatus]);
 
   const entry = entryFor(symbol);
   const peers = peersOf(symbol);
+  const { quotes, ready: quotesReady } = usePeerQuotes(peers.map((p) => p.symbol));
+
   const prices = series?.prices ?? [];
-  const snap = useSnapshot(prices);
+  const snap = useMemo(() => snapshot(prices), [prices]);
   const visible = useMemo(
     () => (rangeBars === Number.POSITIVE_INFINITY ? prices : prices.slice(-rangeBars)),
     [prices, rangeBars],
@@ -185,159 +204,138 @@ export default function DashboardPage() {
 
   const animatedPrice = useCountUp(snap ? snap.last.close : null);
   const animatedChange = useCountUp(snap?.dayChange ?? null);
-  const deltaClass =
-    !snap || snap.dayChange === null || snap.dayChange === 0
-      ? 'delta-flat'
-      : snap.dayChange > 0
-        ? 'delta-up'
-        : 'delta-down';
 
-  const statusRow = useMemo(
-    () => marketStatus?.symbols.find((s) => s.symbol === symbol),
-    [marketStatus, symbol],
-  );
+  // Rows arrive newest-first; keep the first stored result per analyst.
+  const latestByAgent = useMemo(() => {
+    const map = new Map<string, AgentOutputSummary>();
+    const sorted = [...(outputs ?? [])].sort((a, b) =>
+      (b.generated_at ?? '').localeCompare(a.generated_at ?? ''),
+    );
+    for (const out of sorted) {
+      if (!map.has(out.agent_id)) map.set(out.agent_id, out);
+    }
+    return map;
+  }, [outputs]);
+
   const coverageCount = useMemo(
     () => marketStatus?.symbols.filter((s) => s.rows > 0).length ?? null,
     [marketStatus],
   );
-  const peerRows = useMemo(() => {
-    const bySymbol = new Map((marketStatus?.symbols ?? []).map((s) => [s.symbol, s]));
-    return peers.map((p) => ({ entry: p, status: bySymbol.get(p.symbol) ?? null }));
-  }, [peers, marketStatus]);
+
+  const takeaway = useMemo(
+    () => buildTakeaway(symbol, entry?.name ?? symbol, latestByAgent),
+    [symbol, entry, latestByAgent],
+  );
 
   const go = (to: string) => navigate(`${to}?symbol=${encodeURIComponent(symbol)}`);
+  const scrollTo = (id: string) =>
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const displayName = entry?.name ?? symbol;
 
   return (
-    <section className="page terminal">
-      {/* Company identity */}
-      <header className="term-head fade-in">
-        <div className="term-identity">
+    <section className="page dashboard">
+      {/* Identity + price + Analyze */}
+      <header id="dash-overview" className="card dash-head fade-in">
+        <div className="dash-identity">
           <div className="term-symbol">{symbol}</div>
           <div>
-            <div className="term-name">{entry?.name ?? symbol}</div>
+            <div className="term-name">{displayName}</div>
             <div className="term-chips">
-              {entry && (
+              {entry ? (
                 <>
                   <span className="chip">{entry.ticker}</span>
                   <span className="chip chip-sector">{entry.sector}</span>
                   <span className="chip">{entry.industry}</span>
                   <span className="chip">{entry.exchange}</span>
                 </>
+              ) : (
+                <span className="muted">Not in the configured universe.</span>
               )}
             </div>
           </div>
         </div>
-        <div className="term-side">
-          <div className="term-price-block">
-            <div className="term-price">
-              {animatedPrice === null ? '—' : `₹${fmtPrice(animatedPrice)}`}
-            </div>
-            <div className={`term-change ${deltaClass}`}>
-              {snap?.dayChange === null || snap?.dayChange === undefined || animatedChange === null
-                ? '—'
-                : `${fmtSigned(animatedChange)} (${fmtSigned(snap.dayChangePct ?? 0)}%)`}
-            </div>
-            <div className="muted term-asof">
-              {series?.latest_trade_date
-                ? `As of ${series.latest_trade_date} · ${series.count} stored days`
-                : 'No stored price history yet'}
-            </div>
-          </div>
-          <div className="term-status">
-            {series && <StatusBadge status={series.status} />}
-            {series?.status === 'LIVE' && (
-              <span className="live-dot" title="Latest available data" aria-label="Latest available data" />
+        <div className="dash-pricecol">
+          <div className="term-price">
+            {seriesLoading ? (
+              <span className="skeleton skeleton-price" aria-label="Loading price" />
+            ) : animatedPrice === null ? (
+              '—'
+            ) : (
+              `₹${fmtPrice(animatedPrice)}`
             )}
           </div>
+          <div className={`term-change ${deltaClass(snap?.dayChange ?? null)}`}>
+            {!snap || snap.dayChange === null || animatedChange === null
+              ? '—'
+              : `${fmtSigned(animatedChange)} (${fmtSigned(snap.dayChangePct ?? 0)}%)`}
+          </div>
+          <div className="muted term-asof">
+            {series?.latest_trade_date
+              ? `As of ${series.latest_trade_date} · ${series.count} stored days`
+              : seriesError
+                ? 'Price history unavailable'
+                : 'Loading price history…'}
+          </div>
         </div>
+        <dl className="dash-session">
+          <div>
+            <dt className="muted">Day High</dt>
+            <dd>{snap ? `₹${fmtPrice(snap.last.high)}` : '—'}</dd>
+          </div>
+          <div>
+            <dt className="muted">Day Low</dt>
+            <dd>{snap ? `₹${fmtPrice(snap.last.low)}` : '—'}</dd>
+          </div>
+          <div>
+            <dt className="muted">Volume</dt>
+            <dd>{snap ? fmtInt(snap.last.volume) : '—'}</dd>
+          </div>
+        </dl>
+        <button className="btn btn-primary btn-analyze" onClick={() => go('/company')}>
+          ▶ Analyze Company
+        </button>
       </header>
 
-      <div className="run-bar">
-        <CompanySelector value={symbol} onChange={setSymbol} />
-        <button
-          className="btn btn-primary"
-          onClick={() => go('/intelligence/firm')}
-          disabled={!symbol}
-        >
-          Analyze Company
-        </button>
-      </div>
+      {/* Section tabs (anchor navigation) */}
+      <nav className="dash-tabs fade-in" aria-label="Dashboard sections" style={{ animationDelay: '0.04s' }}>
+        {TABS.map((t) => (
+          <button key={t.target} className="tab-btn" onClick={() => scrollTo(t.target)}>
+            {t.label}
+          </button>
+        ))}
+      </nav>
 
-      {/* Market KPIs */}
-      <section aria-label="Market snapshot">
-        {seriesLoading ? (
-          <div className="kpi-row">
-            <div className="skeleton kpi-skeleton" />
-            <div className="skeleton kpi-skeleton" />
-            <div className="skeleton kpi-skeleton" />
-            <div className="skeleton kpi-skeleton" />
-            <div className="skeleton kpi-skeleton" />
-            <div className="skeleton kpi-skeleton" />
+      <div className="dash-grid">
+        {/* Price performance */}
+        <section id="dash-price" className="card chart-card fade-in" aria-label="Price performance" style={{ animationDelay: '0.06s' }}>
+          <div className="chart-head">
+            <h3>Price Performance</h3>
+            <span className="muted from-stored">◇ From Stored Data</span>
           </div>
-        ) : seriesError && !series ? (
-          <div className="dash-empty">
-            <p>
-              <StatusBadge status="UNAVAILABLE" />
-            </p>
-            <p className="muted">
-              No stored price history for {symbol} yet — nothing is shown until
-              real data is collected.
-            </p>
-            <p className="muted">Could not load market data: {seriesError}</p>
-          </div>
-        ) : !snap ? (
-          <div className="dash-empty">
-            <p>
-              <StatusBadge status={series?.status ?? 'UNAVAILABLE'} />
-            </p>
-            <p className="muted">
-              No stored price history for {series?.symbol ?? symbol} yet. Running the
-              Industry Analyst fetches and stores price history for the company and its
-              sector peers automatically.
-            </p>
-          </div>
-        ) : (
-          <div className="kpi-row term-kpis">
-            <div className="kpi">
-              <span className="kpi-label">Day high</span>
-              <div className="kpi-value">₹{fmtPrice(snap.last.high)}</div>
+          {seriesLoading ? (
+            <div className="skeleton skeleton-chart" />
+          ) : seriesError && !series ? (
+            <div className="dash-empty">
+              <p>
+                <StatusBadge status="UNAVAILABLE" />
+              </p>
+              <p className="muted">
+                No stored price history for {symbol} yet — nothing is shown until
+                real data is collected.
+              </p>
             </div>
-            <div className="kpi">
-              <span className="kpi-label">Day low</span>
-              <div className="kpi-value">₹{fmtPrice(snap.last.low)}</div>
+          ) : !snap || chartData.length < 2 ? (
+            <div className="dash-empty">
+              <p>
+                <StatusBadge status={series?.status ?? 'UNAVAILABLE'} />
+              </p>
+              <p className="muted">
+                Not enough stored trading days for {symbol} to draw a chart yet.
+              </p>
             </div>
-            <div className="kpi">
-              <span className="kpi-label">Volume</span>
-              <div className="kpi-value">{fmtInt(snap.last.volume)}</div>
-            </div>
-            <div className="kpi">
-              <span className="kpi-label">Day range</span>
-              <div className="kpi-value">
-                {snap.dayRangePct === null ? '—' : `${snap.dayRangePct.toFixed(2)}%`}
-              </div>
-            </div>
-            <div className="kpi">
-              <span className="kpi-label">30-day change</span>
-              <div className={`kpi-value ${(snap.change30 ?? 0) >= 0 ? 'delta-up' : 'delta-down'}`}>
-                {snap.change30 === null ? '—' : `${fmtSigned(snap.change30 * 100)}%`}
-              </div>
-            </div>
-            <div className="kpi">
-              <span className="kpi-label">90-day momentum</span>
-              <div className={`kpi-value ${(snap.momentum90 ?? 0) >= 0 ? 'delta-up' : 'delta-down'}`}>
-                {snap.momentum90 === null ? '—' : `${fmtSigned(snap.momentum90 * 100)}%`}
-              </div>
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* Price history */}
-      {snap && chartData.length > 1 && (
-        <section className="dash-section fade-in" aria-label="Price history" style={{ animationDelay: '0.06s' }}>
-          <div className="dash-chart">
-            <div className="chart-head">
-              <h3>Price history</h3>
+          ) : (
+            <>
               <div className="range-bar" role="group" aria-label="Chart range">
                 {RANGES.map((r) => (
                   <button
@@ -350,170 +348,216 @@ export default function DashboardPage() {
                   </button>
                 ))}
               </div>
-            </div>
-            <ResponsiveContainer width="100%" height={280}>
-              <ComposedChart data={chartData} margin={{ top: 10, right: 8, bottom: 0, left: 8 }}>
-                <defs>
-                  <linearGradient id="dashCloseFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#4f8cff" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#4f8cff" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="#1c2942" vertical={false} />
-                <XAxis
-                  dataKey="date"
-                  stroke="#8fa0b8"
-                  fontSize={11}
-                  minTickGap={48}
-                  tickLine={false}
-                />
-                <YAxis
-                  yAxisId="price"
-                  stroke="#8fa0b8"
-                  fontSize={11}
-                  domain={['auto', 'auto']}
-                  tickFormatter={(v: number) => v.toLocaleString('en-IN')}
-                  tickLine={false}
-                  width={72}
-                />
-                <YAxis yAxisId="volume" orientation="right" hide />
-                <Tooltip
-                  contentStyle={{ background: '#141f36', border: '1px solid #22304d' }}
-                  labelStyle={{ color: '#e6ecf5' }}
-                  formatter={(value: number | string, name: string) =>
-                    name === 'volume' ? [fmtInt(Number(value)), 'Volume'] : [`₹${fmtPrice(Number(value))}`, 'Close']
-                  }
-                />
-                <Bar yAxisId="volume" dataKey="volume" fill="#22304d" opacity={0.55} isAnimationActive={false} />
-                <Area
-                  yAxisId="price"
-                  type="monotone"
-                  dataKey="close"
-                  stroke="#4f8cff"
-                  strokeWidth={2}
-                  fill="url(#dashCloseFill)"
-                  animationDuration={900}
-                  dot={false}
-                  activeDot={{ r: 4 }}
-                />
-                <ReferenceDot x={snap.last.date} y={snap.last.close} yAxisId="price" r={4} fill="#4f8cff" stroke="#0b1220" />
-              </ComposedChart>
-            </ResponsiveContainer>
-            <p className="muted dash-chart-note">
-              Daily closes from stored OHLCV history — showing {visible.length} of {series?.count} trading days
-              {snap.storedHigh && (
-                <> · stored high ₹{fmtPrice(snap.storedHigh.high)} ({snap.storedHigh.date}) · stored low ₹{fmtPrice(snap.storedLow.low)} ({snap.storedLow.date})</>
-              )}
-              {snap.avgVolume20 !== null && <> · avg volume (20 sessions) {fmtInt(Math.round(snap.avgVolume20))}</>}
-            </p>
-          </div>
-        </section>
-      )}
-
-      <div className="dash-two-col fade-in" style={{ animationDelay: '0.1s' }}>
-        {/* Sector / peer context */}
-        <section className="dash-section" aria-label="Sector context">
-          <div className="card peer-card">
-            <div className="dash-heading">
-              <h3>Sector{entry ? ` — ${entry.sector}` : ''}</h3>
-            </div>
-            <p className="muted dash-section-note">
-              {coverageCount !== null
-                ? `${coverageCount} of ${marketStatus?.symbols.length ?? ''} companies hold stored price history. `
-                : ''}
-              Select a peer to switch the terminal to it.
-            </p>
-            {peerRows.length > 0 ? (
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Peer</th>
-                    <th>Stored days</th>
-                    <th>Latest date</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {peerRows.map(({ entry: peer, status }) => (
-                    <tr key={peer.symbol} className={peer.symbol === symbol ? 'peer-self' : undefined}>
-                      <td>
-                        <button
-                          className="peer-link"
-                          onClick={() => setSymbol(peer.symbol)}
-                          disabled={peer.symbol === symbol}
-                          title={peer.symbol === symbol ? 'This company' : `Switch terminal to ${peer.symbol}`}
-                        >
-                          {peer.symbol}
-                        </button>{' '}
-                        <span className="muted">{peer.name}</span>
-                      </td>
-                      <td>{status ? status.rows : '—'}</td>
-                      <td>{status?.latest_trade_date ?? '—'}</td>
-                      <td>{status ? <StatusBadge status={status.status} /> : <span className="muted">—</span>}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <p className="muted">Sector information is unavailable.</p>
-            )}
-          </div>
-        </section>
-
-        {/* Recent financial news */}
-        <section className="dash-section" aria-label="Recent financial news">
-          <div className="card dash-news">
-            <div className="dash-heading">
-              <h3>Recent news — {symbol}</h3>
-            </div>
-            {newsLoading ? (
-              <div className="skeleton skeleton-line" />
-            ) : news && news.articles.length > 0 ? (
-              <ul className="news-list">
-                {news.articles.map((a) => (
-                  <li key={a.article_id}>
-                    {a.source_url ? (
-                      <a href={a.source_url} target="_blank" rel="noreferrer" className="news-title">
-                        {a.title}
-                      </a>
-                    ) : (
-                      <span className="news-title">{a.title}</span>
-                    )}
-                    <span className="muted news-meta">
-                      {[a.source, a.published_at?.slice(0, 10)].filter(Boolean).join(' · ')}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="muted">
-                {newsError
-                  ? 'Stored news could not be loaded.'
-                  : `No stored articles for ${symbol} yet. Use Fetch news on the Sentiment Analyst page — nothing is shown until real articles exist.`}
+              <ResponsiveContainer width="100%" height={280}>
+                <ComposedChart data={chartData} margin={{ top: 10, right: 8, bottom: 0, left: 8 }}>
+                  <defs>
+                    <linearGradient id="dashCloseFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#2ecc8f" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="#2ecc8f" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="#1c2942" vertical={false} />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#8fa0b8"
+                    fontSize={11}
+                    minTickGap={48}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    yAxisId="price"
+                    stroke="#8fa0b8"
+                    fontSize={11}
+                    domain={['auto', 'auto']}
+                    tickFormatter={(v: number) => v.toLocaleString('en-IN')}
+                    tickLine={false}
+                    width={72}
+                  />
+                  <YAxis yAxisId="volume" orientation="right" hide />
+                  <Tooltip
+                    contentStyle={{ background: '#141f36', border: '1px solid #22304d' }}
+                    labelStyle={{ color: '#e6ecf5' }}
+                    formatter={(value: number | string, name: string) =>
+                      name === 'volume'
+                        ? [fmtInt(Number(value)), 'Volume']
+                        : [`₹${fmtPrice(Number(value))}`, 'Close']
+                    }
+                  />
+                  <Bar yAxisId="volume" dataKey="volume" fill="#22304d" opacity={0.55} isAnimationActive={false} />
+                  <Area
+                    yAxisId="price"
+                    type="monotone"
+                    dataKey="close"
+                    stroke="#2ecc8f"
+                    strokeWidth={2}
+                    fill="url(#dashCloseFill)"
+                    animationDuration={900}
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                  <ReferenceDot x={snap.last.date} y={snap.last.close} yAxisId="price" r={4} fill="#2ecc8f" stroke="#0b1220" />
+                </ComposedChart>
+              </ResponsiveContainer>
+              <p className="muted dash-chart-note">
+                Daily closes from stored OHLCV history — showing {visible.length} of{' '}
+                {series?.count} trading days
+                {snap.storedHigh && (
+                  <>
+                    {' '}· stored high ₹{fmtPrice(snap.storedHigh.high)} ({snap.storedHigh.date}) · stored
+                    low ₹{fmtPrice(snap.storedLow.low)} ({snap.storedLow.date})
+                  </>
+                )}
               </p>
-            )}
-            <button className="btn dash-view" onClick={() => go('/intelligence/sentiment')}>
-              Open Sentiment Analyst →
-            </button>
+            </>
+          )}
+        </section>
+
+        {/* Market context — real sector peers only */}
+        <section id="dash-peers" className="card fade-in" aria-label="Market context" style={{ animationDelay: '0.08s' }}>
+          <div className="dash-heading">
+            <h3>Market Context</h3>
           </div>
+          <p className="muted dash-section-note">
+            {entry ? `Sector · ${entry.sector}` : 'Sector unavailable'}
+            {coverageCount !== null
+              ? ` · ${coverageCount} of ${marketStatus?.symbols.length ?? ''} companies hold stored prices.`
+              : ''}
+          </p>
+          <PeerTable
+            peers={peers}
+            marketStatus={marketStatus}
+            quotes={quotes}
+            quotesLoading={!quotesReady}
+            current={symbol}
+            onSelect={setSymbol}
+          />
         </section>
       </div>
 
-      {/* Continue to analysis — navigation only, no scores here */}
-      <section className="analysis-links fade-in" aria-label="Continue to analysis" style={{ animationDelay: '0.14s' }}>
-        {ANALYSIS_LINKS.map((a) => (
-          <button key={a.to} className="analysis-link" onClick={() => go(a.to)}>
-            <strong>{a.label} →</strong>
-            <span className="muted">{a.hint}</span>
-          </button>
-        ))}
+      <div className="dash-grid">
+        {/* Compact intelligence overview — stored results only */}
+        <section id="dash-intelligence" className="card fade-in" aria-label="FinCortext intelligence" style={{ animationDelay: '0.1s' }}>
+          <div className="dash-heading">
+            <h3>FinCortext Intelligence</h3>
+            <button className="link-btn" onClick={() => go('/intelligence/summary')}>
+              View Detailed Analysis →
+            </button>
+          </div>
+          <p className="muted dash-section-note">
+            Latest stored analyst views for {symbol} — full evidence on each analyst page.
+          </p>
+          {outputsLoading ? (
+            <div className="intel-cards">
+              <div className="skeleton intel-skeleton" />
+              <div className="skeleton intel-skeleton" />
+              <div className="skeleton intel-skeleton" />
+            </div>
+          ) : outputsError ? (
+            <p className="muted">Stored results could not be loaded.</p>
+          ) : (
+            <div className="intel-cards">
+              {ANALYSTS.map((a) => {
+                const out = latestByAgent.get(a.id);
+                return (
+                  <button key={a.id} className="intel-card" onClick={() => go(a.to)}>
+                    <span className="intel-label">{a.label}</span>
+                    <strong className={out && out.score !== null ? '' : 'muted'}>
+                      {out && out.score !== null ? Math.round(out.score) : '—'}
+                      <span className="muted intel-den">/100</span>
+                    </strong>
+                    {out ? (
+                      <span className="badge-row">
+                        <span className={`badge ${SIGNAL_CLASS[out.signal] ?? ''}`}>
+                          {out.signal.replace(/_/g, ' ').toUpperCase()}
+                        </span>
+                        <span className={`badge badge-status-${out.status.toLowerCase()}`}>
+                          {out.status}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="muted">Not run yet</span>
+                    )}
+                    <span className="muted intel-conf">
+                      {out ? `Confidence ${Math.round(out.confidence * 100)}%` : 'Open the analyst to run it'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Recent financial news */}
+        <section id="dash-news" className="card dash-news fade-in" aria-label="Recent financial news" style={{ animationDelay: '0.12s' }}>
+          <div className="dash-heading">
+            <h3>Recent News</h3>
+            <button className="link-btn" onClick={() => go('/intelligence/sentiment')}>
+              View All →
+            </button>
+          </div>
+          {newsLoading ? (
+            <div className="skeleton skeleton-line" />
+          ) : news && news.articles.length > 0 ? (
+            <ul className="news-list">
+              {news.articles.map((a) => (
+                <li key={a.article_id}>
+                  {a.source_url ? (
+                    <a href={a.source_url} target="_blank" rel="noreferrer" className="news-title">
+                      {a.title}
+                    </a>
+                  ) : (
+                    <span className="news-title">{a.title}</span>
+                  )}
+                  <span className="muted news-meta">
+                    {[a.source, a.published_at?.slice(0, 10)].filter(Boolean).join(' · ')}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">
+              {newsError
+                ? 'Stored news could not be loaded.'
+                : `No stored articles for ${symbol} yet. Use Fetch news on the Sentiment Analyst page — nothing is shown until real articles exist.`}
+            </p>
+          )}
+        </section>
+      </div>
+
+      {/* Key takeaway — composed from stored outputs only */}
+      <section className="card takeaway fade-in" aria-label="Key takeaway" style={{ animationDelay: '0.14s' }}>
+        <div className="takeaway-icon" aria-hidden="true">◉</div>
+        <div>
+          <h3>Key Takeaway</h3>
+          {outputsLoading ? (
+            <div className="skeleton skeleton-line" />
+          ) : (
+            <>
+              <p>
+                <strong>{takeaway.headline}</strong>
+              </p>
+              <ul className="takeaway-lines">
+                {takeaway.lines.map((line, i) => (
+                  <li key={i} className="muted">
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+        <button className="btn" onClick={() => go('/intelligence/summary')}>
+          View Full Summary →
+        </button>
       </section>
 
       <p className="muted evidence-strip">
-        Data freshness: {series ? `${series.status} · latest ${series.latest_trade_date ?? '—'} · ${series.count} stored trading days` : 'no price data'}
+        Data behind this view:{' '}
+        {series
+          ? `${series.status} · latest ${series.latest_trade_date ?? '—'} · ${series.count} stored trading days`
+          : 'no price data'}
         {' · '}{news ? `${news.count} stored articles` : 'news unavailable'}
         {filingsCount !== null && <> · {filingsCount} ingested official filings</>}
-        {statusRow && statusRow.rows === 0 && <> · {symbol} has no stored prices yet</>}
       </p>
     </section>
   );

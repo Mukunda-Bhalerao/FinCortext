@@ -148,24 +148,34 @@ React 18 + TypeScript + Vite (`frontend/`), organized by feature:
 
 ```
 frontend/src/
-├── app/            App shell, flat product nav, FinCortextContext
+├── app/            Sidebar + topbar shell, FinCortextContext
 │                   (session research state), dark theme styles
-├── components/      common/ reusable UI (StatusBadge, CompanySelector,
-│                    AgentOutputCard, ScoreRing)
-├── features/        dashboard/ · data/ (sources, pipeline, market, filings,
+├── components/      common/ reusable UI (StatusBadge, CompanySelector search,
+│                    AgentOutputCard, PeerTable)
+├── features/        dashboard/ (market overview) · company/ (Company Analysis:
+│                    priceStats, peer-quote/news/filings hooks, overview page) ·
+│                    data/ (sources, pipeline, market, filings,
 │                    quality — internal routes, unlinked from demo nav) ·
 │                    agents/ (firm, industry, sentiment, summary) ·
 │                    portfolio/ · research/ (future placeholders)
 ├── services/        api.ts — the ONLY module that talks to the backend
 ├── types/           api.ts — typed mirrors of backend response contracts
-└── utils/           FinCortextLogo.png — product logo asset (header branding)
+└── utils/           FinCortextLogo.png — product logo asset (sidebar branding)
 ```
 
 Rules: typed API service layer, feature separation, loading/error/unavailable
 states everywhere, explicit data-status badges (LIVE / CACHED / IMPORTED
-OFFICIAL / SAMPLE / UNAVAILABLE / ERROR), and honest empty states. The combined
-intelligence summary states that portfolio synthesis is reserved for the future
-Portfolio Agent.
+OFFICIAL / SAMPLE / UNAVAILABLE / ERROR), and honest empty states. One global
+company search in the topbar feeds every page; analyst pages carry no selector
+of their own. The combined intelligence summary states that portfolio synthesis
+is reserved for the future Portfolio Agent.
+
+Page responsibilities: Dashboard = market overview (price action, stored
+history chart, sector peers with real quotes, compact stored intelligence,
+news, derived takeaway). Company Analysis = company details (stored price
+statistics, data inventory, analyst run history, peers). Analyst pages = full
+methodology, factors, evidence, limitations. Shared derivations live in
+`features/company/` (pure `priceStats`, `usePeerQuotes`, `useFilingsCount`).
 
 ### Session research state (`app/FinCortextContext.tsx`)
 
@@ -173,12 +183,13 @@ A single `FinCortextProvider` owns the demo's research state so navigation never
 destroys it:
 
 - **Company selection** — single source of truth, mirrored to `?symbol=` (links
-  stay shareable, header nav carries it across pages) with a `localStorage`
-  fallback. The Dashboard and all analyst pages consume the same value.
+  stay shareable, sidebar nav carries it across pages) with a `localStorage`
+  fallback. One global search in the topbar feeds every page.
 - **Per-symbol caches** — universe list, price series, agent-output history,
   stored news, and market coverage are fetched once per symbol per session
-  (in-flight dedup included). Route changes remount page components but never
-  refetch.
+  (in-flight dedup plus ref mirrors, so stale closures after rapid symbol
+  switches can never duplicate a settled fetch). Route changes remount page
+  components but never refetch.
 - **Run-result cache** — fresh `AgentOutput`s are recorded the moment they are
   produced (and folded into the outputs-history cache), so returning to an
   analyst or the Dashboard shows the previous result with its timestamp instead

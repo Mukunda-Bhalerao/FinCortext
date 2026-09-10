@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import AgentOutputCard from '../../components/common/AgentOutputCard';
-import CompanySelector from '../../components/common/CompanySelector';
 import StatusBadge from '../../components/common/StatusBadge';
 import { useFinCortext } from '../../app/FinCortextContext';
 import { api, ApiRequestError } from '../../services/api';
@@ -16,7 +15,6 @@ const AGENT_ID = 'sentiment_analyst';
 export default function SentimentAnalystPage() {
   const {
     symbol,
-    setSymbol,
     runOf,
     runErrorOf,
     recordRun,
@@ -90,13 +88,12 @@ export default function SentimentAnalystPage() {
     <section className="page">
       <h2>Sentiment Analyst</h2>
       <p className="muted page-description">
-        Financial-news sentiment for the selected company — recency-weighted,
+        Financial-news sentiment for <strong>{symbol}</strong> — recency-weighted,
         deterministic aggregation over relevant stored articles, scored by a
-        local financial-language model.
+        local financial-language model. Change the company in the search bar above.
       </p>
 
       <div className="run-bar">
-        <CompanySelector value={symbol} onChange={setSymbol} />
         <button className="btn" onClick={refreshNews} disabled={refreshing || !symbol}>
           {refreshing ? 'Fetching news…' : 'Fetch news'}
         </button>
