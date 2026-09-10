@@ -22,6 +22,24 @@ function outputFor(agent: string, symbol: string, score: number | null): AgentOu
   };
 }
 
+function macroOutput() {
+  return {
+    agent_id: 'macro_analyst',
+    entity_id: 'MACRO_INDIA',
+    requested_symbol: 'TCS',
+    overall_signal: 'neutral',
+    confidence: 0.62,
+    status: 'OK',
+    factors: [],
+    rationale: 'Macro Environment Signal is NEUTRAL from 6/7 areas.',
+    data_limitations: [],
+    generated_at: '2026-09-10T10:00:00Z',
+    data_through: { repo_rate: '2026-06-05' },
+    provenance: {},
+    methodology: 'macro_analyst_v1',
+  };
+}
+
 function Switcher() {
   const { setSymbol } = useFinCortext();
   return <button onClick={() => setSymbol('INFY')}>switch-to-infy</button>;
@@ -33,12 +51,18 @@ describe('IntelligenceSummaryPage', () => {
     localStorage.clear();
   });
 
-  it('presents three independent views side by side with no blended score', async () => {
+  it('presents four independent views side by side with no blended score', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       const m = url.match(/^\/api\/agents\/(firm_analyst|industry_analyst|sentiment_analyst)\/TCS\/run$/);
       if (m) {
         return new Response(JSON.stringify(outputFor(m[1], 'TCS', 60)), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (url === '/api/agents/macro/TCS/run') {
+        return new Response(JSON.stringify(macroOutput()), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
@@ -60,6 +84,9 @@ describe('IntelligenceSummaryPage', () => {
     });
     expect(screen.getByText('industry_analyst rationale for TCS')).toBeInTheDocument();
     expect(screen.getByText('sentiment_analyst rationale for TCS')).toBeInTheDocument();
+    // Macro view joins side by side with its environment vocabulary.
+    expect(screen.getByText('Macro Environment')).toBeInTheDocument();
+    expect(screen.getByText(/Macro Environment Signal is NEUTRAL/)).toBeInTheDocument();
     // Three independent perspectives — never a blended investment score.
     // (The page honestly says it "does not blend", so match only invented totals.)
     expect(screen.queryByText(/blended/i)).not.toBeInTheDocument();

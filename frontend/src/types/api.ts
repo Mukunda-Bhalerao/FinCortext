@@ -236,3 +236,59 @@ export interface AgentOutputSummary {
   data_version?: string;
   status: 'OK' | 'DEGRADED' | 'UNAVAILABLE';
 }
+
+/** Macro environment vocabulary — deliberately NOT buy/sell signals.
+ *  A POSITIVE macro environment is never a recommendation for any stock. */
+export type MacroSignalValue = 'positive' | 'neutral' | 'negative' | 'unavailable';
+
+export type MacroDirectionValue = 'up' | 'down' | 'flat' | 'unknown';
+
+export interface MacroEvidence {
+  indicator_id: string;
+  reference: string;
+  value: number | null;
+  unit: string | null;
+  period: string | null;
+  source_name: string | null;
+  source_url: string | null;
+  note: string | null;
+}
+
+export interface MacroFactor {
+  name: string;
+  label: string;
+  value: number | null;
+  unit: string | null;
+  direction: MacroDirectionValue;
+  signal: MacroSignalValue;
+  confidence: number;
+  available: boolean;
+  data_as_of: string | null;
+  detail: string | null;
+  evidence: MacroEvidence[];
+  limitations: string[];
+}
+
+export interface MacroOutput {
+  agent_id: string;
+  entity_id: string;
+  requested_symbol: string | null;
+  overall_signal: MacroSignalValue;
+  confidence: number;
+  status: 'OK' | 'DEGRADED' | 'UNAVAILABLE';
+  factors: MacroFactor[];
+  rationale: string;
+  data_limitations: string[];
+  generated_at: string;
+  data_through: Record<string, string>;
+  provenance: Record<string, unknown>;
+  methodology: string;
+}
+
+export interface MacroIndicatorCoverage {
+  indicator_id: string;
+  count: number;
+  latest_period: string | null;
+  latest_observed: string | null;
+  latest_available: string | null;
+}

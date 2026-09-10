@@ -156,6 +156,24 @@ const fullMocks: Record<string, unknown> = {
   '/api/agents/outputs?symbol=TCS&limit=30': tcsOutputs,
   '/api/agents/outputs?symbol=RELIANCE&limit=30': relianceOutputs,
   '/api/agents/outputs?symbol=INFY&limit=30': outputsFor('INFY', []),
+  '/api/macro/latest': {
+    count: 1,
+    output: {
+      agent_id: 'macro_analyst',
+      entity_id: 'MACRO_INDIA',
+      requested_symbol: null,
+      overall_signal: 'neutral',
+      confidence: 0.62,
+      status: 'OK',
+      factors: [],
+      rationale: 'Macro Environment Signal is NEUTRAL.',
+      data_limitations: [],
+      generated_at: '2026-09-10T10:00:00Z',
+      data_through: { repo_rate: '2026-06-05', cpi_yoy: '2026-07-31' },
+      provenance: {},
+      methodology: 'macro_analyst_v1',
+    },
+  },
 };
 
 function mockFetch(responses: Record<string, unknown>) {
@@ -234,6 +252,13 @@ describe('DashboardPage terminal', () => {
     // Key takeaway derived from the stored outputs.
     expect(screen.getByText('Key Takeaway')).toBeInTheDocument();
     expect(screen.getByText(/All three analyst views are stored/)).toBeInTheDocument();
+
+    // Macro strip: market-wide stored view with environment vocabulary.
+    await waitFor(() => {
+      expect(screen.getByText('Macro Environment')).toBeInTheDocument();
+    });
+    expect(screen.getByText('NEUTRAL')).toBeInTheDocument();
+    expect(screen.getByText(/through 2026-07-31/)).toBeInTheDocument();
 
     // Real stored news.
     expect(screen.getByText('TCS reports steady quarter')).toBeInTheDocument();

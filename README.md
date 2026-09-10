@@ -49,9 +49,12 @@ Build a working, testable foundation for explainable investment intelligence:
 - Official filing ingestion: CSV / XBRL / XML parsers + limited PDF fallback, content-hash dedup.
 - **Firm Analyst** — fundamental/valuation/momentum scoring.
 - **Industry Analyst** — peer-group and sector-relative scoring, with automatic market-data preparation.
+- **Macro Analyst** — market-wide environment view (growth, inflation, rates, liquidity, policy,
+  global, events) with deterministic POSITIVE/NEUTRAL/NEGATIVE signals, own `MacroOutput`
+  contract, and per-indicator provenance. No numeric score, never a stock recommendation.
 - **News + Sentiment pipeline** — NewsAPI provider, local FinBERT model, deterministic time-aware aggregation.
-- React + TypeScript research frontend (Dashboard, three analysts, Combined Summary) with explicit
-  data-status labels (`LIVE` / `CACHED` / `IMPORTED OFFICIAL` / `SAMPLE` / `UNAVAILABLE` / `ERROR`).
+- React + TypeScript research frontend (Dashboard, four analysts, Combined Summary) with explicit
+  data-status labels (`LIVE` / `CACHED` / `IMPORTED_OFFICIAL` / `SAMPLE` / `UNAVAILABLE` / `ERROR`).
 - Session-wide frontend research state: company selection and results survive navigation without
   re-running analyses.
 
@@ -62,7 +65,7 @@ Build a working, testable foundation for explainable investment intelligence:
 
 **FUTURE (explicit placeholders, not implemented):**
 
-- Macro Analyst, Portfolio Agent / orchestration, risk & constraint engine, portfolio optimization,
+- Portfolio Agent / orchestration, risk & constraint engine, portfolio optimization,
   backtesting, performance evaluation, scenario/stress testing, explainability module beyond
   per-agent rationale/evidence, authentication, deployment infrastructure, licensed data providers.
 
@@ -71,7 +74,7 @@ Build a working, testable foundation for explainable investment intelligence:
 1. **Source-agnostic agents.** Analysts consume canonical domain data through repositories/services —
    never external providers or websites.
 2. **Replaceable providers.** Every external source sits behind a narrow interface
-   (`MarketDataProvider`, `FundamentalDataProvider`, `NewsProvider`).
+   (`MarketDataProvider`, `FundamentalDataProvider`, `NewsProvider`, `MacroDataProvider`).
 3. **Deterministic intelligence.** Scores come from documented, testable formulas — no randomness, no
    invented conclusions.
 4. **Provenance and point-in-time correctness.** Every observation records where it came from and when
@@ -84,14 +87,14 @@ Build a working, testable foundation for explainable investment intelligence:
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full description. In brief:
 
 ```
-Data Sources (yfinance | NewsAPI | official filings | fixtures)
+Data Sources (yfinance | NewsAPI | official filings | curated macro | fixtures)
         ↓  provider adapters (replaceable interfaces)
 Data Pipeline (ingestion → validation → normalization → storage)
         ↓
 DuckDB canonical storage (+ provenance, point-in-time metadata)
         ↓  repositories / services (source-agnostic)
-Agent Layer (Firm Analyst | Industry Analyst | Sentiment Analyst)
-        ↓  standardized AgentOutput contract
+Agent Layer (Firm Analyst | Industry Analyst | Macro Analyst | Sentiment Analyst)
+        ↓  AgentOutput contract (+ dedicated MacroOutput for the market-wide view)
 FastAPI services/routes  →  React frontend   …   future Portfolio Agent
 ```
 
@@ -220,16 +223,28 @@ half-life anchored to the latest article timestamp → composite 0–100 score w
 failures → explicit `UNAVAILABLE`, never a crash. Methodology:
 [docs/sentiment_methodology.md](docs/sentiment_methodology.md).
 
-## 16. Combined Summary
+## 16. Macro Analyst (market-wide)
 
-Runs the three analysts for one company and shows their standardized scores side by side. Each
-analyst is independent — they share only the `AgentOutput` contract. **No blending into a single
+Seven deterministic areas — growth, inflation, interest rates, liquidity/credit, fiscal &
+monetary policy, global markets, macro events — each with value, direction, POSITIVE/NEUTRAL/
+NEGATIVE environment signal, confidence, status, as-of date, evidence and limitations. Overall
+signal = majority vote; confidence = coverage × recency × consistency. Data: curated RBI/MoSPI
+history (versioned CSVs with per-row provenance) + market gauges via yfinance. Liquidity has no
+reliable series and reports UNAVAILABLE rather than a proxy. Output is the dedicated
+`MacroOutput` contract (`entity_id=MACRO_INDIA`, no numeric score) — never a stock signal.
+Methodology: [docs/macro_methodology.md](docs/macro_methodology.md).
+
+## 17. Combined Summary
+
+Runs the four analysts and shows their perspectives side by side — three company scores plus
+the market-wide macro environment. Each analyst is independent — company analysts share only
+the `AgentOutput` contract, macro uses its own. **No blending into a single
 score, no recommendations, no weights**: portfolio synthesis is reserved for the future Portfolio
 Agent.
 
-## 17. AgentOutput contract
+## 18. AgentOutput contract
 
-Every agent emits the same shape (see [docs/agent_contracts.md](docs/agent_contracts.md)):
+Every company analyst emits the same shape (see [docs/agent_contracts.md](docs/agent_contracts.md)):
 
 `agent_id, entity_id, score (0–100 | null), signal (strong_buy … strong_sell | unavailable),
 confidence, factors[], rationale, evidence[], data_limitations[], generated_at, data_version,
@@ -239,10 +254,12 @@ provenance, status`.
 - `DEGRADED` — score computed from less than half of the documented factor weight.
 - `UNAVAILABLE` — no analyzable data (score is `null`, signal `unavailable`).
 
-`signal_from_score()` mapping is shared by all agents. Outputs persist to `agent_outputs` and are
-listed via `GET /api/agents/outputs?agent_id=…&symbol=…&limit=…` (newest first).
+`signal_from_score()` mapping is shared by all company analysts. Outputs persist to `agent_outputs` and are
+listed via `GET /api/agents/outputs?agent_id=…&symbol=…&limit=…` (newest first). The Macro Analyst
+uses the separate `MacroOutput` contract (`entity_id=MACRO_INDIA`, POSITIVE/NEUTRAL/NEGATIVE,
+no numeric score), persisted to `macro_outputs`.
 
-## 18. Provenance / evidence philosophy
+## 19. Provenance / evidence philosophy
 
 The UI communicates the product, not the source code: "Price history used for market momentum",
 "17 relevant financial articles analysed", "Peer price history used for industry comparison".
@@ -250,14 +267,14 @@ Every analytical output links evidence entries (data type, reference, source, ti
 lists its limitations. Developer internals — DB paths, endpoint names, repo files — stay out of the
 demo UI.
 
-## 19. Missing-data handling
+## 20. Missing-data handling
 
 Missing data reduces evidence and confidence; it never invents values. Firm needs ≥ 2 price points
 for momentum; single-period filings leave revenue growth unavailable; single-member sectors produce
 no peer factors; absent FinBERT or `NEWS_API_KEY` yields explicit `UNAVAILABLE`. `DEGRADED` vs `OK`
 is decided by documented factor-weight coverage (< 50% → `DEGRADED`).
 
-## 20. Industry automatic data preparation
+## 21. Industry automatic data preparation
 
 Before every Industry Analyst run, `AgentService` calls
 `MarketService.ensure_history(symbols, min_bars, max_age_days=7)` for the company and its sector
@@ -267,7 +284,7 @@ raised, so analysis still runs on valid cached data with honest limitations. A t
 `data_preparation` summary (cached/refreshed/failed per symbol) is recorded in the output provenance.
 Agents stay repository-only — no provider coupling.
 
-## 21. Database / storage
+## 22. Database / storage
 
 Single local DuckDB file (default `data/processed/fincortext.duckdb`, overridable via
 `FINCORTEXT_DB_PATH`): `market_prices, universe_metadata, financial_observations,
@@ -275,7 +292,7 @@ filing_documents, news_articles, sentiment_results, agent_outputs, data_provenan
 Thread-safe wrapper, hash-dedup on filings/news, startup repair keeps market rows keyed by canonical
 internal symbol. Raw artifacts archived under `data/raw/`; sample fixtures under `data/sample/`.
 
-## 22. API structure
+## 23. API structure
 
 | Method & path | Purpose |
 |---|---|
@@ -291,21 +308,25 @@ internal symbol. Raw artifacts archived under `data/raw/`; sample fixtures under
 | `GET /api/news/status` | Provider configuration status |
 | `POST /api/news/refresh/{symbol}?days=&page_size=` | Fetch live news |
 | `GET /api/news/{symbol}?limit=` | Stored articles |
-| `POST /api/agents/{agent}/{symbol}/run` | Run firm/industry/sentiment (`firm` aliases accepted; macro/portfolio → explicit 404) |
+| `POST /api/agents/{agent}/{symbol}/run` | Run firm/industry/sentiment/macro (`firm` aliases accepted; portfolio → explicit 404) |
 | `GET /api/agents/outputs?agent_id=&symbol=&limit=` | Output history, newest first |
+| `POST /api/macro/data/refresh`, `POST /api/macro/data/refresh/{indicator}` | Refresh macro indicators (per-indicator failure isolation) |
+| `GET /api/macro/indicators`, `GET /api/macro/series/{indicator}` | Indicator coverage / stored series |
+| `GET /api/macro/latest`, `GET /api/macro/history?limit=` | Latest / historical macro environment views |
 
-## 23. Frontend routes
+## 24. Frontend routes
 
 Demo sidebar (the product): `/` Dashboard (market overview: price, chart, sector peers,
-stored intelligence, news, derived takeaway) · `/company` Company Analysis (price statistics,
+stored intelligence, macro strip, news, derived takeaway) · `/company` Company Analysis (price statistics,
 data inventory, analyst run history, peers) · `/intelligence/firm` · `/intelligence/industry` ·
-`/intelligence/sentiment` · `/intelligence/summary` · `/roadmap` (future-module skeletons,
+`/intelligence/macro` (market-wide environment view) · `/intelligence/sentiment` ·
+`/intelligence/summary` (four perspectives side by side, never blended) · `/roadmap` (future-module skeletons,
 all labeled Under Development). Internal tooling stays mounted but unlinked:
-`/data/*` (sources, pipeline, market, filings, quality); future placeholders: `/intelligence/macro`,
-`/portfolio*`, `/research/*`. No index, market-cap or blended-score figures exist anywhere —
+`/data/*` (sources, pipeline, market, filings, quality);
+future placeholders: `/portfolio*`, `/research/*`. No index, market-cap or blended-score figures exist anywhere —
 the backend provides none, so the UI invents none.
 
-## 24. Configuration / environment variables
+## 25. Configuration / environment variables
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -322,7 +343,7 @@ the backend provides none, so the UI invents none.
 Put them in a root `.env` file (loaded automatically; real environment variables win) — never commit
 secrets. There is no `.env.example` checked in; the table above is the reference.
 
-## 25. Installation
+## 26. Installation
 
 ```bash
 # Backend
@@ -332,7 +353,7 @@ pip install -r backend/requirements.txt   # Python 3.11+
 cd frontend && npm install                 # Node.js 18+
 ```
 
-## 26. Running the backend
+## 27. Running the backend
 
 ```bash
 cd backend
@@ -342,7 +363,7 @@ python -m uvicorn app.main:app --reload --port 8000
 - Health: http://127.0.0.1:8000/health
 - API docs: http://127.0.0.1:8000/docs
 
-## 27. Running the frontend
+## 28. Running the frontend
 
 ```bash
 cd frontend
@@ -351,7 +372,7 @@ npm run dev
 
 Open http://localhost:5173 (API calls are proxied to the backend).
 
-## 28. Testing
+## 29. Testing
 
 ```bash
 cd backend && python -m pytest            # unit + integration; add -m network for live-provider tests
@@ -362,18 +383,18 @@ cd frontend && npm run build              # production build (tsc + vite)
 Markers: `unit` (fast, isolated), `integration` (cross-module), `system` (end-to-end style),
 `network` (internet required, deselected by default).
 
-## 29. Current test status
+## 30. Current test status
 
-- Backend: **172 passed** (`python -m pytest`).
-- Frontend: **41 passed** (`npm test`) — sidebar navigation, expansion/roadmap skeleton,
-  company search/switching, dashboard honesty (no invented indices/scores), takeaway
+- Backend: **197 passed** (`python -m pytest`).
+- Frontend: **44 passed** (`npm test`) — sidebar navigation, expansion/roadmap skeleton,
+  macro page/summary-strip, company search/switching, dashboard honesty (no invented indices/scores), takeaway
   derivation, company analysis page (incl. fundamentals coverage), context isolation,
   no-stale/mid-flight run guards, side-by-side-no-blend summary, stored-news status,
   analysis-vs-data dates, coverage indicator, price-stat unit tests, symbol persistence,
   no-refetch on remount, badge/card rendering.
 - Frontend production build: clean.
 
-## 30. Current limitations
+## 31. Current limitations
 
 - Live yfinance/NewsAPI untested in CI (network-dependent; adapters covered by fakes/mocked HTTP).
 - `POST /api/market/refresh` is synchronous — a full-universe refresh takes ~10–30s live.
@@ -388,25 +409,31 @@ Markers: `unit` (fast, isolated), `integration` (cross-module), `system` (end-to
 - Sentiment relevance screening is deterministic and lexical (identity +
   financial context, documented trade-offs for short brand tokens); NewsAPI free tier
   caps history (~30 days).
+- Macro environment: curated RBI/MoSPI history is versioned but manually
+  maintained (no live official feed reachable — DBnomics DNS fails from here,
+  RBI scraping out of scope); liquidity/credit and fiscal feeds are honestly
+  unavailable; market gauges need ~1 quarter of history before voting.
 - Universe sector/industry metadata is configuration, not verified against a licensed classifier.
 - Single-user local research tool: no auth, no multi-tenancy.
 
-## 31. Demo workflow
+## 32. Demo workflow
 
 1. Open the Dashboard — search a company in the top bar (e.g. **TCS**, **RELIANCE**, **INFY**).
 2. Review the identity header (price, day change, day high/low, volume), the stored-history
-   chart with range selector, sector peers with real quotes, stored intelligence and news.
+   chart with range selector, sector peers with real quotes, stored intelligence, the macro
+   environment strip, and news.
 3. Press **▶ Analyze Company** → Company Analysis (price statistics, data inventory
    incl. fundamentals coverage with source labels, peers).
 4. Firm Analyst → run (fundamentals + momentum; missing inputs stay honestly unavailable).
-5. Sentiment Analyst → fetch news (if configured), then run.
-6. Intelligence Summary → run all three; views sit side by side with evidence and limitations.
-7. Navigate freely — company choice and results persist; nothing re-runs unless you ask.
+5. Macro Analyst → run (market-wide environment; identical for every company).
+6. Sentiment Analyst → fetch news (if configured), then run.
+7. Intelligence Summary → run all four; views sit side by side with evidence and limitations.
+8. Navigate freely — company choice and results persist; nothing re-runs unless you ask.
 
-## 32. Future roadmap
+## 33. Future roadmap
 
 `/roadmap` in the app lists the planned modules as labeled skeletons (no functionality):
-Macro Analyst → Portfolio Agent (consumes `AgentOutput`s, confidence-weighted) → risk/constraint
+Portfolio Agent (consumes `AgentOutput`s, confidence-weighted) → risk/constraint
 engine → optimization → backtesting on the preserved point-in-time metadata → performance evaluation
 → scenario/stress testing → licensed data providers → auth/deployment. The architecture seams
 (provider interfaces, `AgentOutput` contract, provenance log) are already in place for these.

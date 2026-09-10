@@ -1,0 +1,13 @@
+# India real GDP YoY growth, quarterly (MoSPI press notes; latest vintage).
+# Base year changed to 2022-23 in Feb-2026; base_year is recorded per row and
+# surfaced in evidence so rebasing never silently mixes vintages in reading.
+# quarter_label,period_end,yoy_pct,base_year,release_date (blank = not individually verified),source_url
+quarter_label,period_end,yoy_pct,base_year,release_date,source_url
+Q2 FY25,2024-09-30,5.6,2011-12,,https://www.mospi.gov.in/themes/product/6-gross-domestic-product
+Q3 FY25,2024-12-31,6.2,2011-12,,https://www.thehindubusinessline.com/money-and-banking/rbi-monetary-policy-committee-mpc-meeting-april-2025-live-updates-sanjay-malhotra-repo-rate-cut-news/article69426449.ece
+Q4 FY25,2025-03-31,7.4,2011-12,2025-05-30,https://www.pib.gov.in/PressReleasePage.aspx?PRID=2132688&lang=2&reg=3
+Q1 FY26,2025-06-30,6.7,2022-23,2025-08-29,https://www.mospi.gov.in/themes/product/6-gross-domestic-product
+Q2 FY26,2025-09-30,8.4,2022-23,2025-11-28,https://mospi.gov.in/uploads/latestReleases/latest_release_1764326213940_fc47e094-3e61-42c3-a494-b4dc5f9dc5fd_GDP_Press_Note_on_Q2_2025-26N.pdf
+Q3 FY26,2025-12-31,7.8,2022-23,2026-02-27,https://www.pib.gov.in/PressReleasePage.aspx?PRID=2233518&lang=1&reg=3
+Q4 FY26,2026-03-31,7.8,2022-23,2026-06-05,https://www.pib.gov.in/PressReleasePage.aspx?PRID=2269286
+Q1 FY27,2026-06-30,7.8,2022-23,2026-08-31,https://www.mospi.gov.in/uploads/latestReleases/latest_release_1788172583113_d65a77cf-240e-4491-82ee-59f78618fa41_Press_Note_on_GDP_Estimates_for_Q1_2026-27.pdf

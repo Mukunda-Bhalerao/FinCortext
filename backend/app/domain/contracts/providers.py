@@ -70,3 +70,24 @@ class NewsProvider(ABC):
         failure — never fabricate articles.
         """
         raise NotImplementedError
+
+
+class MacroDataProvider(ABC):
+    """Macro indicator retrieval (market-wide, not per-company)."""
+
+    name: str = "macro_provider"
+
+    @abstractmethod
+    def fetch_indicator(self, indicator_id: str) -> dict:
+        """Return a normalized indicator bundle.
+
+        Shape: {"indicator_id", "unit", "source_name",
+                "points": [{"period_start"|None, "period_end"|None,
+                            "value", "published_at"|None, "source_url"|None,
+                            "notes"|None}, ...],
+                "warnings": [...]}.
+        Dates as ISO strings or date/datetime objects; values numeric.
+        Implementations must raise ProviderError/ProviderUnavailableError on
+        failure — never fabricate observations.
+        """
+        raise NotImplementedError

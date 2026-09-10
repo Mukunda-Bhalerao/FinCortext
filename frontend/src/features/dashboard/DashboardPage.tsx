@@ -13,9 +13,11 @@ import {
 } from 'recharts';
 import PeerTable from '../../components/common/PeerTable';
 import StatusBadge from '../../components/common/StatusBadge';
+import { MACRO_SIGNAL_CLASS } from '../../components/common/MacroOutputCard';
 import { SIGNAL_CLASS } from '../../components/common/AgentOutputCard';
 import { useFinCortext } from '../../app/FinCortextContext';
-import type { AgentOutputSummary } from '../../types/api';
+import { api } from '../../services/api';
+import type { AgentOutputSummary, MacroOutput } from '../../types/api';
 import {
   deltaClass,
   fmtInt,
@@ -136,6 +138,55 @@ export function buildTakeaway(
     lines,
     complete: !partial,
   };
+}
+
+/** Compact market-wide macro indicator. Symbol-independent by design:
+ *  the same stored view applies to every company, so company switching
+ *  can never corrupt it. */
+function MacroStrip({ onOpen }: { onOpen: () => void }) {
+  const [macro, setMacro] = useState<MacroOutput | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    api.macro
+      .latest()
+      .then((r) => {
+        if (!cancelled) setMacro(r.output);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (failed) return null;
+  if (macro === null) {
+    return (
+      <div className="macro-strip">
+        <span className="muted">Macro environment — no stored view yet.</span>
+        <button className="link-btn" onClick={onOpen}>
+          Open Macro Analyst →
+        </button>
+      </div>
+    );
+  }
+  const newestThrough =
+    Object.values(macro.data_through ?? {}).sort().reverse()[0] ?? null;
+  return (
+    <button className="macro-strip macro-strip-live" onClick={onOpen}>
+      <span className="muted">Macro Environment</span>
+      <strong className={`badge ${MACRO_SIGNAL_CLASS[macro.overall_signal]}`}>
+        {macro.overall_signal.toUpperCase()}
+      </strong>
+      <span className="muted">
+        {Math.round(macro.confidence * 100)}% · {macro.status}
+        {newestThrough ? ` · through ${newestThrough}` : ''}
+      </span>
+      <span className="link-btn">Open Macro Analyst →</span>
+    </button>
+  );
 }
 
 /** Dashboard — company/market overview in the terminal layout.
@@ -485,6 +536,7 @@ export default function DashboardPage() {
               })}
             </div>
           )}
+          <MacroStrip onOpen={() => go('/intelligence/macro')} />
         </section>
 
         {/* Recent financial news */}

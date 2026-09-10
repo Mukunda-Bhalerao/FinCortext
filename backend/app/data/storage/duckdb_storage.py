@@ -162,6 +162,55 @@ _SCHEMA_STATEMENTS = [
         PRIMARY KEY (event_id)
     )
     """,
+    # --- Macro observations (market-wide, point-in-time aware) ----------
+    """
+    CREATE TABLE IF NOT EXISTS macro_observations (
+        observation_id VARCHAR,
+        indicator_id VARCHAR,
+        value DOUBLE,
+        unit VARCHAR,
+        period_start DATE,
+        period_end DATE,
+        observed_at DATE,
+        published_at TIMESTAMP,
+        available_at TIMESTAMP,
+        source_type VARCHAR,
+        source_name VARCHAR,
+        source_url VARCHAR,
+        content_hash VARCHAR,
+        notes VARCHAR,
+        ingested_at TIMESTAMP,
+        PRIMARY KEY (observation_id)
+    )
+    """,
+    # --- Macro outputs (market-wide environment views) ------------------
+    """
+    CREATE TABLE IF NOT EXISTS macro_outputs (
+        output_id VARCHAR,
+        generated_at TIMESTAMP,
+        overall_signal VARCHAR,
+        confidence DOUBLE,
+        status VARCHAR,
+        score DOUBLE,
+        factors_json VARCHAR,
+        rationale VARCHAR,
+        data_through_json VARCHAR,
+        limitations_json VARCHAR,
+        methodology VARCHAR,
+        PRIMARY KEY (output_id)
+    )
+    """,
+    # --- Portfolio outputs (per-company synthesis views) ------------------
+    """
+    CREATE TABLE IF NOT EXISTS portfolio_outputs (
+        output_id VARCHAR,
+        entity_id VARCHAR,
+        generated_at TIMESTAMP,
+        view_json VARCHAR,
+        status VARCHAR,
+        PRIMARY KEY (output_id)
+    )
+    """,
 ]
 
 
@@ -240,6 +289,14 @@ class DuckDBStorage:
     def _init_schema(self, conn: duckdb.DuckDBPyConnection) -> None:
         for statement in _SCHEMA_STATEMENTS:
             conn.execute(statement)
+        # Additive migration for databases created before the macro score
+        # column existed. Guarded so old and new databases both open cleanly;
+        # the score is also embedded in factors_json, so nothing is lost
+        # even if the migration cannot run.
+        try:
+            conn.execute("ALTER TABLE macro_outputs ADD COLUMN IF NOT EXISTS score DOUBLE")
+        except duckdb.Error as exc:
+            logger.debug("Macro score column migration skipped: %s", exc)
         logger.debug("DuckDB schema ensured at %s (v%s)", self.db_path, SCHEMA_VERSION)
 
 

@@ -1,0 +1,15 @@
+# RBI policy repo rate decisions (MPC statements + RBI press releases).
+# Curated from official publications; each row carries its own source.
+# effective_date,rate_pct,stance,source_url,notes
+# Stance vocabulary is the MPC's own wording (Neutral / Accommodative).
+effective_date,rate_pct,stance,source_url,notes
+2025-02-06,6.50,Neutral,https://www.thehindubusinessline.com/money-and-banking/rbi-monetary-policy-committee-rbi-mpc-meeting-february-2025-live-updates-sanjay-malhotra-repo-rate-cut-latest-news/article69183836.ece,Prevailing level before the 2025-02-07 decision (cut from 6.50%)
+2025-02-07,6.25,Neutral,https://www.thehindubusinessline.com/money-and-banking/rbi-monetary-policy-committee-rbi-mpc-meeting-february-2025-live-updates-sanjay-malhotra-repo-rate-cut-latest-news/article69183836.ece,25 bps cut; first cut since May 2020
+2025-04-09,6.00,Accommodative,https://www.pib.gov.in/PressReleaseIframePage.aspx?PRID=2120509,25 bps cut; stance shifted to accommodative
+2025-06-06,5.50,Neutral,https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=60686,50 bps cut (5:1 vote); stance back to neutral; CRR cut 100 bps to 3%
+2025-08-06,5.50,Neutral,https://rbidocs.rbi.org.in/rdocs/PressRelease/PDFs/PR84135FBEA1DD00D4D5BA6DA6CB3A94539C6.PDF,Hold (unanimous)
+2025-10-01,5.50,Neutral,https://www.thehindu.com/business/Economy/rbi-monetary-policy-committee-meeting-decision-interest-rates-oct-1-2025/article70115603.ece,Hold (unanimous)
+2025-12-05,5.25,Neutral,https://indianexpress.com/article/business/economy/repo-rate-cut-25-bp-to-5-25-rare-goldilocks-period-says-rbi-governor-10405107,25 bps cut (unanimous); OMO purchases announced
+2026-02-06,5.25,Neutral,https://www.thehindu.com/business/Economy/rbi-mpc-keeps-policy-repo-rate-unchanged-interest-inflation-governor-malhotra-announcement-feb-6-2026/article70598648.ece,Hold (unanimous)
+2026-04-08,5.25,Neutral,https://www.assetmanagement.hsbc.co.in/-/media/Files/attachments/common/news-and-articles/articles/rbi-monetary-policy-review-april-2026.pdf,Hold (unanimous)
+2026-06-05,5.25,Neutral,https://www.thehindubusinessline.com/money-and-banking/rbi-monetary-policy-committee-mpc-meeting-june-5-2026-live-news-updates/article71059829.ece,Hold (unanimous); third straight hold

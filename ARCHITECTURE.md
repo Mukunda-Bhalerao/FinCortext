@@ -35,6 +35,7 @@ backend/app/
 │   ├── base/       shared agent interface + AgentOutput builder
 │   ├── firm/       Firm Analyst (deterministic)
 │   ├── industry/   Industry Analyst (deterministic)
+│   ├── macro/      Macro Analyst (deterministic, own MacroOutput contract)
 │   └── sentiment/  Sentiment Analyst (local FinBERT + deterministic aggregation)
 ├── services/      orchestration used by API routes (no logic in routes)
 └── api/routes/    thin FastAPI route modules by domain
@@ -48,27 +49,28 @@ Business logic lives in services/agents/repositories.
 ```
 ┌──────────────────────────── DATA SOURCES ───────────────────────────┐
 │ yfinance (market + fundamentals)   NewsAPI (news)                    │
-│ Official filings (CSV/XBRL/PDF)   │                                   │
+│ Official filings (CSV/XBRL/PDF) · curated macro (RBI/MoSPI releases) │
 │ Future: licensed fundamentals, RSS/GDELT, industry reports           │
 └──────────────────────────────┬──────────────────────────────────────┘
-                               ↓ provider adapters / file import
+                                ↓ provider adapters / file import
 ┌──────────────────────────── DATA PIPELINE ──────────────────────────┐
 │ ingestion → validation → normalization → feature/metric calculation  │
 └──────────────────────────────┬──────────────────────────────────────┘
-                               ↓
+                                ↓
 ┌──────────────────────── DUCKDB STORAGE ─────────────────────────────┐
 │ market_prices · universe_metadata · financial_observations ·         │
 │ filing_documents · news_articles · sentiment_results ·               │
-│ agent_outputs · data_provenance                                      │
+│ agent_outputs · macro_observations · macro_outputs · data_provenance │
 └──────────────────────────────┬──────────────────────────────────────┘
-                               ↓ repositories (source-agnostic reads)
+                                ↓ repositories (source-agnostic reads)
 ┌──────────────────────────── AGENT LAYER ────────────────────────────┐
-│ Firm Analyst    Industry Analyst    Sentiment Analyst                │
-│ (Macro Analyst + Portfolio Agent: future, consume same contract)     │
+│ Firm · Industry · Sentiment Analysts (AgentOutput contract)          │
+│ Macro Analyst (market-wide, dedicated MacroOutput contract)          │
+│ (Portfolio Agent: future, consumes same contracts)                    │
 └──────────────────────────────┬──────────────────────────────────────┘
-                               ↓ standardized AgentOutput
-                    FastAPI services/routes → React frontend
-                    (future Portfolio Agent consumes AgentOutputs)
+                                ↓ AgentOutput / MacroOutput
+                     FastAPI services/routes → React frontend
+                     (future Portfolio Agent consumes AgentOutputs)
 ```
 
 ## 4. Provider abstraction
@@ -121,12 +123,13 @@ through the same contract — no hidden agent-to-agent coupling.
 
 | agent | reads | model/provider coupling |
 |---|---|---|
-| Firm Analyst | `FinancialRepository` (ingested filings), `MarketRepository` (prices) | none |
+| Firm Analyst | `FinancialRepository` (filings + provider fundamentals), `MarketRepository` (prices) | none |
 | Industry Analyst | `MarketRepository` (peer prices), `FinancialRepository` (peer margins), universe config | none |
 | Sentiment Analyst | `NewsRepository` (stored articles) | injectable sentiment model (`FinBERTSentimentModel` in production, fakes in tests) |
+| Macro Analyst | `MacroRepository` (market-wide indicator series) | none (fully deterministic; no LLM) |
 
 Methodology documents: `docs/industry_methodology.md`,
-`docs/sentiment_methodology.md`, and the docstrings of
+`docs/sentiment_methodology.md`, `docs/macro_methodology.md`, and the docstrings of
 `app/agents/firm/methodology.py`.
 
 ### News + sentiment pipeline
@@ -146,6 +149,27 @@ Degradation contract: missing `NEWS_API_KEY` → provider reports unconfigured,
 modules keep working. Model load/inference failures → `ModelUnavailableError`
 → UNAVAILABLE AgentOutput — the backend never crashes on model problems.
 
+### Macro pipeline
+
+```
+Curated official CSVs (data/macro/, RBI/MoSPI releases, per-row provenance)
+        ↓ CuratedMacroProvider (schema-checked, deterministic observation ids)
+Market gauges (USD/INR, Brent, US 10Y, India VIX)
+        ↓ YFinanceMacroProvider (existing yfinance client, no new deps)
+MacroService (per-indicator isolation, provenance, explicit statuses)
+        ↓ DuckDB macro_observations (point-in-time: period vs published_at)
+MacroAgent (7 deterministic factors → majority-vote environment signal)
+        ↓ macro_outputs (MacroOutput: POSITIVE/NEUTRAL/NEGATIVE, no score)
+```
+
+The Macro Analyst is market-wide: reads carry indicator keys, never symbols,
+so company switching cannot misattribute anything. Runs go through the
+standard `POST /api/agents/macro/{symbol}/run` route (symbol validated as
+request context, recorded in provenance, otherwise ignored); reads use
+`GET /api/macro/latest|history|indicators|series/{id}`. The `MacroOutput`
+contract is separate from `AgentOutput` on purpose — environment signals must
+never read as stock recommendations and must never be blended into one.
+
 ## 8. Frontend architecture
 
 React 18 + TypeScript + Vite (`frontend/`), organized by feature:
@@ -156,11 +180,11 @@ frontend/src/
 │                   (session research state), dark theme styles
 ├── components/      common/ reusable UI (StatusBadge, CompanySelector search,
 │                    AgentOutputCard, PeerTable)
-├── features/        dashboard/ (market overview) · company/ (Company Analysis:
+├── features/        dashboard/ (market overview + macro strip) · company/ (Company Analysis:
 │                    priceStats, peer-quote/news/filings hooks, overview page) ·
 │                    data/ (sources, pipeline, market, filings,
 │                    quality — internal routes, unlinked from demo nav) ·
-│                    agents/ (firm, industry, sentiment, summary) ·
+│                    agents/ (firm, industry, macro, sentiment, summary) ·
 │                    portfolio/ · research/ (future placeholders)
 ├── services/        api.ts — the ONLY module that talks to the backend
 ├── types/           api.ts — typed mirrors of backend response contracts
@@ -240,10 +264,10 @@ contract and repository seams, with no agent-to-agent calls.
 (Data Sources → Data Pipeline → Agent Layer → Portfolio Layer → Execution &
 Backtesting → Outputs & Interfaces, over a cross-cutting Foundation Layer). It
 deliberately shows the destination, not the current build: of its six blocks,
-only **1. Data Sources** (market/news/filings adapters), **2. Data Pipeline**,
-the **Firm / Industry / Sentiment** agents of 3. Agent Layer, the **Agent Outputs**
-contract, and **6. Web Dashboard + APIs** are implemented. Macro Analyst,
-Portfolio Layer, Execution & Backtesting, and the remaining interfaces are future
+only **1. Data Sources** (market/news/filings/macro adapters), **2. Data Pipeline**,
+the **Firm / Industry / Sentiment / Macro** agents of 3. Agent Layer, the **Agent Outputs**
+(+ Macro Outputs) contract, and **6. Web Dashboard + APIs** are implemented. Portfolio Layer,
+Execution & Backtesting, and the remaining interfaces are future
 placeholders. The asset lives next to the product logo in `frontend/src/utils/`
 because it is a product/vision asset, not a code module — normative technical
 documentation stays in this file, `README.md`, and `docs/`.

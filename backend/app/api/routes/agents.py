@@ -11,10 +11,12 @@ router = APIRouter(prefix="/api/agents", tags=["agents"])
 
 @router.post("/{agent_id}/{symbol}/run")
 def run_agent(agent_id: str, symbol: str) -> dict:
-    """Run an implemented agent (firm_analyst) and persist the AgentOutput.
+    """Run an implemented agent and persist the output.
 
-    Unimplemented agents (macro_analyst, portfolio_agent) are rejected with an
-    explicit 404 domain error — never fake results.
+    Firm/Industry/Sentiment return the standardized AgentOutput; Macro
+    returns the market-wide MacroOutput; Portfolio runs all four analysts
+    for the symbol and returns the synthesis view. Unimplemented agents
+    are rejected with an explicit 404 domain error — never fake results.
     """
     container = get_container()
     output = container.agent_service.run_agent(agent_id, symbol)

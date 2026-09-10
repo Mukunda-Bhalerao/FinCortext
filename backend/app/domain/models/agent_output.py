@@ -1,7 +1,9 @@
 """Standardized AgentOutput contract — the critical architectural seam.
 
-ALL agents (Firm, Industry, Sentiment now; Macro, Portfolio and others in the
-future) emit this exact contract. The future Portfolio Agent will consume
+Company-scoped agents (Firm, Industry, Sentiment) emit this exact contract.
+The Macro Analyst emits the separate MacroOutput contract instead: its
+POSITIVE / NEUTRAL / NEGATIVE environment vocabulary must never be mistaken
+for buy/sell stock signals. The future Portfolio Agent will consume
 these outputs without any hidden agent-to-agent coupling.
 """
 

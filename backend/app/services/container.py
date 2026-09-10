@@ -12,6 +12,8 @@ from app.agents.sentiment.model import get_sentiment_model
 from app.data.providers.fundamentals.yfinance_fundamentals import (
     YFinanceFundamentalsProvider,
 )
+from app.data.providers.macro.curated_provider import CuratedMacroProvider
+from app.data.providers.macro.yfinance_macro_provider import YFinanceMacroProvider
 from app.data.providers.market.yfinance_provider import YFinanceMarketProvider
 from app.data.providers.news.newsapi_provider import NewsAPINewsProvider
 from app.data.storage.duckdb_storage import DuckDBStorage
@@ -19,13 +21,16 @@ from app.data.universe.universe_config import get_universe
 from app.core.config import settings
 from app.repositories.agent_output_repository import AgentOutputRepository
 from app.repositories.financial_repository import FinancialRepository
+from app.repositories.macro_repository import MacroRepository
 from app.repositories.market_repository import MarketRepository
 from app.repositories.news_repository import NewsRepository
+from app.repositories.portfolio_repository import PortfolioRepository
 from app.repositories.provenance_repository import ProvenanceRepository
 from app.repositories.universe_repository import UniverseRepository
 from app.services.agent_service import AgentService
 from app.services.filing_service import FilingService
 from app.services.fundamentals_service import FundamentalsService
+from app.services.macro_service import MacroService
 from app.services.market_service import MarketService
 from app.services.news_service import NewsService
 
@@ -41,6 +46,8 @@ class Container:
         self.agent_output_repo = AgentOutputRepository(self.storage)
         self.universe_repo = UniverseRepository(self.storage)
         self.provenance_repo = ProvenanceRepository(self.storage)
+        self.macro_repo = MacroRepository(self.storage)
+        self.portfolio_repo = PortfolioRepository(self.storage)
 
         # Providers (replaceable adapters). The news provider reads its key
         # exclusively from configuration; without NEWS_API_KEY it reports
@@ -64,6 +71,11 @@ class Container:
         self.news_service = NewsService(
             self.news_provider, self.news_repo, self.provenance_repo
         )
+        self.macro_service = MacroService(
+            [CuratedMacroProvider(), YFinanceMacroProvider()],
+            self.macro_repo,
+            self.provenance_repo,
+        )
         # Lazy-loading local FinBERT wrapper — never loads at startup.
         self.sentiment_model = get_sentiment_model()
         self.agent_service = AgentService(
@@ -73,6 +85,7 @@ class Container:
             news_repo=self.news_repo,
             sentiment_model=self.sentiment_model,
             market_service=self.market_service,
+            macro_repo=self.macro_repo,
         )
 
         # Keep the universe DB mirror in sync (idempotent).

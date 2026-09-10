@@ -13,6 +13,7 @@ import FilingImportPage from '../features/data/FilingImportPage';
 import DataQualityPage from '../features/data/DataQualityPage';
 import FirmAnalystPage from '../features/agents/FirmAnalystPage';
 import IndustryAnalystPage from '../features/agents/IndustryAnalystPage';
+import MacroAnalystPage from '../features/agents/MacroAnalystPage';
 import SentimentAnalystPage from '../features/agents/SentimentAnalystPage';
 import IntelligenceSummaryPage from '../features/agents/IntelligenceSummaryPage';
 import RoadmapPage from '../features/roadmap/RoadmapPage';
@@ -74,6 +75,15 @@ const NAV_ITEMS: NavItem[] = [
       <svg {...iconProps}>
         <circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
         <path d="M8 2.5v11M2.5 8h11" stroke="currentColor" strokeWidth="1.1" />
+      </svg>
+    ),
+  },
+  {
+    to: '/intelligence/macro',
+    label: 'Macro Analyst',
+    icon: (
+      <svg {...iconProps}>
+        <path d="M2 13.5 6.5 9l3 3L14 6.5M9.5 6.5H14V11" fill="none" stroke="currentColor" strokeWidth="1.4" />
       </svg>
     ),
   },
@@ -204,19 +214,11 @@ function Shell() {
             {/* Intelligence */}
             <Route path="/intelligence/firm" element={<FirmAnalystPage />} />
             <Route path="/intelligence/industry" element={<IndustryAnalystPage />} />
+            <Route path="/intelligence/macro" element={<MacroAnalystPage />} />
             <Route path="/intelligence/sentiment" element={<SentimentAnalystPage />} />
             <Route path="/intelligence/summary" element={<IntelligenceSummaryPage />} />
             {/* Roadmap — future-module skeletons only, no functionality */}
             <Route path="/roadmap" element={<RoadmapPage />} />
-            <Route
-              path="/intelligence/macro"
-              element={
-                <PlaceholderPage
-                  title="Macro Analyst"
-                  note="Coming soon — macro-economic analysis is not implemented. It will join the standardized AgentOutput contract when built."
-                />
-              }
-            />
 
             {/* Portfolio — future placeholders only */}
             <Route

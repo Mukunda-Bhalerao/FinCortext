@@ -7,6 +7,8 @@ import type {
   FilingImportResult,
   FundamentalsCoverageResponse,
   HealthInfo,
+  MacroIndicatorCoverage,
+  MacroOutput,
   MarketStatusResponse,
   NewsListResponse,
   NewsRefreshResponse,
@@ -130,6 +132,24 @@ export const api = {
         `/api/agents/outputs?${params.toString()}`,
       );
     },
+  },
+
+  macro: {
+    /** Market-wide run. `symbol` is request context only — the result is
+     *  identical for every company and never a company score. */
+    run: (symbol: string) =>
+      request<MacroOutput>(
+        `/api/agents/macro/${encodeURIComponent(symbol)}/run`,
+        { method: 'POST' },
+      ),
+    latest: () =>
+      request<{ count: number; output: MacroOutput | null }>('/api/macro/latest'),
+    history: (limit = 20) =>
+      request<{ count: number; outputs: Record<string, unknown>[] }>(
+        `/api/macro/history?limit=${limit}`,
+      ),
+    coverage: () =>
+      request<{ indicators: MacroIndicatorCoverage[] }>('/api/macro/indicators'),
   },
 };
 

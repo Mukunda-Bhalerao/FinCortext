@@ -304,10 +304,37 @@ flow incl. refresh-replace/partial-data/isolation, firm mixed-vintage); frontend
 (+5: roadmap skeleton, fundamentals coverage row). Full suites + build clean;
 live 10-symbol matrix re-verified.
 
+### Milestone 15 — Macro Analyst ✅
+
+**Market-wide environment intelligence (no new architecture):** curated RBI/MoSPI
+history (repo-rate decisions, CPI months, GDP quarters — every value verified
+against official releases, per-row source URLs) + yfinance market gauges
+(USD/INR, Brent, US 10Y, India VIX; Nifty deliberately excluded to keep macro
+strictly macro) → validation → `MacroService` (per-indicator isolation,
+provenance) → DuckDB `macro_observations` (point-in-time: period vs
+publication vs available dates; deterministic ids) → deterministic 7-factor
+engine (documented benchmarks: 7% potential GDP, RBI 4±2 band, MPC step sizes,
+materiality floors, majority votes) → `MacroAgent` → dedicated `MacroOutput`
+contract (`MACRO_INDIA`, POSITIVE/NEUTRAL/NEGATIVE, no numeric score).
+Liquidity/credit and fiscal feeds honestly unavailable (never proxied);
+fact-vs-interpretation labeled in rationale. Runs via standard
+`POST /api/agents/macro/{symbol}/run` (symbol validated as context, result
+identical); reads via `/api/macro/*`. Frontend: Macro Analyst page, 4th
+summary perspective (no blending), dashboard macro strip, sidebar nav.
+Live: 7/7 indicators ingested, macro signal NEUTRAL (conf 0.81), deterministic
+across symbols.
+
+**Tests:** backend +25 (methodology math, validation, curated-CSV guards,
+provider normalization, agent OK/DEGRADED/UNAVAILABLE paths, determinism,
+symbol-independence, API contract); frontend +3 (macro page states, switching
+persistence, summary integration) with dashboard strip assertions. Full suites
++ build clean; live verified against real data.
+
 ## CURRENT STATE
 
 - Backend: 126 tests passing. Market pipeline, filing ingestion, provider
-  fundamentals (labeled fallback), Firm Analyst, Industry Analyst, and
+  fundamentals (labeled fallback), macro indicators (curated official +
+  market gauges), Firm Analyst, Industry Analyst, Macro Analyst, and
   News+Sentiment all working offline
   (fixtures/fakes; live providers network-optional). Sentiment relevance is
   a deterministic identity+financial-context screen with auditable
@@ -319,17 +346,20 @@ live 10-symbol matrix re-verified.
   than half of the documented factor weight.
 - Industry Analyst auto-prepares its market data (company + sector peers):
   fresh cached history is reused, only missing/stale symbols are fetched.
-- Demo navigation: Dashboard, Company Analysis + the three analysts + Intelligence
-  Summary in the sidebar, plus an Expansion section with the Roadmap skeleton;
+- Demo navigation: Dashboard, Company Analysis + the four analysts (Firm,
+  Industry, Macro, Sentiment) + Intelligence Summary in the sidebar, plus an
+  Expansion section with the Roadmap skeleton;
   all other pages remain mounted at their routes but are unlinked.
-- Frontend: 41 component tests passing; production build clean.
-- All three implemented agents (firm/industry/sentiment) emit the
-  standardized AgentOutput via `POST /api/agents/{agent}/{symbol}/run`.
+- Frontend: 44 component tests passing; production build clean.
+- All implemented agents emit via `POST /api/agents/{agent}/{symbol}/run`
+  (company analysts → `AgentOutput`; macro → market-wide `MacroOutput`).
 
 ## TEST STATUS
 
-- `cd backend && python -m pytest` — **172 passed**
-- Frontend `npm test` — **41 passed** (sidebar nav, expansion/roadmap skeleton,
+- `cd backend && python -m pytest` — **197 passed**
+- Frontend `npm test` — **44 passed** (sidebar nav, expansion/roadmap skeleton,
+  macro page/summary/dashboard-strip, company search/switching, takeaway
+  derivation, company page inventory (incl. fundamentals coverage), context isolation,
   company search/switching, takeaway derivation, company page inventory
   (incl. fundamentals coverage), context isolation, no-stale/mid-flight
   guards, side-by-side-no-blend, stored-news status, date lines, coverage
@@ -353,6 +383,9 @@ live 10-symbol matrix re-verified.
   (see Milestone 13); lexical matching may miss indirect references, and bare
   short brand tokens have documented recall trade-offs. NewsAPI free tier
   caps history (~30 days).
+- Macro curated series are manually maintained (no live RBI/MoSPI feed is
+  reachable from here); liquidity/credit and fiscal feeds are honestly
+  unavailable; market gauges need ~1 quarter of history before voting.
 
 ### Bugfix — Market data canonical symbol key ✅
 
@@ -426,8 +459,7 @@ firm agent thin-evidence DEGRADED. Frontend: fixed two pre-existing ambiguous
 
 ## NEXT RECOMMENDED STEP
 
-Demo polish: consider a universe-wide "prepare demo data" action (background
-refresh with progress feedback), ingesting real filings for the demo
-companies so the Firm Analyst's fundamental factors light up, and surfacing
-the Industry Analyst's automatic data-preparation summary in the UI for
-extra transparency.
+Next candidate: Portfolio Agent scaffolding on the existing contracts
+(`AgentOutput` + `MacroOutput` consumers, risk/constraint engine seam),
+keeping the no-blending rule for the summary. Macro data maintenance stays
+manual (curated CSV versions) until a reachable official feed exists.

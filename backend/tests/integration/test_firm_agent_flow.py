@@ -118,10 +118,11 @@ def test_firm_agent_api_endpoint(tmp_path, monkeypatch, stack):
     assert r.status_code == 200
     assert r.json()["count"] == 1
 
-    # Unimplemented agent rejected explicitly
-    r = client.post("/api/agents/macro/RELIANCE/run")
+    # Unimplemented agent rejected explicitly (macro and portfolio run
+    # through their own contracts — see their flow tests).
+    r = client.post("/api/agents/portfolio/RELIANCE/run")
     assert r.status_code == 404
-    assert "not implemented" in r.json()["error"]["message"]
+    assert "portfolio repository" in r.json()["error"]["message"]
 
 
 def test_firm_agent_per_symbol_isolation(stack):

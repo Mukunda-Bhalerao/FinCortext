@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import App from './App';
 
 describe('App demo navigation', () => {
-  it('shows the six demo destinations in the sidebar', () => {
+  it('shows the seven demo destinations in the sidebar', () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <App />
@@ -14,6 +14,7 @@ describe('App demo navigation', () => {
     expect(nav).toHaveTextContent('Company Analysis');
     expect(nav).toHaveTextContent('Firm Analyst');
     expect(nav).toHaveTextContent('Industry Analyst');
+    expect(nav).toHaveTextContent('Macro Analyst');
     expect(nav).toHaveTextContent('Sentiment Analyst');
     expect(nav).toHaveTextContent('Intelligence Summary');
 
@@ -23,7 +24,6 @@ describe('App demo navigation', () => {
     expect(nav).not.toHaveTextContent('Market Data');
     expect(nav).not.toHaveTextContent('Filing Import');
     expect(nav).not.toHaveTextContent('Data Quality');
-    expect(nav).not.toHaveTextContent('Macro Analyst');
     expect(nav).not.toHaveTextContent('Portfolio Agent');
     expect(nav).not.toHaveTextContent('Risk & Constraints');
     expect(nav).not.toHaveTextContent('Optimization');
@@ -123,6 +123,7 @@ describe('App demo navigation', () => {
       { link: 'Company Analysis', heading: 'Company Analysis' },
       { link: 'Firm Analyst', heading: 'Firm Analyst' },
       { link: 'Industry Analyst', heading: 'Industry Analyst' },
+      { link: 'Macro Analyst', heading: 'Macro Analyst' },
       { link: 'Sentiment Analyst', heading: 'Sentiment Analyst' },
       { link: 'Intelligence Summary', heading: 'Combined Intelligence Summary' },
     ];
