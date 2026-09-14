@@ -332,6 +332,9 @@ export default function CompanyAnalysisPage() {
         <button className="analysis-link" onClick={() => go('/intelligence/summary')}>
           <strong>Combined Summary →</strong>
         </button>
+        <button className="analysis-link" onClick={() => go('/portfolio')}>
+          <strong>Portfolio Synthesis →</strong>
+        </button>
       </nav>
     </section>
   );

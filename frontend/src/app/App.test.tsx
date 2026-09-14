@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import App from './App';
 
 describe('App demo navigation', () => {
-  it('shows the seven demo destinations in the sidebar', () => {
+  it('shows the eight demo destinations in the sidebar', () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <App />
@@ -17,6 +17,7 @@ describe('App demo navigation', () => {
     expect(nav).toHaveTextContent('Macro Analyst');
     expect(nav).toHaveTextContent('Sentiment Analyst');
     expect(nav).toHaveTextContent('Intelligence Summary');
+    expect(nav).toHaveTextContent('Portfolio Synthesis');
 
     // No data/backend sections in the demo UI — routes stay reachable by URL.
     expect(nav).not.toHaveTextContent('Data Sources');
@@ -24,7 +25,6 @@ describe('App demo navigation', () => {
     expect(nav).not.toHaveTextContent('Market Data');
     expect(nav).not.toHaveTextContent('Filing Import');
     expect(nav).not.toHaveTextContent('Data Quality');
-    expect(nav).not.toHaveTextContent('Portfolio Agent');
     expect(nav).not.toHaveTextContent('Risk & Constraints');
     expect(nav).not.toHaveTextContent('Optimization');
     expect(nav).not.toHaveTextContent('Backtesting');
@@ -66,13 +66,13 @@ describe('App demo navigation', () => {
     expect(screen.getByRole('heading', { name: 'Market Data' })).toBeInTheDocument();
   });
 
-  it('keeps hidden routes reachable (Portfolio placeholder still mounted)', () => {
+  it('routes to the portfolio synthesis page (implemented, not a placeholder)', () => {
     render(
       <MemoryRouter initialEntries={['/portfolio']}>
         <App />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { name: 'Portfolio Agent' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Portfolio Synthesis' })).toBeInTheDocument();
   });
 
   it('keeps the selected company across Dashboard → analyst → Dashboard navigation', async () => {
@@ -126,6 +126,7 @@ describe('App demo navigation', () => {
       { link: 'Macro Analyst', heading: 'Macro Analyst' },
       { link: 'Sentiment Analyst', heading: 'Sentiment Analyst' },
       { link: 'Intelligence Summary', heading: 'Combined Intelligence Summary' },
+      { link: 'Portfolio Synthesis', heading: 'Portfolio Synthesis' },
     ];
 
     try {

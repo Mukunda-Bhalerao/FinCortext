@@ -121,7 +121,9 @@ export default function IntelligenceSummaryPage() {
         Four independent perspectives on <strong>{symbol}</strong> — company
         fundamentals, industry peers, news tone, plus the market-wide macro
         environment. Their views sit side by side; FinCortext does not blend
-        them into one overall score. Change the company in the search bar above.
+        them into one overall score. For the explained synthesis, open{' '}
+        <a href={`/portfolio?symbol=${encodeURIComponent(symbol)}`}>Portfolio Synthesis →</a>.
+        Change the company in the search bar above.
       </p>
 
       <div className="run-bar">
@@ -161,14 +163,20 @@ export default function IntelligenceSummaryPage() {
                 {macro
                   ? 'error' in macro
                     ? 'error'
-                    : macro.overall_signal.toUpperCase()
+                    : macro.score !== null && macro.score !== undefined
+                      ? `${macro.score.toFixed(0)}`
+                      : macro.overall_signal.toUpperCase()
                   : '—'}
               </strong>
+              {macro && !('error' in macro) && (
+                <span className="muted">{macro.overall_signal.toUpperCase()}</span>
+              )}
             </div>
           </div>
           <p className="muted">
             Each perspective is reported with its own evidence and limitations —
-            FinCortext does not generate portfolio recommendations or weights.
+            the <a href={`/portfolio?symbol=${encodeURIComponent(symbol)}`}>Portfolio Synthesis</a>{' '}
+            explains how they fit together without blending them.
           </p>
         </div>
       )}

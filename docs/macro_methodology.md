@@ -15,8 +15,10 @@ The Macro Analyst answers:
 It is market-wide, not company-specific: the same output applies to TCS,
 INFY, or any universe company. Its vocabulary is POSITIVE / NEUTRAL /
 NEGATIVE (**environment**), never buy/sell — a positive environment is not a
-recommendation for any stock, and outputs carry no 0–100 score so nothing can
-be blended into one.
+recommendation for any stock. It carries a 0–100 Macro Environment Score (a
+linear rescaling of the available-factor vote, always agreeing with the
+signal) for granularity — but the score describes the environment only and
+must never be blended with company analyst scores into an investment rating.
 
 ## Pipeline
 
@@ -46,9 +48,15 @@ Agents never touch HTTP: all retrieval happens in providers/services.
 All thresholds live in `methodology.py` with rationale; changing them is a
 methodology change and must be reflected in tests.
 
-## Overall signal and confidence
+## Overall signal, score and confidence
 
-Overall = majority vote of available factor signals. Confidence =
+Overall = majority vote of available factor signals (+1/0/−1 each, unavailable
+areas excluded from the denominator — never counted as neutral). The Macro
+Environment Score maps that same vote onto 0–100: `score = 50 + 50 ×
+(net_votes / n_available)` (None when nothing is available). The score always
+agrees with the signal (score > 50 ⟺ POSITIVE, score = 50 ⟺ NEUTRAL, score <
+50 ⟺ NEGATIVE); it adds granularity, not a second opinion.
+Confidence =
 0.5·coverage + 0.3·recency + 0.2·consistency, where coverage = available/7,
 recency = share of available factors within their freshness window (market
 14d, CPI 45d, GDP/repo 120d), consistency = 1 − std-dev of signed signals.
@@ -70,7 +78,8 @@ isolated and reported; the analysis runs on whatever valid data exists.
 
 ## Output contents
 
-- `overall_signal`, `confidence`, `status` (no numeric score, by design)
+- `overall_signal`, `score` (0–100 environment score, None when unavailable),
+  `confidence`, `status`
 - 7 factors: value, unit, direction, signal, confidence, availability,
   `data_as_of`, detail, evidence (retrieved facts with sources), limitations
 - rationale: dated FACTS paragraph + labeled INTERPRETATION sentence

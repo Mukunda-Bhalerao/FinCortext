@@ -330,34 +330,70 @@ symbol-independence, API contract); frontend +3 (macro page states, switching
 persistence, summary integration) with dashboard strip assertions. Full suites
 + build clean; live verified against real data.
 
+### Milestone 16 — Macro Score + Portfolio Synthesis ✅
+
+**Macro Environment Score (frontend parity, no methodology change):** the
+backend already computed `score = 50 + 50·net/n` over available factors only
+(with signal agreement by construction, unavailable areas excluded, and
+cross-factor evidence dedup). This milestone surfaces it consistently: the
+Macro card now shows `Macro Environment Score: XX / 100` + `Signal:
+POSITIVE/NEUTRAL/NEGATIVE` + `Status` + `Confidence: XX%` with a numeric dial
+(the cryptic `NEU` badge and a duplicated signal badge are removed); the
+Dashboard strip and Intelligence Summary show the score; docs
+(`docs/macro_methodology.md`, `ARCHITECTURE.md`) now describe the score and
+its no-blending rule.
+
+**Portfolio / Central Orchestrator (synthesis UI + production wiring):** the
+backend synthesis (`PortfolioAgent`, methodology, `PortfolioView` contract,
+repository, `AgentService.run_portfolio`, routes) already existed but was
+unreachable in production — `Container` never passed `portfolio_repo` into
+`AgentService`, so `POST /api/agents/portfolio/{symbol}/run` always 404'd.
+One-line wiring fix; no methodology changes. New frontend: `PortfolioView`
+types + `api.portfolio` (run/latest/history), `PortfolioViewCard`
+(perspectives, agreement/conflicts, thesis, evidence, risks, scenarios,
+rationale, limitations, coverage/confidence), `PortfolioSynthesisPage`
+(`/portfolio`, per-company stored view + fresh runs, symbol-guarded, macro
+labeled market-wide), sidebar `Portfolio Synthesis` entry, concise Dashboard
+link (no full outputs on the Dashboard), Company Analysis + Summary links.
+
+**Tests:** backend 213 → 220 (+7: wiring, end-to-end synthesis, TCS/INFY/
+RELIANCE isolation, DEGRADED flagging, score/signal agreement, explicit
+dedupe unit test); frontend 44 → 52 (+8 portfolio page tests: agreement,
+conflicts, missing/DEGRADED, market-wide macro, TCS/RELIANCE/INFY, switching,
+URL persistence, errors; macro/summary/dashboard/app tests updated for the
+score presentation). No existing assertions weakened — score-display tests
+were updated to the new specified behavior. Full suites + build clean.
+
 ## CURRENT STATE
 
-- Backend: 126 tests passing. Market pipeline, filing ingestion, provider
-  fundamentals (labeled fallback), macro indicators (curated official +
-  market gauges), Firm Analyst, Industry Analyst, Macro Analyst, and
-  News+Sentiment all working offline
-  (fixtures/fakes; live providers network-optional). Sentiment relevance is
-  a deterministic identity+financial-context screen with auditable
-  stored/relevant/rejected counts (see Milestone 13).
+- Backend: 220 tests passing. Market pipeline, filing ingestion, provider
+fundamentals (labeled fallback), macro indicators (curated official +
+market gauges) with environment score, Firm Analyst, Industry Analyst, Macro
+Analyst, Portfolio synthesis, and News+Sentiment all working offline
+(fixtures/fakes; live providers network-optional). Sentiment relevance is
+a deterministic identity+financial-context screen with auditable
+stored/relevant/rejected counts (see Milestone 13).
 - Market data canonical-key invariant enforced: stored bars are keyed by the
-  internal symbol (TCS), never the provider ticker (TCS.NS); startup repair
-  re-keys any legacy rows (see "Bugfix — Market data canonical symbol key").
+internal symbol (TCS), never the provider ticker (TCS.NS); startup repair
+re-keys any legacy rows (see "Bugfix — Market data canonical symbol key").
 - Firm/Industry agents report DEGRADED (not OK) when a score rests on less
-  than half of the documented factor weight.
+than half of the documented factor weight.
 - Industry Analyst auto-prepares its market data (company + sector peers):
-  fresh cached history is reused, only missing/stale symbols are fetched.
+fresh cached history is reused, only missing/stale symbols are fetched.
 - Demo navigation: Dashboard, Company Analysis + the four analysts (Firm,
-  Industry, Macro, Sentiment) + Intelligence Summary in the sidebar, plus an
-  Expansion section with the Roadmap skeleton;
-  all other pages remain mounted at their routes but are unlinked.
-- Frontend: 44 component tests passing; production build clean.
+Industry, Macro, Sentiment) + Intelligence Summary + Portfolio Synthesis in
+the sidebar, plus an Expansion section with the Roadmap skeleton;
+all other pages remain mounted at their routes but are unlinked.
+- Frontend: 52 component tests passing; production build clean.
 - All implemented agents emit via `POST /api/agents/{agent}/{symbol}/run`
-  (company analysts → `AgentOutput`; macro → market-wide `MacroOutput`).
+(company analysts → `AgentOutput`; macro → market-wide `MacroOutput` with
+environment score; portfolio → per-company `PortfolioView` synthesis, no
+overall score).
 
 ## TEST STATUS
 
-- `cd backend && python -m pytest` — **197 passed**
-- Frontend `npm test` — **44 passed** (sidebar nav, expansion/roadmap skeleton,
+- `cd backend && python -m pytest` — **220 passed**
+- Frontend `npm test` — **52 passed** (sidebar nav incl. portfolio synthesis,
   macro page/summary/dashboard-strip, company search/switching, takeaway
   derivation, company page inventory (incl. fundamentals coverage), context isolation,
   company search/switching, takeaway derivation, company page inventory

@@ -158,8 +158,8 @@ Market gauges (USD/INR, Brent, US 10Y, India VIX)
         ↓ YFinanceMacroProvider (existing yfinance client, no new deps)
 MacroService (per-indicator isolation, provenance, explicit statuses)
         ↓ DuckDB macro_observations (point-in-time: period vs published_at)
-MacroAgent (7 deterministic factors → majority-vote environment signal)
-        ↓ macro_outputs (MacroOutput: POSITIVE/NEUTRAL/NEGATIVE, no score)
+MacroAgent (7 deterministic factors → majority-vote environment signal + 0–100 environment score)
+        ↓ macro_outputs (MacroOutput: POSITIVE/NEUTRAL/NEGATIVE + Macro Environment Score)
 ```
 
 The Macro Analyst is market-wide: reads carry indicator keys, never symbols,
@@ -169,6 +169,9 @@ request context, recorded in provenance, otherwise ignored); reads use
 `GET /api/macro/latest|history|indicators|series/{id}`. The `MacroOutput`
 contract is separate from `AgentOutput` on purpose — environment signals must
 never read as stock recommendations and must never be blended into one.
+The 0–100 Macro Environment Score is a linear rescaling of the same
+available-factor vote (always agreeing with the signal); it describes the
+environment only, never a company score to blend.
 
 ## 8. Frontend architecture
 
@@ -185,7 +188,7 @@ frontend/src/
 │                    data/ (sources, pipeline, market, filings,
 │                    quality — internal routes, unlinked from demo nav) ·
 │                    agents/ (firm, industry, macro, sentiment, summary) ·
-│                    portfolio/ · research/ (future placeholders)
+│                    portfolio/ (synthesis page) · research/ (future placeholders)
 ├── services/        api.ts — the ONLY module that talks to the backend
 ├── types/           api.ts — typed mirrors of backend response contracts
 └── utils/           FinCortextLogo.png — product logo asset (sidebar branding)
@@ -195,8 +198,9 @@ Rules: typed API service layer, feature separation, loading/error/unavailable
 states everywhere, explicit data-status badges (LIVE / CACHED / IMPORTED
 OFFICIAL / SAMPLE / UNAVAILABLE / ERROR), and honest empty states. One global
 company search in the topbar feeds every page; analyst pages carry no selector
-of their own. The combined intelligence summary states that portfolio synthesis
-is reserved for the future Portfolio Agent.
+of their own. The combined intelligence summary shows the four views side by
+side; the Portfolio Synthesis page explains how they fit together without
+blending them.
 
 Page responsibilities: Dashboard = market overview (price action, stored
 history chart, sector peers with real quotes, compact stored intelligence,
@@ -242,18 +246,26 @@ storage pipeline, per-symbol provider failures are isolated (recorded as
 recorded in the output provenance. The `IndustryAgent` itself stays
 repository-only — no provider coupling, no architectural drift.
 
-## 9. Future Portfolio Agent integration
+## 9. Portfolio Agent (Central Orchestrator) integration
 
-Reserved seams (no fake implementations):
+Implemented synthesis layer (no scoring, no blending):
 
-- `AgentOutput` contract is already portfolio-ready (entity-scoped, scored,
-  confidence-weighted, provenance-linked).
-- Universe configuration provides the tradable set.
-- Storage schema leaves room for portfolio/optimization tables.
-- Frontend Portfolio/Research pages are explicit "Coming soon" placeholders.
+- `AgentOutput` + `MacroOutput` contracts are portfolio-ready (entity-scoped,
+  scored, confidence-weighted, provenance-linked).
+- `PortfolioAgent` (`app/agents/portfolio/`) reads the four analyst outputs
+  for ONE company and explains how they fit together (agreement/conflicts,
+  thesis, evidence, risks, scenarios, coverage) — deterministic, no overall
+  score, no overall signal, no averaging.
+- `AgentService.run_portfolio` runs all four analysts for the symbol (each
+  persists its own output), then synthesizes; route
+  `POST /api/agents/portfolio/{symbol}/run`, reads via `/api/portfolio/*`.
+- Macro stays market-wide inside the synthesis (same environment view for
+  every company, labeled as context, never a stock call).
+- Frontend Portfolio Synthesis page (`/portfolio`) renders the stored view;
+  Dashboard stays concise (compact scores + link). Weight optimization,
+  risk engine execution and backtesting remain future placeholders.
 
-A future Portfolio Agent would: read the latest persisted `AgentOutput` per
-(agent, entity) from `agent_outputs`, weight scores by confidence and status
+A future optimizer would: weight scores by confidence and status
 (OK/DEGRADED/UNAVAILABLE), apply the future risk/constraint engine, and hand
 candidate weights to the future optimizer — all through the existing
 contract and repository seams, with no agent-to-agent calls.
@@ -265,9 +277,9 @@ contract and repository seams, with no agent-to-agent calls.
 Backtesting → Outputs & Interfaces, over a cross-cutting Foundation Layer). It
 deliberately shows the destination, not the current build: of its six blocks,
 only **1. Data Sources** (market/news/filings/macro adapters), **2. Data Pipeline**,
-the **Firm / Industry / Sentiment / Macro** agents of 3. Agent Layer, the **Agent Outputs**
-(+ Macro Outputs) contract, and **6. Web Dashboard + APIs** are implemented. Portfolio Layer,
-Execution & Backtesting, and the remaining interfaces are future
+the **Firm / Industry / Sentiment / Macro** agents of 3. Agent Layer, the Portfolio
+synthesis layer, the **Agent Outputs**
+(+ Macro Outputs + Portfolio Views) contract, and **6. Web Dashboard + APIs** are implemented. Execution & Backtesting, and the remaining interfaces are future
 placeholders. The asset lives next to the product logo in `frontend/src/utils/`
 because it is a product/vision asset, not a code module — normative technical
 documentation stays in this file, `README.md`, and `docs/`.

@@ -9,6 +9,7 @@ function macroOutput(): MacroOutput {
     agent_id: 'macro_analyst',
     entity_id: 'MACRO_INDIA',
     requested_symbol: 'TCS',
+    score: 50,
     overall_signal: 'neutral',
     confidence: 0.62,
     status: 'OK',
@@ -93,10 +94,15 @@ describe('MacroAnalystPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Macro Environment')).toBeInTheDocument();
     });
-    // Environment vocabulary, never buy/sell.
+    // Environment vocabulary with full score/signal presentation — never buy/sell.
     expect(screen.getByText('NEUTRAL')).toBeInTheDocument();
     expect(screen.queryByText(/BUY/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/\/ ?100/)).not.toBeInTheDocument();
+    // Numeric environment score, signal, status and confidence are all shown.
+    expect(screen.getByText(/Macro Environment Score: 50 \/ 100/)).toBeInTheDocument();
+    expect(screen.getByText(/Signal: NEUTRAL/)).toBeInTheDocument();
+    expect(screen.getByText(/Confidence: 62%/)).toBeInTheDocument();
+    // No cryptic three-letter dial.
+    expect(screen.queryByText('NEU', { selector: '.score-value' })).not.toBeInTheDocument();
     // Factor with value, direction, as-of date, evidence and source.
     expect(screen.getByText('Growth')).toBeInTheDocument();
     expect(screen.getByText(/as of 2026-06-30/)).toBeInTheDocument();

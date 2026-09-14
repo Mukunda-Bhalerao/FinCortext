@@ -162,6 +162,7 @@ const fullMocks: Record<string, unknown> = {
       agent_id: 'macro_analyst',
       entity_id: 'MACRO_INDIA',
       requested_symbol: null,
+      score: 50,
       overall_signal: 'neutral',
       confidence: 0.62,
       status: 'OK',
@@ -253,12 +254,16 @@ describe('DashboardPage terminal', () => {
     expect(screen.getByText('Key Takeaway')).toBeInTheDocument();
     expect(screen.getByText(/All three analyst views are stored/)).toBeInTheDocument();
 
-    // Macro strip: market-wide stored view with environment vocabulary.
+    // Macro strip: market-wide stored view with score + environment vocabulary.
     await waitFor(() => {
       expect(screen.getByText('Macro Environment')).toBeInTheDocument();
     });
     expect(screen.getByText('NEUTRAL')).toBeInTheDocument();
+    expect(screen.getByText('50/100')).toBeInTheDocument();
     expect(screen.getByText(/through 2026-07-31/)).toBeInTheDocument();
+    // Concise dashboard links to the detailed synthesis — no full outputs here.
+    expect(screen.getByText(/Open Portfolio Synthesis/)).toBeInTheDocument();
+    expect(screen.queryByText(/Contributing factors/)).not.toBeInTheDocument();
 
     // Real stored news.
     expect(screen.getByText('TCS reports steady quarter')).toBeInTheDocument();

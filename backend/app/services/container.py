@@ -86,6 +86,7 @@ class Container:
             sentiment_model=self.sentiment_model,
             market_service=self.market_service,
             macro_repo=self.macro_repo,
+            portfolio_repo=self.portfolio_repo,
         )
 
         # Keep the universe DB mirror in sync (idempotent).

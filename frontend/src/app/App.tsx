@@ -16,6 +16,7 @@ import IndustryAnalystPage from '../features/agents/IndustryAnalystPage';
 import MacroAnalystPage from '../features/agents/MacroAnalystPage';
 import SentimentAnalystPage from '../features/agents/SentimentAnalystPage';
 import IntelligenceSummaryPage from '../features/agents/IntelligenceSummaryPage';
+import PortfolioSynthesisPage from '../features/portfolio/PortfolioSynthesisPage';
 import RoadmapPage from '../features/roadmap/RoadmapPage';
 import PlaceholderPage from '../components/common/PlaceholderPage';
 
@@ -102,6 +103,15 @@ const NAV_ITEMS: NavItem[] = [
     icon: (
       <svg {...iconProps}>
         <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h7" stroke="currentColor" strokeWidth="1.4" />
+      </svg>
+    ),
+  },
+  {
+    to: '/portfolio',
+    label: 'Portfolio Synthesis',
+    icon: (
+      <svg {...iconProps}>
+        <path d="M2.5 13.5v-6l3.5 2 3.5-4 4 5.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
       </svg>
     ),
   },
@@ -220,16 +230,8 @@ function Shell() {
             {/* Roadmap — future-module skeletons only, no functionality */}
             <Route path="/roadmap" element={<RoadmapPage />} />
 
-            {/* Portfolio — future placeholders only */}
-            <Route
-              path="/portfolio"
-              element={
-                <PlaceholderPage
-                  title="Portfolio Agent"
-                  note="Reserved for the future Portfolio Agent. It will consume the standardized outputs of the implemented analysts — no portfolio recommendations or weights are generated today."
-                />
-              }
-            />
+            {/* Portfolio — synthesis is implemented; risk/optimization stay future */}
+            <Route path="/portfolio" element={<PortfolioSynthesisPage />} />
             <Route
               path="/portfolio/risk"
               element={

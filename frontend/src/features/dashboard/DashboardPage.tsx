@@ -177,6 +177,9 @@ function MacroStrip({ onOpen }: { onOpen: () => void }) {
   return (
     <button className="macro-strip macro-strip-live" onClick={onOpen}>
       <span className="muted">Macro Environment</span>
+      <strong>
+        {macro.score !== null && macro.score !== undefined ? `${macro.score.toFixed(0)}/100` : '—'}
+      </strong>
       <strong className={`badge ${MACRO_SIGNAL_CLASS[macro.overall_signal]}`}>
         {macro.overall_signal.toUpperCase()}
       </strong>
@@ -537,6 +540,12 @@ export default function DashboardPage() {
             </div>
           )}
           <MacroStrip onOpen={() => go('/intelligence/macro')} />
+          <p className="muted dash-section-note">
+            Four views, one synthesis —{' '}
+            <button className="link-btn" onClick={() => go('/portfolio')}>
+              Open Portfolio Synthesis →
+            </button>
+          </p>
         </section>
 
         {/* Recent financial news */}

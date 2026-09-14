@@ -7,28 +7,30 @@ export const MACRO_SIGNAL_CLASS: Record<MacroSignalValue, string> = {
   unavailable: 'signal-unavailable',
 };
 
-export const MACRO_DIAL_CLASS: Record<MacroSignalValue, string> = {
-  positive: 'positive',
-  neutral: '',
-  negative: 'negative',
-  unavailable: 'unavailable',
-};
-
-function SignalDial({ signal, status }: { signal: MacroSignalValue; status: string }) {
+function ScoreDial({ score, status }: { score: number | null; status: string }) {
+  if (score === null || score === undefined) {
+    return (
+      <div className="score-dial unavailable">
+        <span className="score-value">—</span>
+        <span className="score-label">{status}</span>
+      </div>
+    );
+  }
+  const tone = score > 50 ? 'positive' : score < 50 ? 'negative' : '';
   return (
-    <div className={`score-dial ${MACRO_DIAL_CLASS[signal]}`}>
-      <span className="score-value macro-signal">
-        {signal === 'unavailable' ? '—' : signal.slice(0, 3).toUpperCase()}
-      </span>
-      <span className="score-label">{status}</span>
+    <div className={`score-dial ${tone}`}>
+      <span className="score-value">{score.toFixed(0)}</span>
+      <span className="score-label">/ 100</span>
     </div>
   );
 }
 
 /** Full rendering of one MacroOutput — the market-wide environment view.
  *
- *  Deliberately shows NO numeric score: the environment signal must never
- *  read as a stock recommendation.
+ *  Shows the Macro Environment Score (0–100) alongside the environment
+ *  signal, status and confidence — visually consistent with the company
+ *  analyst cards. The score describes the macro environment only and is
+ *  never a stock recommendation.
  */
 export default function MacroOutputCard({ output }: { output: MacroOutput }) {
   const availableFactors = output.factors.filter((f) => f.available);
@@ -42,10 +44,15 @@ export default function MacroOutputCard({ output }: { output: MacroOutput }) {
   return (
     <article className={`agent-card status-${output.status.toLowerCase()}`}>
       <header className="agent-card-header">
-        <SignalDial signal={output.overall_signal} status={output.status} />
+        <ScoreDial score={output.score} status={output.status} />
         <div className="agent-card-title">
           <h3>Macro Environment</h3>
           <p>
+            {output.score !== null && output.score !== undefined ? (
+              <span className="muted">Macro Environment Score: {output.score.toFixed(0)} / 100 · </span>
+            ) : (
+              <span className="muted">Macro Environment Score: unavailable · </span>
+            )}
             <span className={`badge ${MACRO_SIGNAL_CLASS[output.overall_signal]}`}>
               {output.overall_signal.replace(/_/g, ' ').toUpperCase()}
             </span>{' '}
@@ -53,6 +60,10 @@ export default function MacroOutputCard({ output }: { output: MacroOutput }) {
               {output.status}
             </span>{' '}
             <span className="muted">confidence {(output.confidence * 100).toFixed(0)}%</span>
+          </p>
+          <p className="muted">
+            Signal: {output.overall_signal.replace(/_/g, ' ').toUpperCase()} · Status: {output.status} ·{' '}
+            Confidence: {(output.confidence * 100).toFixed(0)}%
           </p>
         </div>
       </header>
@@ -66,9 +77,6 @@ export default function MacroOutputCard({ output }: { output: MacroOutput }) {
             {availableFactors.map((f) => (
               <li key={f.name}>
                 <strong>{f.label}</strong>{' '}
-                <span className={`badge ${MACRO_SIGNAL_CLASS[f.signal]}`}>
-                  {f.signal.toUpperCase()}
-                </span>{' '}
                 <span className={`badge ${MACRO_SIGNAL_CLASS[f.signal]}`}>
                   {f.signal.toUpperCase()}
                 </span>

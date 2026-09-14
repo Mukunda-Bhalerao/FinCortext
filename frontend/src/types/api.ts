@@ -273,6 +273,8 @@ export interface MacroOutput {
   agent_id: string;
   entity_id: string;
   requested_symbol: string | null;
+  /** 0–100 Macro Environment Score (None when unavailable). Environment only. */
+  score: number | null;
   overall_signal: MacroSignalValue;
   confidence: number;
   status: 'OK' | 'DEGRADED' | 'UNAVAILABLE';
@@ -291,4 +293,73 @@ export interface MacroIndicatorCoverage {
   latest_period: string | null;
   latest_observed: string | null;
   latest_available: string | null;
+}
+
+/** Portfolio synthesis — the Central Orchestrator's output contract.
+ *
+ *  Explains how the four analyst perspectives fit together for ONE company.
+ *  Contains NO overall score and NO overall signal: perspectives are shown,
+ *  compared and traced — never blended into a single rating.
+ */
+export type PortfolioDirection = 'positive' | 'neutral' | 'negative' | 'missing';
+
+export interface PerspectiveView {
+  agent_id: string;
+  label: string;
+  entity_id: string;
+  direction: PortfolioDirection;
+  signal_label: string;
+  score: number | null;
+  confidence: number;
+  status: string;
+  takeaway: string;
+  limitations: string[];
+  generated_at: string | null;
+}
+
+export interface AgreementView {
+  available_count: number;
+  total_count: number;
+  positive_count: number;
+  neutral_count: number;
+  negative_count: number;
+  verdict: string;
+  conflicts: Array<{ between: string[]; description: string }>;
+  summary: string;
+}
+
+export interface ScenarioView {
+  label: string;
+  leaning: string;
+  conditions: string[];
+  note: string;
+}
+
+export interface PortfolioEvidence {
+  agent_id: string;
+  entity_id: string;
+  signal: string | null;
+  score: number | null;
+  status: string | null;
+  generated_at: string | null;
+  note: string | null;
+}
+
+export interface PortfolioView {
+  agent_id: string;
+  entity_id: string;
+  generated_at: string;
+  perspectives: PerspectiveView[];
+  agreement: AgreementView;
+  scenarios: ScenarioView[];
+  thesis: string;
+  evidence: PortfolioEvidence[];
+  risks: string[];
+  coverage: number;
+  confidence: number;
+  status: 'OK' | 'DEGRADED' | 'UNAVAILABLE';
+  rationale: string;
+  data_limitations: string[];
+  provenance: Record<string, unknown>;
+  methodology: string;
 }

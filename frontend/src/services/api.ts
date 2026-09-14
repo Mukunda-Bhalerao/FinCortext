@@ -13,6 +13,7 @@ import type {
   NewsListResponse,
   NewsRefreshResponse,
   NewsStatusResponse,
+  PortfolioView,
   PriceSeriesResponse,
   RefreshResult,
   UniverseResponse,
@@ -150,6 +151,24 @@ export const api = {
       ),
     coverage: () =>
       request<{ indicators: MacroIndicatorCoverage[] }>('/api/macro/indicators'),
+  },
+
+  portfolio: {
+    /** Synthesis run: runs all four analysts for the symbol, then explains
+     *  how their views fit together. No overall score is ever produced. */
+    run: (symbol: string) =>
+      request<PortfolioView>(
+        `/api/agents/portfolio/${encodeURIComponent(symbol)}/run`,
+        { method: 'POST' },
+      ),
+    latest: (symbol: string) =>
+      request<{ count: number; output: PortfolioView | null }>(
+        `/api/portfolio/latest?symbol=${encodeURIComponent(symbol)}`,
+      ),
+    history: (symbol: string, limit = 20) =>
+      request<{ count: number; outputs: Record<string, unknown>[] }>(
+        `/api/portfolio/history?symbol=${encodeURIComponent(symbol)}&limit=${limit}`,
+      ),
   },
 };
 

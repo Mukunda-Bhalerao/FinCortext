@@ -27,6 +27,7 @@ function macroOutput() {
     agent_id: 'macro_analyst',
     entity_id: 'MACRO_INDIA',
     requested_symbol: 'TCS',
+    score: 50,
     overall_signal: 'neutral',
     confidence: 0.62,
     status: 'OK',
