@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { FinCortextProvider, useFinCortext } from '../../app/FinCortextContext';
 import PortfolioSynthesisPage from './PortfolioSynthesisPage';
@@ -67,7 +67,7 @@ function synthesisFor(symbol: string, opts: {
   if (!missing.has('industry')) {
     perspectives.push(perspective('industry_analyst', 'Industry Analyst', symbol, 'positive', 'BUY', 69, 'OK', 0.8));
   } else {
-    perspectives.push(perspective('firm_analyst', 'Industry Analyst', 'unknown', 'missing', 'not run', null, 'UNAVAILABLE', 0, []));
+    perspectives.push(perspective('industry_analyst', 'Industry Analyst', 'unknown', 'missing', 'not run', null, 'UNAVAILABLE', 0, ['Industry Analyst produced no output in this run.']));
   }
   if (!missing.has('sentiment')) {
     const dir = sentScore !== null && sentSignal === 'BUY' ? 'positive' : sentScore !== null && sentSignal === 'SELL' ? 'negative' : 'neutral';
@@ -163,11 +163,16 @@ describe('PortfolioSynthesisPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Portfolio Synthesis — TCS')).toBeInTheDocument();
     });
+    // All four analysts are read — four distinct perspective cards.
+    for (const agent of ['firm_analyst', 'industry_analyst', 'sentiment_analyst', 'macro_analyst']) {
+      expect(screen.getByTestId(`perspective-${agent}`)).toBeInTheDocument();
+    }
     // Compact per-analyst rows: Firm 62 BUY, Industry 69 BUY, Sentiment 57 BUY, Macro 50 NEUTRAL.
-    expect(screen.getByText('Firm Analyst')).toBeInTheDocument();
-    expect(screen.getByText('Industry Analyst')).toBeInTheDocument();
-    expect(screen.getByText('Sentiment Analyst')).toBeInTheDocument();
-    expect(screen.getByText('Macro Analyst')).toBeInTheDocument();
+    const firm = within(screen.getByTestId('perspective-firm_analyst'));
+    expect(firm.getByText('62 / 100')).toBeInTheDocument();
+    expect(firm.getAllByText('BUY').length).toBeGreaterThanOrEqual(1);
+    expect(firm.getByText('60%')).toBeInTheDocument();
+    expect(firm.getAllByText('OK').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Investment thesis/)).toBeInTheDocument();
     expect(screen.getByText(/applies equally to every company/)).toBeInTheDocument();
     // Never an overall/blended score header — perspectives carry their own scores.
@@ -175,6 +180,178 @@ describe('PortfolioSynthesisPage', () => {
     expect(screen.queryByText(/Blended Score/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Total Score:/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Final Score:/)).not.toBeInTheDocument();
+  });
+
+  it('keeps the macro card visually distinct as market environment', async () => {
+    const stored = synthesisFor('TCS');
+    vi.stubGlobal('fetch', mockFetch((url) => {
+      if (url === '/api/portfolio/latest?symbol=TCS') return { count: 1, output: stored };
+      return undefined;
+    }));
+    render(
+      <MemoryRouter initialEntries={['/portfolio?symbol=TCS']}>
+        <FinCortextProvider>
+          <PortfolioSynthesisPage />
+        </FinCortextProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('perspective-macro_analyst')).toBeInTheDocument();
+    });
+    const macro = within(screen.getByTestId('perspective-macro_analyst'));
+    expect(macro.getByText('50 / 100')).toBeInTheDocument();
+    // Presented as "Market Environment" with the bare signal — never a stock call.
+    expect(macro.getByText('Market Environment')).toBeInTheDocument();
+    expect(macro.getAllByText('NEUTRAL').length).toBeGreaterThanOrEqual(1);
+    expect(macro.queryByText('NEUTRAL-environment')).not.toBeInTheDocument();
+    expect(macro.getByText('Market environment — not a stock recommendation.')).toBeInTheDocument();
+    // Environment vocabulary on the macro card — never buy/sell.
+    expect(macro.queryByText(/^BUY$/)).not.toBeInTheDocument();
+    expect(macro.queryByText(/^SELL$/)).not.toBeInTheDocument();
+  });
+
+  it('links each perspective to its analyst page and back to the dashboard', async () => {
+    const stored = synthesisFor('TCS');
+    vi.stubGlobal('fetch', mockFetch((url) => {
+      if (url === '/api/portfolio/latest?symbol=TCS') return { count: 1, output: stored };
+      return undefined;
+    }));
+    render(
+      <MemoryRouter initialEntries={['/portfolio?symbol=TCS']}>
+        <FinCortextProvider>
+          <PortfolioSynthesisPage />
+        </FinCortextProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('perspective-firm_analyst')).toBeInTheDocument();
+    });
+    const links: Array<[string, string]> = [
+      ['Open Firm Analyst →', '/intelligence/firm?symbol=TCS'],
+      ['Open Industry Analyst →', '/intelligence/industry?symbol=TCS'],
+      ['Open Sentiment Analyst →', '/intelligence/sentiment?symbol=TCS'],
+      ['Open Macro Analyst →', '/intelligence/macro?symbol=TCS'],
+    ];
+    for (const [name, href] of links) {
+      expect(screen.getByRole('link', { name })).toHaveAttribute('href', href);
+    }
+    expect(screen.getByRole('link', { name: '← Back to Dashboard' })).toHaveAttribute('href', '/?symbol=TCS');
+  });
+
+  it('makes agreement, strongest and weakest views immediately visible', async () => {
+    const stored = synthesisFor('TCS');
+    vi.stubGlobal('fetch', mockFetch((url) => {
+      if (url === '/api/portfolio/latest?symbol=TCS') return { count: 1, output: stored };
+      return undefined;
+    }));
+    render(
+      <MemoryRouter initialEntries={['/portfolio?symbol=TCS']}>
+        <FinCortextProvider>
+          <PortfolioSynthesisPage />
+        </FinCortextProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('agreement-counts')).toBeInTheDocument();
+    });
+    const counts = screen.getByTestId('agreement-counts');
+    expect(counts).toHaveTextContent('3 positive');
+    expect(counts).toHaveTextContent('1 neutral');
+    expect(counts).toHaveTextContent('0 negative');
+    // Industry has the highest confidence (0.8); firm the lowest (0.6).
+    expect(screen.getByTestId('strongest-perspective')).toHaveTextContent('Industry Analyst');
+    expect(screen.getByTestId('weakest-perspective')).toHaveTextContent('Firm Analyst');
+  });
+
+  it('presents scenarios as conditional cards without probabilities or targets', async () => {
+    const stored = synthesisFor('TCS');
+    vi.stubGlobal('fetch', mockFetch((url) => {
+      if (url === '/api/portfolio/latest?symbol=TCS') return { count: 1, output: stored };
+      return undefined;
+    }));
+    render(
+      <MemoryRouter initialEntries={['/portfolio?symbol=TCS']}>
+        <FinCortextProvider>
+          <PortfolioSynthesisPage />
+        </FinCortextProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('scenario-Base case')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('scenario-Bull case')).toBeInTheDocument();
+    expect(screen.getByTestId('scenario-Bear case')).toBeInTheDocument();
+    // Bull case names the analyst that would need to turn; bear names the one to defend.
+    expect(screen.getByTestId('scenario-Bull case')).toHaveTextContent('Macro Analyst');
+    expect(screen.getByTestId('scenario-Bear case')).toHaveTextContent('Firm Analyst');
+    expect(screen.getAllByText(/not predictions/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText(/price target/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/probab/i)).not.toBeInTheDocument();
+  });
+
+  it('organizes evidence and risks in collapsible analyst groups', async () => {
+    const stored = synthesisFor('TCS', { firmStatus: 'DEGRADED' });
+    vi.stubGlobal('fetch', mockFetch((url) => {
+      if (url === '/api/portfolio/latest?symbol=TCS') return { count: 1, output: stored };
+      return undefined;
+    }));
+    render(
+      <MemoryRouter initialEntries={['/portfolio?symbol=TCS']}>
+        <FinCortextProvider>
+          <PortfolioSynthesisPage />
+        </FinCortextProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Supporting evidence \(4\)/)).toBeInTheDocument();
+    });
+    // Collapsible sections render as native disclosures.
+    expect(screen.getByText(/Supporting evidence \(4\)/).closest('details')).not.toBeNull();
+    expect(screen.getByText(/Key risks \(2\)/).closest('details')).not.toBeNull();
+    // No genuine synthesis limitations here — only the generic disclaimer,
+    // so no empty Limitations section is rendered.
+    expect(screen.queryByText(/Limitations \(\d+\)/)).not.toBeInTheDocument();
+    // Risks grouped under the owning analyst, with its real limitation.
+    const risks = screen.getByText(/Key risks \(2\)/).closest('details')!;
+    expect(within(risks).getByText('Firm Analyst')).toBeInTheDocument();
+    expect(within(risks).getByText(/Firm Analyst is DEGRADED/)).toBeInTheDocument();
+  });
+
+  it('shows a Limitations section only when genuine limitations exist', async () => {
+    const withoutLimits = synthesisFor('TCS');
+    const withLimits = synthesisFor('INFY', { missing: ['sentiment'] });
+    vi.stubGlobal('fetch', mockFetch((url) => {
+      if (url === '/api/portfolio/latest?symbol=TCS') return { count: 1, output: withoutLimits };
+      if (url === '/api/portfolio/latest?symbol=INFY') return { count: 1, output: withLimits };
+      return undefined;
+    }));
+    render(
+      <MemoryRouter initialEntries={['/portfolio?symbol=TCS']}>
+        <FinCortextProvider>
+          <PortfolioSynthesisPage />
+          <Switcher to="INFY" />
+        </FinCortextProvider>
+      </MemoryRouter>,
+    );
+
+    // TCS view carries only the generic disclaimer — no Limitations section.
+    await waitFor(() => {
+      expect(screen.getByText('Portfolio Synthesis — TCS')).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/Limitations \(\d+\)/)).not.toBeInTheDocument();
+
+    // INFY view has a real missing-perspective warning — section appears.
+    fireEvent.click(screen.getByText('switch-to-infy'));
+    await waitFor(() => {
+      expect(screen.getByText('Portfolio Synthesis — INFY')).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Limitations \(1\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Missing perspectives/)).toBeInTheDocument();
   });
 
   it('runs a fresh synthesis when none is stored', async () => {
@@ -286,9 +463,81 @@ describe('PortfolioSynthesisPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Portfolio Synthesis — INFY')).toBeInTheDocument();
     });
-    // INFY firm view genuinely differs (SELL) while macro stays environmental.
-    expect(screen.getAllByText(/NEUTRAL-environment/).length).toBeGreaterThanOrEqual(1);
+    // INFY firm view genuinely differs (SELL) while the Market Environment
+    // card stays identical — bare signal, same score, no stock vocabulary.
+    const macroCard = within(screen.getByTestId('perspective-macro_analyst'));
+    expect(macroCard.getByText('Market Environment')).toBeInTheDocument();
+    expect(macroCard.getAllByText('NEUTRAL').length).toBeGreaterThanOrEqual(1);
+    expect(macroCard.getByText('50 / 100')).toBeInTheDocument();
+    expect(macroCard.queryByText('NEUTRAL-environment')).not.toBeInTheDocument();
     expect(screen.queryByText('Portfolio Synthesis — TCS')).not.toBeInTheDocument();
+  });
+
+  it('shows an honest unavailable industry card for RELIANCE with partial coverage', async () => {
+    // Single-member Energy sector: no peer view, everything else available.
+    const stored = synthesisFor('RELIANCE', { missing: ['industry'] });
+    vi.stubGlobal('fetch', mockFetch((url) => {
+      if (url === '/api/portfolio/latest?symbol=RELIANCE') return { count: 1, output: stored };
+      return undefined;
+    }));
+    render(
+      <MemoryRouter initialEntries={['/portfolio?symbol=RELIANCE']}>
+        <FinCortextProvider>
+          <PortfolioSynthesisPage />
+        </FinCortextProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Portfolio Synthesis — RELIANCE')).toBeInTheDocument();
+    });
+    const industry = within(screen.getByTestId('perspective-industry_analyst'));
+    expect(industry.getByText('unavailable')).toBeInTheDocument();
+    expect(industry.getAllByText('UNAVAILABLE').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Missing perspectives/)).toBeInTheDocument();
+    // The other three perspectives still render with real scores.
+    expect(within(screen.getByTestId('perspective-firm_analyst')).getByText('62 / 100')).toBeInTheDocument();
+    expect(within(screen.getByTestId('perspective-macro_analyst')).getByText('50 / 100')).toBeInTheDocument();
+  });
+
+  it('updates the synthesis across TCS, INFY and RELIANCE switches', async () => {
+    const tcs = synthesisFor('TCS');
+    const infy = synthesisFor('INFY', { firmScore: 35, firmSignal: 'SELL' });
+    const reliance = synthesisFor('RELIANCE', { missing: ['industry'] });
+    vi.stubGlobal('fetch', mockFetch((url) => {
+      if (url === '/api/portfolio/latest?symbol=TCS') return { count: 1, output: tcs };
+      if (url === '/api/portfolio/latest?symbol=INFY') return { count: 1, output: infy };
+      if (url === '/api/portfolio/latest?symbol=RELIANCE') return { count: 1, output: reliance };
+      return undefined;
+    }));
+    render(
+      <MemoryRouter initialEntries={['/portfolio?symbol=TCS']}>
+        <FinCortextProvider>
+          <PortfolioSynthesisPage />
+          <Switcher to="INFY" />
+          <Switcher to="RELIANCE" />
+        </FinCortextProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Portfolio Synthesis — TCS')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('switch-to-infy'));
+    await waitFor(() => {
+      expect(screen.getByText('Portfolio Synthesis — INFY')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Portfolio Synthesis — TCS')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('switch-to-reliance'));
+    await waitFor(() => {
+      expect(screen.getByText('Portfolio Synthesis — RELIANCE')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Portfolio Synthesis — INFY')).not.toBeInTheDocument();
+    // No stale analyst links: the RELIANCE view links back with its own symbol.
+    expect(screen.getByRole('link', { name: 'Open Firm Analyst →' })).toHaveAttribute(
+      'href',
+      '/intelligence/firm?symbol=RELIANCE',
+    );
   });
 
   it('loads the company from ?symbol= URL persistence', async () => {

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import PortfolioViewCard from '../../components/common/PortfolioViewCard';
 import { sameSymbol, useFinCortext } from '../../app/FinCortextContext';
 import { api, ApiRequestError } from '../../services/api';
@@ -84,6 +85,11 @@ export default function PortfolioSynthesisPage() {
   return (
     <section className="page">
       <h2>Portfolio Synthesis</h2>
+      <p className="muted page-description">
+        <Link className="link-btn" to={`/?symbol=${encodeURIComponent(symbol)}`}>
+          ← Back to Dashboard
+        </Link>
+      </p>
       <p className="muted page-description">
         Central Orchestrator for <strong>{symbol}</strong> — how the Firm, Industry,
         Sentiment and Macro views fit together. Agreement and disagreement are shown
