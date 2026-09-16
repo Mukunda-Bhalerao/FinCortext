@@ -364,6 +364,40 @@ URL persistence, errors; macro/summary/dashboard/app tests updated for the
 score presentation). No existing assertions weakened — score-display tests
 were updated to the new specified behavior. Full suites + build clean.
 
+### Milestone 17 — Portfolio Synthesis decision-support layer + final polish ✅
+
+**Decision-support rebuild (frontend only — no backend or methodology
+changes):** `PortfolioViewCard` rebuilt around a fixed visual hierarchy —
+four distinct perspective cards (score/signal/confidence/status each; Macro
+headed "Market Environment" with the bare signal, dashed styling, market-wide
+warning, "Open Macro Analyst →" link) → Investment Thesis panel (positive/
+neutral/negative count badges, strongest-supported + most-uncertain views
+derived from perspective confidences, disagreements, evidence-based thesis
+wording, rationale folded in as "Why this interpretation") → Base/Bull/Bear
+scenario cards (explicit Base→Bull→Bear order, analyst tags derived from the
+backend's own condition wording; conditional, never predictive; no
+probabilities or price targets) → collapsible Supporting evidence / Key risks
+(grouped by analyst, exact-dupes removed) / Limitations sections. Per-card
+analyst links + "← Back to Dashboard" preserve `?symbol=`; company switching
+(TCS/INFY/RELIANCE) reloads that company's own synthesis with no stale
+frames.
+
+**Final polish pass:** the backend always appends one generic synthesis
+disclaimer, which rendered as an empty-looking "Limitations (1)" section —
+now display-filtered so Limitations renders only for genuine warnings;
+perspective cards dropped the takeaway sentence that restated the fact grid
+(takeaway kept for `missing` perspectives only); the card header no longer
+repeats the agreement sentence (counts live once in the thesis panel).
+`frontend/src/app/styles.css` gained a small portfolio section reusing theme
+variables/badges/cards (no charts, no decoration).
+
+**Tests:** backend 220 unchanged (no backend changes); frontend 52 → 60
+(+8 portfolio page tests: macro-card distinction, analyst/dashboard link
+hrefs, agreement counts + strongest/weakest, conditional scenario cards,
+collapsible grouped evidence/risks, RELIANCE partial coverage, TCS→INFY→
+RELIANCE switching, empty-vs-genuine Limitations cases, macro market-wide
+independence, URL persistence, errors). Full suites + build clean.
+
 ## CURRENT STATE
 
 - Backend: 220 tests passing. Market pipeline, filing ingestion, provider
@@ -384,7 +418,7 @@ fresh cached history is reused, only missing/stale symbols are fetched.
 Industry, Macro, Sentiment) + Intelligence Summary + Portfolio Synthesis in
 the sidebar, plus an Expansion section with the Roadmap skeleton;
 all other pages remain mounted at their routes but are unlinked.
-- Frontend: 52 component tests passing; production build clean.
+- Frontend: 60 component tests passing; production build clean.
 - All implemented agents emit via `POST /api/agents/{agent}/{symbol}/run`
 (company analysts → `AgentOutput`; macro → market-wide `MacroOutput` with
 environment score; portfolio → per-company `PortfolioView` synthesis, no
@@ -393,14 +427,16 @@ overall score).
 ## TEST STATUS
 
 - `cd backend && python -m pytest` — **220 passed**
-- Frontend `npm test` — **52 passed** (sidebar nav incl. portfolio synthesis,
+- Frontend `npm test` — **60 passed** (sidebar nav incl. portfolio synthesis,
   macro page/summary/dashboard-strip, company search/switching, takeaway
   derivation, company page inventory (incl. fundamentals coverage), context isolation,
   company search/switching, takeaway derivation, company page inventory
   (incl. fundamentals coverage), context isolation, no-stale/mid-flight
   guards, side-by-side-no-blend, stored-news status, date lines, coverage
   indicator, priceStats unit tests, full Dashboard→all-pages→Dashboard
-  persistence, no-refetch, localStorage isolation)
+  persistence, no-refetch, localStorage isolation, portfolio perspective
+  cards/thesis/scenario/evidence-risk rendering, macro Market-Environment
+  presentation, empty-vs-genuine Limitations, analyst/dashboard navigation)
 - Frontend `npm run build` — passing
 
 ## KNOWN LIMITATIONS
@@ -495,7 +531,8 @@ firm agent thin-evidence DEGRADED. Frontend: fixed two pre-existing ambiguous
 
 ## NEXT RECOMMENDED STEP
 
-Next candidate: Portfolio Agent scaffolding on the existing contracts
-(`AgentOutput` + `MacroOutput` consumers, risk/constraint engine seam),
-keeping the no-blending rule for the summary. Macro data maintenance stays
-manual (curated CSV versions) until a reachable official feed exists.
+Next candidates: risk/constraint engine + weight optimization on top of the
+now-reachable `PortfolioView` contract (Roadmap "Portfolio Construction");
+evaluation harness (backtesting on the preserved point-in-time metadata).
+Macro data maintenance stays manual (curated CSV versions) until a reachable
+official feed exists.

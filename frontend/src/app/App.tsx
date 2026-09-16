@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Routes, Route, NavLink, Navigate } from 'react-router-dom';
 import FinCortextLogo from '../utils/FinCortextLogo.png';
 import { FinCortextProvider, useFinCortext } from './FinCortextContext';
@@ -146,20 +146,56 @@ function FreshnessPill() {
   );
 }
 
+const SIDEBAR_STORAGE_KEY = 'fincortext:sidebar-collapsed';
+
 function Shell() {
   const { symbol, setSymbol } = useFinCortext();
   const withSymbol = (to: string) =>
     symbol ? `${to}?symbol=${encodeURIComponent(symbol)}` : to;
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_STORAGE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleSidebar = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SIDEBAR_STORAGE_KEY, next ? '1' : '0');
+      } catch {
+        /* storage unavailable — collapse state just won't persist */
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      <aside className={collapsed ? 'sidebar collapsed' : 'sidebar'}>
         <div className="brand">
           <img src={FinCortextLogo} alt="FinCortext logo" className="brand-logo" />
           <div className="brand-text">
             <h1>FinCortext</h1>
-            <span className="brand-tagline">Investment intelligence</span>
+            <span className="brand-tagline">Investment Intelligence</span>
           </div>
+          <button
+            type="button"
+            className="side-collapse-btn"
+            onClick={toggleSidebar}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-expanded={!collapsed}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              {collapsed ? (
+                <path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
+              ) : (
+                <path d="M10 3.5 5.5 8 10 12.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
+              )}
+            </svg>
+          </button>
         </div>
         <nav className="side-nav" aria-label="Main navigation">
           {NAV_ITEMS.map((item) => (
@@ -167,12 +203,13 @@ function Shell() {
               key={item.to}
               to={withSymbol(item.to)}
               end={item.end}
+              title={item.label}
               className={({ isActive }) =>
                 isActive ? 'nav-link active' : 'nav-link'
               }
             >
               <span className="nav-icon">{item.icon}</span>
-              {item.label}
+              <span className="nav-label">{item.label}</span>
             </NavLink>
           ))}
         </nav>
@@ -182,6 +219,7 @@ function Shell() {
         <nav className="side-nav side-nav-secondary" aria-label="Expansion">
           <NavLink
             to={withSymbol('/roadmap')}
+            title="Roadmap"
             className={({ isActive }) =>
               isActive ? 'nav-link active' : 'nav-link'
             }
@@ -191,13 +229,13 @@ function Shell() {
                 <path d="M3 13.5 13.5 3M13.5 3H8m5.5 0v5.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
               </svg>
             </span>
-            Roadmap
+            <span className="nav-label">Roadmap</span>
             <span className="badge badge-coming-soon nav-badge">Soon</span>
           </NavLink>
         </nav>
         <div className="side-foot">
           <span className="side-flow">Data → Intelligence → Decision</span>
-          <span className="muted">FinCortext research demo</span>
+          <span className="muted">FinCortext research</span>
         </div>
       </aside>
       <div className="shell-main">
@@ -285,7 +323,7 @@ function Shell() {
           </Routes>
         </main>
         <footer className="app-footer">
-          <span>FinCortext — investment intelligence research demo</span>
+          <span>FinCortext — Investment Intelligence</span>
         </footer>
       </div>
     </div>

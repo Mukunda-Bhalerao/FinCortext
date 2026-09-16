@@ -32,8 +32,7 @@ describe('App demo navigation', () => {
     expect(nav).not.toHaveTextContent('Experiments');
   });
 
-  it('shows a separate expansion area with the roadmap marked as upcoming', () => {
-    render(
+  it('shows a separate expansion area with the roadmap marked as upcoming', () => {    render(
       <MemoryRouter initialEntries={['/']}>
         <App />
       </MemoryRouter>,
@@ -44,6 +43,34 @@ describe('App demo navigation', () => {
     // Primary nav stays clean — the roadmap lives outside it.
     const nav = screen.getByRole('navigation', { name: 'Main navigation' });
     expect(nav).not.toHaveTextContent('Roadmap');
+  });
+
+  it('collapses the sidebar to icons and expands it back', () => {
+    localStorage.clear();
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <App />
+      </MemoryRouter>,
+    );
+    const sidebar = document.querySelector('.sidebar');
+    expect(sidebar).not.toBeNull();
+    expect(sidebar!.classList.contains('collapsed')).toBe(false);
+
+    // Minimize: icon rail only.
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
+    expect(sidebar!.classList.contains('collapsed')).toBe(true);
+    expect(localStorage.getItem('fincortext:sidebar-collapsed')).toBe('1');
+    // Destinations stay reachable — icons keep their links and tooltips.
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('/'),
+    );
+
+    // Expand again.
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
+    expect(sidebar!.classList.contains('collapsed')).toBe(false);
+    expect(localStorage.getItem('fincortext:sidebar-collapsed')).toBe('0');
+    localStorage.clear();
   });
 
   it('routes to the roadmap skeleton with under-development modules', async () => {
