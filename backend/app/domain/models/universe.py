@@ -33,3 +33,11 @@ class UniverseEntry(BaseModel):
             "tokens that double as ordinary lowercase words."
         ),
     )
+    instrument_key: str | None = Field(
+        default=None,
+        description=(
+            "Upstox canonical instrument identifier (e.g. 'NSE_EQ|INE002A01018'). "
+            "None for static entries until resolved via Upstox search; set for "
+            "dynamically registered NSE equities."
+        ),
+    )

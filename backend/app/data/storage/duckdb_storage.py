@@ -211,6 +211,21 @@ _SCHEMA_STATEMENTS = [
         PRIMARY KEY (output_id)
     )
     """,
+    # --- Upstox instrument registry (dynamic NSE equity metadata cache) ----
+    """
+    CREATE TABLE IF NOT EXISTS upstox_instruments (
+        instrument_key VARCHAR PRIMARY KEY,
+        symbol VARCHAR,
+        trading_symbol VARCHAR,
+        name VARCHAR,
+        exchange VARCHAR,
+        segment VARCHAR,
+        isin VARCHAR,
+        exchange_token VARCHAR,
+        instrument_type VARCHAR,
+        updated_at TIMESTAMP
+    )
+    """,
 ]
 
 
@@ -297,6 +312,12 @@ class DuckDBStorage:
             conn.execute("ALTER TABLE macro_outputs ADD COLUMN IF NOT EXISTS score DOUBLE")
         except duckdb.Error as exc:
             logger.debug("Macro score column migration skipped: %s", exc)
+        # Additive migration: universe entries resolved dynamically via Upstox
+        # carry their canonical instrument_key alongside the yfinance ticker.
+        try:
+            conn.execute("ALTER TABLE universe_metadata ADD COLUMN IF NOT EXISTS instrument_key VARCHAR")
+        except duckdb.Error as exc:
+            logger.debug("Universe instrument_key migration skipped: %s", exc)
         logger.debug("DuckDB schema ensured at %s (v%s)", self.db_path, SCHEMA_VERSION)
 
 

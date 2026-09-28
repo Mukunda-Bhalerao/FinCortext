@@ -26,6 +26,7 @@ import {
   snapshot,
 } from '../company/priceStats';
 import { useFilingsCount } from '../company/useFilingsCount';
+import { useMarketQuote, fmtPriceNA, fmtIntNA } from '../company/useMarketQuote';
 import { usePeerQuotes } from '../company/usePeerQuotes';
 
 const RANGES = [
@@ -224,6 +225,7 @@ export default function DashboardPage() {
   const series = pricesOf(symbol);
   const seriesError = pricesErrorOf(symbol);
   const seriesLoading = series === undefined && seriesError === null;
+  const { quote, error: quoteError, loading: quoteLoading } = useMarketQuote(symbol);
   const outputs = outputsOf(symbol);
   const outputsError = outputsErrorOf(symbol);
   const outputsLoading = outputs === undefined && outputsError === null;
@@ -247,6 +249,15 @@ export default function DashboardPage() {
 
   const prices = series?.prices ?? [];
   const snap = useMemo(() => snapshot(prices), [prices]);
+  // Live quote (Upstox primary) preferred; stored snapshot backs it up.
+  // Every nullable gap renders as "N/A" — never ₹0 or a fabricated value.
+  const livePrice = quote?.last_price ?? snap?.last.close ?? null;
+  const livePrevClose = quote?.prev_close ?? snap?.prev?.close ?? null;
+  const liveChange = quote?.day_change ?? snap?.dayChange ?? null;
+  const liveChangePct = quote?.day_change_pct ?? snap?.dayChangePct ?? null;
+  const liveHigh = quote?.high ?? snap?.last.high ?? null;
+  const liveLow = quote?.low ?? snap?.last.low ?? null;
+  const liveVolume = quote?.volume ?? snap?.last.volume ?? null;
   const visible = useMemo(
     () => (rangeBars === Number.POSITIVE_INFINITY ? prices : prices.slice(-rangeBars)),
     [prices, rangeBars],
@@ -256,8 +267,8 @@ export default function DashboardPage() {
     [visible],
   );
 
-  const animatedPrice = useCountUp(snap ? snap.last.close : null);
-  const animatedChange = useCountUp(snap?.dayChange ?? null);
+  const animatedPrice = useCountUp(livePrice, 600);
+  const animatedChange = useCountUp(liveChange);
 
   // Rows arrive newest-first; keep the first stored result per analyst.
   const latestByAgent = useMemo(() => {
@@ -285,7 +296,8 @@ export default function DashboardPage() {
   const scrollTo = (id: string) =>
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  const displayName = entry?.name ?? symbol;
+  const displayName = entry?.name ?? quote?.name ?? symbol;
+  const priceLoading = seriesLoading || quoteLoading;
 
   return (
     <section className="page dashboard">
@@ -311,39 +323,57 @@ export default function DashboardPage() {
         </div>
         <div className="dash-pricecol">
           <div className="term-price">
-            {seriesLoading ? (
+            {priceLoading ? (
               <span className="skeleton skeleton-price" aria-label="Loading price" />
-            ) : animatedPrice === null ? (
-              '—'
+            ) : livePrice === null ? (
+              'N/A'
             ) : (
-              `₹${fmtPrice(animatedPrice)}`
+              `₹${fmtPrice(animatedPrice ?? livePrice)}`
             )}
           </div>
-          <div className={`term-change ${deltaClass(snap?.dayChange ?? null)}`}>
-            {!snap || snap.dayChange === null || animatedChange === null
-              ? '—'
-              : `${fmtSigned(animatedChange)} (${fmtSigned(snap.dayChangePct ?? 0)}%)`}
+          <div className={`term-change ${deltaClass(liveChange)}`}>
+            {priceLoading
+              ? '…'
+              : liveChange === null || animatedChange === null
+                ? 'N/A'
+                : `${fmtSigned(animatedChange)} (${fmtSigned(liveChangePct ?? 0)}%)`}
           </div>
           <div className="muted term-asof">
-            {series?.latest_trade_date
-              ? `As of ${series.latest_trade_date} · ${series.count} stored days`
-              : seriesError
+            {series?.latest_trade_date || quote?.timestamp
+              ? `As of ${quote?.timestamp ? String(quote.timestamp).slice(0, 10) : series?.latest_trade_date} · ${series?.count ?? 0} stored days${quote?.source ? ` · ${quote.source}` : ''}`
+              : seriesError && quoteError
                 ? 'Price history unavailable'
                 : 'Loading price history…'}
           </div>
+          {livePrevClose !== null && livePrevClose !== undefined && (
+            <div className="muted term-prevclose">
+              Prev close {fmtPriceNA(livePrevClose)}
+            </div>
+          )}
+          {livePrevClose === null && !priceLoading && (
+            <div className="muted term-prevclose">Prev close N/A</div>
+          )}
         </div>
         <dl className="dash-session">
           <div>
             <dt className="muted">Day High</dt>
-            <dd>{snap ? `₹${fmtPrice(snap.last.high)}` : '—'}</dd>
+            <dd>{priceLoading ? '…' : fmtPriceNA(liveHigh)}</dd>
           </div>
           <div>
             <dt className="muted">Day Low</dt>
-            <dd>{snap ? `₹${fmtPrice(snap.last.low)}` : '—'}</dd>
+            <dd>{priceLoading ? '…' : fmtPriceNA(liveLow)}</dd>
           </div>
           <div>
             <dt className="muted">Volume</dt>
-            <dd>{snap ? fmtInt(snap.last.volume) : '—'}</dd>
+            <dd>{priceLoading ? '…' : fmtIntNA(liveVolume)}</dd>
+          </div>
+          <div>
+            <dt className="muted">52w High</dt>
+            <dd>{priceLoading ? '…' : fmtPriceNA(quote?.year_high)}</dd>
+          </div>
+          <div>
+            <dt className="muted">52w Low</dt>
+            <dd>{priceLoading ? '…' : fmtPriceNA(quote?.year_low)}</dd>
           </div>
         </dl>
         <button className="btn btn-primary btn-analyze" onClick={() => go('/company')}>

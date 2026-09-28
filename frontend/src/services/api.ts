@@ -9,6 +9,8 @@ import type {
   HealthInfo,
   MacroIndicatorCoverage,
   MacroOutput,
+  MarketQuote,
+  MarketResolveResponse,
   MarketStatusResponse,
   NewsListResponse,
   NewsRefreshResponse,
@@ -17,6 +19,7 @@ import type {
   PriceSeriesResponse,
   RefreshResult,
   UniverseResponse,
+  UpstoxSearchResponse,
 } from '../types/api';
 
 class ApiRequestError extends Error {
@@ -63,13 +66,34 @@ export const api = {
 
   market: {
     status: () => request<MarketStatusResponse>('/api/market/status'),
-    prices: (symbol: string) =>
-      request<PriceSeriesResponse>(`/api/market/prices/${encodeURIComponent(symbol)}`),
-    refreshSymbol: (symbol: string) =>
-      request<RefreshResult>(`/api/market/refresh/${encodeURIComponent(symbol)}`, {
+    prices: (symbol: string, instrumentKey?: string | null) =>
+      request<PriceSeriesResponse>(
+        `/api/market/prices/${encodeURIComponent(symbol)}${instrumentKey ? `?instrument_key=${encodeURIComponent(instrumentKey)}` : ''}`,
+      ),
+    refreshSymbol: (symbol: string, instrumentKey?: string | null) =>
+      request<RefreshResult>(
+        `/api/market/refresh/${encodeURIComponent(symbol)}${instrumentKey ? `?instrument_key=${encodeURIComponent(instrumentKey)}` : ''}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(null),
+        },
+      ),
+    search: (query: string, records = 20) =>
+      request<UpstoxSearchResponse>(
+        `/api/market/search?query=${encodeURIComponent(query)}&records=${records}`,
+      ),
+    quote: (symbol: string, instrumentKey?: string | null) =>
+      request<MarketQuote>(
+        `/api/market/quote/${encodeURIComponent(symbol)}${instrumentKey ? `?instrument_key=${encodeURIComponent(instrumentKey)}` : ''}`,
+      ),
+    resolve: (symbol: string, instrumentKey?: string | null) =>
+      request<MarketResolveResponse>('/api/market/resolve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(null),
+        body: JSON.stringify(
+          instrumentKey ? { symbol, instrument_key: instrumentKey } : { symbol },
+        ),
       }),
   },
 

@@ -17,6 +17,7 @@ class DataSourceType(str, Enum):
     """Where a piece of data originally came from."""
 
     YFINANCE = "yfinance"
+    UPSTOX = "upstox"
     NEWS_API = "news_api"
     OFFICIAL_FILING = "official_filing"
     SAMPLE = "sample"

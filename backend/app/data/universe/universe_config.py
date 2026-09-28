@@ -118,27 +118,93 @@ UNIVERSE: list[UniverseEntry] = [
 
 _BY_SYMBOL: dict[str, UniverseEntry] = {e.symbol: e for e in UNIVERSE}
 
+# Dynamic NSE equities resolved via Upstox search at runtime. Static universe
+# entries stay untouched; dynamic entries let ANY valid Upstox NSE equity be
+# analyzed without manually editing the hardcoded list.
+_DYNAMIC_BY_SYMBOL: dict[str, UniverseEntry] = {}
 
-def get_universe() -> list[UniverseEntry]:
-    """Return the full universe (ordered)."""
+
+def get_static_universe() -> list[UniverseEntry]:
+    """Return the hardcoded static universe (ordered)."""
     return list(UNIVERSE)
 
 
-def get_universe_entry(symbol: str) -> UniverseEntry:
-    """Look up one entry; raises NotFoundError for unknown symbols."""
-    entry = _BY_SYMBOL.get(symbol.upper())
-    if entry is None:
-        raise NotFoundError(f"Symbol '{symbol}' is not in the configured universe")
+def get_universe() -> list[UniverseEntry]:
+    """Return static + dynamically registered entries (static order first)."""
+    dynamics = sorted(_DYNAMIC_BY_SYMBOL.values(), key=lambda e: e.symbol)
+    return list(UNIVERSE) + dynamics
+
+
+def register_dynamic_entry(entry: UniverseEntry) -> UniverseEntry:
+    """Register (or refresh) a dynamic company context. Idempotent."""
+    entry.symbol = entry.symbol.upper()
+    _DYNAMIC_BY_SYMBOL[entry.symbol] = entry
     return entry
+
+
+def clear_dynamic_registry() -> None:
+    """Test helper: drop all dynamically registered entries."""
+    _DYNAMIC_BY_SYMBOL.clear()
+
+
+def build_dynamic_entry(
+    *,
+    symbol: str,
+    name: str,
+    instrument_key: str | None = None,
+    exchange: str = "NSE",
+    sector: str = "Unknown",
+    industry: str = "Unknown",
+) -> UniverseEntry:
+    """Build a UniverseEntry for a valid Upstox NSE equity not in the static list."""
+    sym = (symbol or "").strip().upper()
+    return UniverseEntry(
+        symbol=sym,
+        name=(name or sym).strip() or sym,
+        exchange=(exchange or "NSE").strip().upper(),
+        # yfinance-compatible ticker so the yfinance fallback/research path
+        # keeps working for dynamic symbols; Upstox calls use instrument_key.
+        ticker=f"{sym}.NS",
+        sector=sector or "Unknown",
+        industry=industry or "Unknown",
+        aliases=[],
+        strict_aliases=[],
+        instrument_key=(instrument_key or "").strip() or None,
+    )
+
+
+def get_universe_entry(symbol: str) -> UniverseEntry:
+    """Look up one entry (static first, then dynamic); raises NotFoundError."""
+    key = (symbol or "").strip().upper()
+    # Allow provider tickers ("TCS.NS") and bare keys to resolve.
+    if key.endswith(".NS"):
+        key = key[:-3]
+    entry = _BY_SYMBOL.get(key)
+    if entry is not None:
+        return entry
+    entry = _DYNAMIC_BY_SYMBOL.get(key)
+    if entry is not None:
+        return entry
+    raise NotFoundError(f"Symbol '{symbol}' is not in the configured universe")
+
+
+def is_dynamic_symbol(symbol: str) -> bool:
+    return (symbol or "").strip().upper() in _DYNAMIC_BY_SYMBOL
 
 
 def get_sector_peers(symbol: str) -> list[UniverseEntry]:
     """All universe entries in the same sector as `symbol` (including itself)."""
     entry = get_universe_entry(symbol)
-    return [e for e in UNIVERSE if e.sector == entry.sector]
+    # Dynamic entries carry sector "Unknown": grouping unrelated dynamics as
+    # peers would be misleading, so they compare against themselves only.
+    if entry.sector in {"Unknown", "Dynamic"}:
+        return [entry]
+    return [e for e in get_universe() if e.sector == entry.sector]
 
 
 def get_industry_peers(symbol: str) -> list[UniverseEntry]:
     """All universe entries in the same industry as `symbol` (including itself)."""
     entry = get_universe_entry(symbol)
-    return [e for e in UNIVERSE if e.industry == entry.industry]
+    if entry.industry in {"Unknown", "Dynamic"}:
+        return [entry]
+    return [e for e in get_universe() if e.industry == entry.industry]

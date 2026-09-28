@@ -6,6 +6,7 @@ import { useFinCortext } from '../../app/FinCortextContext';
 import { deltaClass, fmtInt, fmtPrice, fmtSigned, snapshot } from './priceStats';
 import { useFilingsCount } from './useFilingsCount';
 import { useFundamentalsCoverage } from './useFundamentalsCoverage';
+import { useMarketQuote, fmtPriceNA } from './useMarketQuote';
 import { usePeerQuotes } from './usePeerQuotes';
 
 const ANALYSTS = [
@@ -42,6 +43,7 @@ export default function CompanyAnalysisPage() {
   const series = pricesOf(symbol);
   const seriesError = pricesErrorOf(symbol);
   const seriesLoading = series === undefined && seriesError === null;
+  const { quote, error: quoteError, loading: quoteLoading } = useMarketQuote(symbol);
   const outputs = outputsOf(symbol);
   const news = newsOf(symbol);
   const filingsCount = useFilingsCount(symbol);
@@ -60,6 +62,11 @@ export default function CompanyAnalysisPage() {
 
   const prices = series?.prices ?? [];
   const snap = useMemo(() => snapshot(prices), [prices]);
+  const priceLoading = seriesLoading || quoteLoading;
+  const livePrice = quote?.last_price ?? snap?.last.close ?? null;
+  const liveChange = quote?.day_change ?? snap?.dayChange ?? null;
+  const liveChangePct = quote?.day_change_pct ?? snap?.dayChangePct ?? null;
+  const livePrevClose = quote?.prev_close ?? snap?.prev?.close ?? null;
 
   const runsByAgent = useMemo(() => {
     const map = new Map<string, { count: number; latest: string }>();
@@ -96,7 +103,7 @@ export default function CompanyAnalysisPage() {
   }, [outputs]);
 
   const go = (to: string) => navigate(`${to}?symbol=${encodeURIComponent(symbol)}`);
-  const displayName = entry?.name ?? symbol;
+  const displayName = entry?.name ?? quote?.name ?? symbol;
 
   return (
     <section className="page company-analysis">
@@ -129,19 +136,29 @@ export default function CompanyAnalysisPage() {
         <div className="term-side">
           <div className="term-price-block">
             <div className="term-price">
-              {seriesLoading ? '…' : snap ? `₹${fmtPrice(snap.last.close)}` : '—'}
+              {priceLoading ? '…' : livePrice === null ? 'N/A' : `₹${fmtPrice(livePrice)}`}
             </div>
-            <div className={`term-change ${deltaClass(snap?.dayChange ?? null)}`}>
-              {!snap || snap.dayChange === null
-                ? '—'
-                : `${fmtSigned(snap.dayChange)} (${fmtSigned(snap.dayChangePct ?? 0)}%)`}
+            <div className={`term-change ${deltaClass(liveChange)}`}>
+              {priceLoading
+                ? '…'
+                : liveChange === null
+                  ? 'N/A'
+                  : `${fmtSigned(liveChange)} (${fmtSigned(liveChangePct ?? 0)}%)`}
             </div>
             <div className="muted term-asof">
-              {series?.latest_trade_date
-                ? `As of ${series.latest_trade_date} · ${series.count} stored days`
-                : seriesError
+              {series?.latest_trade_date || quote?.timestamp
+                ? `As of ${quote?.timestamp ? String(quote.timestamp).slice(0, 10) : series?.latest_trade_date} · ${series?.count ?? 0} stored days${quote?.source ? ` · ${quote.source}` : ''}`
+                : seriesError && quoteError
                   ? 'Price history unavailable'
                   : 'Loading price history…'}
+            </div>
+            <div className="muted term-prevclose">
+              {priceLoading ? '…' : `Prev close ${fmtPriceNA(livePrevClose)}`}
+            </div>
+            <div className="muted term-52w">
+              {priceLoading
+                ? '…'
+                : `52w ${fmtPriceNA(quote?.year_high)} / ${fmtPriceNA(quote?.year_low)}`}
             </div>
           </div>
           <div className="term-status">{series && <StatusBadge status={series.status} />}</div>

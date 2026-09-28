@@ -21,5 +21,6 @@ def list_universe() -> dict:
 
 @router.get("/{symbol}")
 def get_symbol(symbol: str) -> dict:
+    # Dynamic symbols resolve here too once registered via /api/market/resolve.
     entry = get_universe_entry(symbol)
     return {"universe_version": UNIVERSE_VERSION, "entry": entry.model_dump()}

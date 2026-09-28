@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from app.core.exceptions import NotFoundError
 from app.services.container import get_container
@@ -18,20 +18,82 @@ def refresh_market_data(symbols: list[str] | None = None) -> dict:
 
 
 @router.post("/refresh/{symbol}")
-def refresh_symbol_data(symbol: str) -> dict:
+def refresh_symbol_data(symbol: str, instrument_key: str | None = Query(default=None)) -> dict:
     container = get_container()
-    return container.market_service.refresh_symbol(symbol)
+    return container.market_service.refresh_symbol(symbol, instrument_key=instrument_key)
 
 
 @router.get("/prices/{symbol}")
-def get_prices(symbol: str, start: str | None = None, end: str | None = None) -> dict:
+def get_prices(
+    symbol: str,
+    start: str | None = None,
+    end: str | None = None,
+    instrument_key: str | None = Query(default=None),
+) -> dict:
     """Stored price series with explicit LIVE/CACHED/UNAVAILABLE status."""
     from datetime import date as date_type
 
     container = get_container()
     start_d = date_type.fromisoformat(start) if start else None
     end_d = date_type.fromisoformat(end) if end else None
-    return container.market_service.get_price_series(symbol, start_d, end_d)
+    return container.market_service.get_price_series(symbol, start_d, end_d, instrument_key)
+
+
+@router.get("/search")
+def search_market_symbols(
+    query: str = Query(alias="query", default=""),
+    q: str | None = Query(default=None),
+    records: int = Query(default=20, ge=1, le=30),
+) -> dict:
+    """Dynamic stock search through Upstox (NSE equity).
+
+    Accepts ``?query=TCS`` (or legacy ``?q=``). Returns NSE equity instruments
+    with symbol, company name, instrument_key, exchange, segment and ISIN.
+    """
+    container = get_container()
+    effective = (query or "").strip() or (q or "").strip()
+    return container.market_service.search_symbols(effective, records=records)
+
+
+@router.get("/quote/{symbol}")
+def get_market_quote(symbol: str, instrument_key: str | None = Query(default=None)) -> dict:
+    """Current market quote (LTP, prev close, OHLC, volume, 52w high/low).
+
+    Missing values are explicit ``None`` (frontend renders "N/A") — never 0.
+    """
+    container = get_container()
+    return container.market_service.get_quote(symbol, instrument_key)
+
+
+@router.post("/resolve")
+def resolve_market_symbol(body: dict) -> dict:
+    """Create/resolve the company context for a valid NSE equity.
+
+    Body: {"symbol": "TCS", "instrument_key": "NSE_EQ|..."} — instrument_key
+    optional when the symbol alone resolves via Upstox search. Persists the
+    instrument metadata so later market/agent calls work without re-search.
+    """
+    container = get_container()
+    symbol = str((body or {}).get("symbol") or "").strip()
+    if not symbol:
+        raise NotFoundError("Body must include 'symbol'.")
+    instrument_key = (body or {}).get("instrument_key")
+    key = str(instrument_key or "").strip() or None
+    resolved = container.market_service.resolve_symbol(symbol, key)
+    # Best-effort warm: refresh history + fetch a live quote snapshot so the
+    # frontend chart/values populate immediately after selection. Failures are
+    # reported honestly, never raised as 500s for a valid resolution.
+    refresh: dict | None = None
+    quote: dict | None = None
+    try:
+        refresh = container.market_service.refresh_symbol(resolved["symbol"], instrument_key=resolved.get("instrument_key"))
+    except Exception as exc:
+        refresh = {"status": "ERROR", "error": getattr(exc, "message", str(exc))}
+    try:
+        quote = container.market_service.get_quote(resolved["symbol"], resolved.get("instrument_key"))
+    except Exception as exc:
+        quote = {"status": "UNAVAILABLE", "error": getattr(exc, "message", str(exc))}
+    return {"resolved": resolved, "refresh": refresh, "quote": quote}
 
 
 @router.get("/status")

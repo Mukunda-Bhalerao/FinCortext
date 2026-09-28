@@ -13,6 +13,7 @@ import { api } from '../services/api';
 import type {
   AgentOutput,
   AgentOutputSummary,
+  MarketQuote,
   MarketStatusResponse,
   NewsListResponse,
   PriceSeriesResponse,
@@ -41,9 +42,14 @@ interface FinCortextContextValue {
   entryFor: (s: string) => UniverseEntry | undefined;
   peersOf: (s: string) => UniverseEntry[];
   ensureUniverse: () => Promise<UniverseEntry[]>;
+  mergeUniverseEntry: (entry: UniverseEntry) => void;
   pricesOf: (s: string) => PriceSeriesResponse | null | undefined;
   pricesErrorOf: (s: string) => string | null;
   ensurePrices: (s: string, refresh?: boolean) => Promise<PriceSeriesResponse | null>;
+  invalidatePrices: (s: string) => void;
+  quoteOf: (s: string) => MarketQuote | null | undefined;
+  quoteErrorOf: (s: string) => string | null;
+  ensureQuote: (s: string, refresh?: boolean) => Promise<MarketQuote | null>;
   outputsOf: (s: string) => AgentOutputSummary[] | null | undefined;
   outputsErrorOf: (s: string) => string | null;
   ensureOutputs: (s: string, refresh?: boolean) => Promise<AgentOutputSummary[]>;
@@ -90,6 +96,8 @@ export function FinCortextProvider({ children }: { children: ReactNode }) {
   const [universeError, setUniverseError] = useState<string | null>(null);
   const [prices, setPrices] = useState<Record<string, PriceSeriesResponse | null>>({});
   const [pricesError, setPricesError] = useState<Record<string, string | null>>({});
+  const [quotes, setQuotes] = useState<Record<string, MarketQuote | null>>({});
+  const [quotesError, setQuotesError] = useState<Record<string, string | null>>({});
   const [outputs, setOutputs] = useState<Record<string, AgentOutputSummary[] | null>>({});
   const [outputsError, setOutputsError] = useState<Record<string, string | null>>({});
   const [news, setNews] = useState<Record<string, NewsListResponse | null>>({});
@@ -102,6 +110,7 @@ export function FinCortextProvider({ children }: { children: ReactNode }) {
   // instead of closing over state: a stale closure after rapid symbol
   // switches must never issue a duplicate fetch for settled data.
   const pricesCache = useRef<Record<string, PriceSeriesResponse | null>>({});
+  const quotesCache = useRef<Record<string, MarketQuote | null>>({});
   const outputsCache = useRef<Record<string, AgentOutputSummary[] | null>>({});
   const newsCache = useRef<Record<string, NewsListResponse | null>>({});
 
@@ -154,10 +163,25 @@ export function FinCortextProvider({ children }: { children: ReactNode }) {
     [universe],
   );
 
+  /** Merge a dynamically resolved Upstox entry so company identity renders
+   *  immediately without refetching the whole universe. */
+  const mergeUniverseEntry = useCallback((entry: UniverseEntry) => {
+    setUniverse((prev) => {
+      if (!prev) return [entry];
+      if (prev.some((e) => e.symbol === entry.symbol)) {
+        return prev.map((e) => (e.symbol === entry.symbol ? entry : e));
+      }
+      return [...prev, entry];
+    });
+  }, []);
+
   const peersOf = useCallback(
     (s: string) => {
       const entry = universe?.find((e) => e.symbol === s);
       if (!entry) return [];
+      // Dynamic entries carry sector "Unknown": grouping unrelated dynamics
+      // as peers would be misleading, so they report no peer set.
+      if (entry.sector === 'Unknown' || entry.sector === 'Dynamic') return [];
       return universe?.filter((e) => e.sector === entry.sector) ?? [];
     },
     [universe],
@@ -181,6 +205,68 @@ export function FinCortextProvider({ children }: { children: ReactNode }) {
             setPrices((prev) => (s in prev ? prev : { ...prev, [s]: null }));
           }
           setPricesError((prev) => ({ ...prev, [s]: message }));
+          return null;
+        }
+      });
+    },
+    [once],
+  );
+
+  const invalidatePrices = useCallback((s: string) => {
+    if (s in pricesCache.current) {
+      const next = { ...pricesCache.current };
+      delete next[s];
+      pricesCache.current = next;
+    }
+    setPrices((prev) => {
+      if (!(s in prev)) return prev;
+      const next = { ...prev };
+      delete next[s];
+      return next;
+    });
+    setPricesError((prev) => {
+      if (!(s in prev)) return prev;
+      const next = { ...prev };
+      delete next[s];
+      return next;
+    });
+    if (s in quotesCache.current) {
+      const next = { ...quotesCache.current };
+      delete next[s];
+      quotesCache.current = next;
+    }
+    setQuotes((prev) => {
+      if (!(s in prev)) return prev;
+      const next = { ...prev };
+      delete next[s];
+      return next;
+    });
+    setQuotesError((prev) => {
+      if (!(s in prev)) return prev;
+      const next = { ...prev };
+      delete next[s];
+      return next;
+    });
+  }, []);
+
+  const ensureQuote = useCallback(
+    (s: string, refresh = false): Promise<MarketQuote | null> => {
+      if (!refresh && s in quotesCache.current)
+        return Promise.resolve(quotesCache.current[s] ?? null);
+      return once(`quote:${s}`, async () => {
+        try {
+          const quote = await api.market.quote(s);
+          quotesCache.current = { ...quotesCache.current, [s]: quote };
+          setQuotes((prev) => ({ ...prev, [s]: quote }));
+          setQuotesError((prev) => ({ ...prev, [s]: null }));
+          return quote;
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e);
+          if (!(s in quotesCache.current)) {
+            quotesCache.current = { ...quotesCache.current, [s]: null };
+            setQuotes((prev) => (s in prev ? prev : { ...prev, [s]: null }));
+          }
+          setQuotesError((prev) => ({ ...prev, [s]: message }));
           return null;
         }
       });
@@ -322,9 +408,14 @@ export function FinCortextProvider({ children }: { children: ReactNode }) {
       entryFor,
       peersOf,
       ensureUniverse,
+      mergeUniverseEntry,
       pricesOf: (s) => (s in prices ? prices[s] : undefined),
       pricesErrorOf: (s) => pricesError[s] ?? null,
       ensurePrices,
+      invalidatePrices,
+      quoteOf: (s) => (s in quotes ? quotes[s] : undefined),
+      quoteErrorOf: (s) => quotesError[s] ?? null,
+      ensureQuote,
       outputsOf: (s) => (s in outputs ? outputs[s] : undefined),
       outputsErrorOf: (s) => outputsError[s] ?? null,
       ensureOutputs,
@@ -347,9 +438,14 @@ export function FinCortextProvider({ children }: { children: ReactNode }) {
       entryFor,
       peersOf,
       ensureUniverse,
+      mergeUniverseEntry,
       prices,
       pricesError,
       ensurePrices,
+      invalidatePrices,
+      quotes,
+      quotesError,
+      ensureQuote,
       outputs,
       outputsError,
       ensureOutputs,

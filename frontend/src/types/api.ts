@@ -15,6 +15,7 @@ export interface UniverseEntry {
   ticker: string;
   sector: string;
   industry: string;
+  instrument_key?: string | null;
 }
 
 export interface UniverseResponse {
@@ -53,7 +54,71 @@ export interface PriceSeriesResponse {
   status: DataStatusValue;
   count: number;
   latest_trade_date: string | null;
+  instrument_key?: string | null;
+  source?: string | null;
   prices: MarketPricePoint[];
+}
+
+/** NSE equity instrument resolved via Upstox search. Field names mirror the
+ *  backend search response exactly (snake_case) so valid values never become
+ *  null through a rename. */
+export interface UpstoxSearchResult {
+  symbol: string;
+  trading_symbol: string;
+  name: string;
+  instrument_key: string;
+  exchange: string;
+  segment: string;
+  isin: string | null;
+}
+
+export interface UpstoxSearchResponse {
+  query: string;
+  count: number;
+  results: UpstoxSearchResult[];
+  source: string;
+}
+
+/** Live market quote. Every numeric field is nullable: a genuine gap from
+ *  Upstox renders as "N/A", never as ₹0 or another fabricated value. */
+export interface MarketQuote {
+  symbol: string;
+  name: string;
+  instrument_key: string | null;
+  trading_symbol: string | null;
+  exchange: string | null;
+  segment: string | null;
+  source: string | null;
+  status: DataStatusValue;
+  timestamp: string | null;
+  last_price: number | null;
+  prev_close: number | null;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number | null;
+  volume: number | null;
+  average_price: number | null;
+  year_high: number | null;
+  year_low: number | null;
+  day_change: number | null;
+  day_change_pct: number | null;
+}
+
+export interface MarketResolveResponse {
+  resolved: {
+    symbol: string;
+    name: string;
+    exchange: string;
+    ticker: string;
+    sector: string;
+    industry: string;
+    instrument_key: string | null;
+    dynamic: boolean;
+    source: string;
+  };
+  refresh: RefreshResult & { error?: string };
+  quote: MarketQuote & { error?: string };
 }
 
 export interface MarketStatusRow {
