@@ -96,6 +96,37 @@ def resolve_market_symbol(body: dict) -> dict:
     return {"resolved": resolved, "refresh": refresh, "quote": quote}
 
 
+@router.post("/prepare/{symbol}")
+def prepare_company_data(symbol: str, body: dict | None = None) -> dict:
+    """Central company preparation: resolve -> quote -> history ->
+    fundamentals -> news -> peers, then report readiness.
+
+    Called once when the user selects a stock so every analyst tab finds
+    prepared data in the repositories it already reads. Body may carry
+    {"instrument_key": "NSE_EQ|..."}; per-area failures are reported as
+    honest UNAVAILABLE/ERROR statuses, never fabricated values.
+    """
+    container = get_container()
+    key = None
+    if isinstance(body, dict):
+        key = str(body.get("instrument_key") or "").strip() or None
+    return container.company_preparation_service.prepare_company(symbol, key)
+
+
+@router.get("/prepared/{symbol}")
+def company_readiness(symbol: str) -> dict:
+    """Preparation/readiness status from stored data only (no network)."""
+    container = get_container()
+    return container.company_preparation_service.readiness(symbol)
+
+
+@router.get("/peers/{symbol}")
+def company_peers(symbol: str) -> dict:
+    """Effective peer set for a company (configured + discovered)."""
+    container = get_container()
+    return container.company_preparation_service.company_peers(symbol)
+
+
 @router.get("/status")
 def market_data_status() -> dict:
     """Per-symbol storage status for the dashboard/data pages."""

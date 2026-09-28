@@ -21,6 +21,10 @@ Design notes:
 
 - The identity gate does the heavy lifting: generic financial words are safe
   because they only count next to a company mention.
+- Generated aliases (`generated_aliases`): every company — curated or dynamic —
+  also matches name-derived forms (full name, suffix-stripped short name,
+  &/and variants). Curated aliases keep priority on ties; single common-noun
+  words stay strict; the financial-context gate is never loosened.
 - Single-token identifiers shorter than 3 characters are never bare-matched
   (e.g. "LT" would collide constantly); such companies must match via a
   longer alias ("L&T") or the full name. Bare forms that collide with common
@@ -195,10 +199,47 @@ def _contains_token(
     return hit
 
 
+def _is_all_caps_token(token: str) -> bool:
+    """True for ticker-like tokens (letters all uppercase, e.g. HDFCBANK)."""
+    letters = [ch for ch in token if ch.isalpha()]
+    return bool(letters) and all(ch.isupper() for ch in letters)
+
+
+def generated_aliases(entry) -> list[tuple[str, bool]]:
+    """Name-derived identity patterns for ANY company (no curation needed).
+
+    From the legal name: full name, suffix-stripped short name, &/and
+    variants, and the first-two-words form for long names. Multi-word forms
+    match case-insensitively (precise phrases); single-word forms stay
+    case-sensitive/strict UNLESS all-caps (ticker-like, e.g. ZOMATO is
+    covered by the symbol itself, but "BHEL"-style names need it) — so common
+    nouns ("Reliance", "Titan", "Page") never match lowercase prose. Curated
+    aliases always take priority (see company_identifiers ordering).
+    """
+    from app.data.universe.company_names import name_word_variants
+
+    out: list[tuple[str, bool]] = []
+    for form in name_word_variants(getattr(entry, "name", None) or ""):
+        token = form.strip()
+        if not token:
+            continue
+        if " " in token or any(not ch.isalnum() for ch in token):
+            out.append((token, False))
+        elif _is_all_caps_token(token):
+            out.append((token, False))
+        else:
+            out.append((token, True))
+    return out
+
+
 def company_identifiers(entry) -> list[tuple[str, bool]]:
     """Ordered (pattern, strict) match patterns for a universe entry: legal
-    name, curated aliases, strict aliases, internal symbol, and
-    provider-ticker base (e.g. TCS.NS → TCS)."""
+    name, curated aliases, strict aliases, generated name-derived aliases,
+    internal symbol, and provider-ticker base (e.g. TCS.NS → TCS).
+
+    Curated entries keep priority: first occurrence wins on ties, so
+    hand-picked aliases are never shadowed by generated ones.
+    """
     ordered: list[tuple[str, bool]] = []
     seen: set[str] = set()
 
@@ -214,6 +255,8 @@ def company_identifiers(entry) -> list[tuple[str, bool]]:
         add(alias)
     for alias in getattr(entry, "strict_aliases", None) or []:
         add(alias, strict=True)
+    for pattern, strict in generated_aliases(entry):
+        add(pattern, strict=strict)
     add(entry.symbol)
     ticker_base = (entry.ticker or "").split(".")[0]
     if ticker_base and ticker_base.upper() != entry.symbol.upper():

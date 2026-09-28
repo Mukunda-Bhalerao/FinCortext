@@ -194,3 +194,150 @@ def test_verdicts_are_deterministic():
     second = assess_relevance(**kwargs)
     assert first == second
     assert first.relevant and first.reason == "relevant"
+
+
+# -- generated aliases: every stock works without curation --------------------
+# Dynamic-style entries (no curated aliases) built inline so these tests never
+# touch the shared universe registry.
+
+
+def _dynamic(symbol, name):
+    from app.domain.models.universe import UniverseEntry
+
+    return UniverseEntry(
+        symbol=symbol,
+        name=name,
+        exchange="NSE",
+        ticker=f"{symbol}.NS",
+        sector="Unknown",
+        industry="Unknown",
+    )
+
+
+def _check(symbol, name, title, expected, description=None):
+    v = assess_relevance(
+        title,
+        description or ("Market update: " + title),
+        None,
+        _dynamic(symbol, name),
+    )
+    assert v.relevant is expected, (symbol, title, v.reason, v.identity_hit)
+
+
+def test_generated_aliases_reliance():
+    from app.agents.sentiment.relevance import generated_aliases
+
+    ids = dict((p.lower(), s) for p, s in generated_aliases(_dynamic("RELIANCE", "Reliance Industries")))
+    # Full name non-strict; bare common noun stays strict.
+    assert ids["reliance industries"] is False
+    assert ids["reliance"] is True
+    _check("RELIANCE", "Reliance Industries",
+           "Reliance Industries shares jump on strong quarterly profit", True)
+    _check("RELIANCE", "Reliance Industries",
+           "banks reliance on deposits grows, says report on lending", False)
+
+
+def test_generated_aliases_adanipower():
+    from app.agents.sentiment.relevance import generated_aliases
+
+    ids = [p for p, _ in generated_aliases(_dynamic("ADANIPOWER", "ADANI POWER LTD"))]
+    assert "ADANI POWER" in ids  # first-two-words form, non-strict
+    _check("ADANIPOWER", "ADANI POWER LTD",
+           "Adani Power shares rise as group stocks rally on results", True)
+    # Sister company must NOT match: "Adani" alone is never an alias.
+    _check("ADANIPOWER", "ADANI POWER LTD",
+           "Adani Enterprises wins port contract, shares gain", False)
+    _check("ADANIPOWER", "ADANI POWER LTD",
+           "Adani Power commissions 800 MW unit, shares gain on outlook", True)
+
+
+def test_generated_aliases_tatamotors():
+    _check("TATAMOTORS", "Tata Motors Ltd.",
+           "Tata Motors launches new SUV; shares climb on strong demand", True)
+    _check("TATAMOTORS", "Tata Motors Ltd.",
+           "Tata Motors Q1 profit beats estimates", True)
+    # Sister companies must NOT match.
+    _check("TATAMOTORS", "Tata Motors Ltd.",
+           "Tata Steel reports record profit for the quarter", False)
+    _check("TATAMOTORS", "Tata Motors Ltd.",
+           "Tata Power commissions solar plant, shares rise", False)
+
+
+def test_generated_aliases_hdfcbank():
+    _check("HDFCBANK", "HDFC Bank Limited",
+           "HDFC Bank Q1 profit beats estimates, shares gain", True)
+    # Sister company must NOT match.
+    _check("HDFCBANK", "HDFC Bank Limited",
+           "HDFC Life insurance premium collection rises", False)
+
+
+def test_generated_aliases_zomato():
+    from app.agents.sentiment.relevance import generated_aliases
+
+    ids = dict((p.lower(), s) for p, s in generated_aliases(_dynamic("ZOMATO", "Zomato Limited")))
+    assert ids["zomato"] is True  # single word stays strict (capitalized only)
+    _check("ZOMATO", "Zomato Limited",
+           "Zomato shares surge after strong quarterly results", True)
+    _check("ZOMATO", "Zomato Limited",
+           "zomato delivery late again, customers complain", False)
+
+
+def test_generated_aliases_titan_strict():
+    _check("TITAN", "Titan Company Limited",
+           "Titan Company Q2 profit rises on jewellery demand", True)
+    _check("TITAN", "Titan Company Limited",
+           "the titan of industry fell from grace yesterday", False)
+
+
+def test_curated_aliases_keep_priority():
+    # Static RELIANCE keeps its curated strict "Reliance" first.
+    ids = company_identifiers(get_universe_entry("RELIANCE"))
+    first_reliance = next(s for s, _ in ids if s.lower() == "reliance")
+    assert first_reliance == "Reliance"
+    assert verdict("Reliance shares jump on strong results", "RELIANCE").relevant
+
+
+def test_generated_ampersand_variants():
+    from app.agents.sentiment.relevance import generated_aliases
+
+    entry = _dynamic("XYZ", "Foo & Bar Limited")
+    forms = [p for p, _ in generated_aliases(entry)]
+    assert "Foo & Bar" in forms
+    assert "Foo and Bar" in forms
+    # "&" and "and" phrasings both identify the company.
+    assert assess_relevance(
+        "Foo & Bar reports strong quarterly profit", None, None, entry
+    ).relevant
+    assert assess_relevance(
+        "Foo and Bar reports strong quarterly profit", None, None, entry
+    ).relevant
+    # ...but never without financial context.
+    assert not assess_relevance(
+        "Foo and Bar opens new office", "New branch in town", None, entry
+    ).relevant
+
+
+def test_generated_first_two_words_for_long_names():
+    from app.agents.sentiment.relevance import generated_aliases
+
+    entry = _dynamic("BHELXYZ", "Bharat Heavy Electricals Limited")
+    forms = [p for p, _ in generated_aliases(entry)]
+    assert "Bharat Heavy Electricals" in forms
+    assert "Bharat Heavy" in forms
+    assert assess_relevance(
+        "Bharat Heavy shares jump on strong order inflows", None, None, entry
+    ).relevant
+
+
+def test_generated_allcaps_single_token_is_nonstrict():
+    # Ticker-like single tokens (BHEL) match case-insensitively, unlike
+    # common-noun words (Titan/Page), which stay strict.
+    from app.agents.sentiment.relevance import generated_aliases
+
+    ids = [p.lower() for p, _ in generated_aliases(_dynamic("BHEL", "Bharat Heavy Electricals"))]
+    # Bare "bhel" is NOT generated (the internal symbol already covers it);
+    # multi-word forms come from the name.
+    assert "bhel" not in ids
+    assert "bharat heavy electricals" in ids
+    entry = _dynamic("BHEL", "Bharat Heavy Electricals")
+    assert assess_relevance("BHEL bags large order, shares gain", None, None, entry).relevant

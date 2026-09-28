@@ -27,13 +27,24 @@ The agent **never** calls external providers and **never** fabricates data.
 
 ## Peer group construction
 
-1. Start from the universe entry for the target symbol.
+1. Start from the universe entry for the target symbol. For dynamically
+   searched stocks, the entry is classified first (`IndustryClassifier`:
+   static universe → official NSE Nifty 500 list → yfinance metadata →
+   Gemini research last resort → honest "Unknown").
 2. Peers = universe entries sharing the same `sector`
    (falling back to `industry` grouping when the sector has fewer than
    3 members — see `get_sector_peers`).
-3. **The target company itself is always excluded** from peer medians
+3. When configured peers are insufficient, preparation discovers more in
+   relevance order: curated same-sector candidates, then other symbols from
+   the NSE Nifty 500 list sharing the company's industry (cap 8, self
+   excluded), then Gemini-suggested candidates. Every candidate must resolve
+   live via Upstox (exact listing) AND hold real price history
+   (`ensure_history`) before it counts — failures are skipped, never invented.
+4. **The target company itself is always excluded** from peer medians
    (`[p for p in get_sector_peers(entity) if p.symbol != entity]`).
-4. Peer statistics use the **median** (robust to outliers), never the mean.
+5. Peer statistics use the **median** (robust to outliers), never the mean.
+
+Factors, weights, and scoring maps are unchanged by peer discovery.
 
 ## Factors and weights (sum = 1.0)
 
@@ -101,8 +112,10 @@ pipeline. Re-runs without new data produce identical scores (verified by
 
 ## Known limitations
 
-- Peer set is limited to the 10-symbol versioned universe; sectors with a
-  single listed member produce no peer factors (listed as limitations).
+- Peer discovery extends beyond the 10-symbol versioned universe (curated
+  candidates, NSE Nifty 500 industry peers, Gemini suggestions — all live
+  Upstox-validated); companies whose sector cannot be established from any
+  source still produce no peer factors (listed as limitations).
 - Momentum uses calendar-day windows over stored trading days; halts or
   sparse history shift the effective measurement window.
 - Net margins compare the latest available filing periods, which may not be

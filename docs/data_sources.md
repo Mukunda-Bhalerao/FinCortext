@@ -55,11 +55,23 @@
   the same provider family already used for market data. No Screener.in, no
   fabricated values.
 
-### News — NewsAPI (`NewsProvider` adapter)
-- Adapter: `backend/app/data/providers/news/` (Milestone 7)
-- API key loaded only from `NEWS_API_KEY` env var (never committed)
-- Article dedup via content hash; source metadata preserved
-- Replaceable: future RSS, GDELT, licensed providers implement `NewsProvider`
+### News — Google News RSS, NewsAPI optional (`NewsProvider` adapters)
+- Primary adapter: `backend/app/data/providers/news/googlenews_rss.py`
+  (`GoogleNewsRssProvider`) — free, keyless Google News RSS search
+  (`hl=en-IN&gl=IN&ceid=IN:en`) with company-name query variants (short name
+  → full legal name → symbol + "NSE", stopping at the first variant with
+  ≥ 5 items), plus a Yahoo Finance headlines RSS fallback inside the same
+  provider. Only feed XML is fetched and parsed (stdlib ElementTree) — no
+  article-page scraping. Browser User-Agent, 10s timeout, ≤1 request/sec,
+  2 retries with backoff, 6h per-query cache. `NEWS_PROVIDER=google_rss`
+  (default) or `newsapi`.
+- Secondary adapter: `NewsAPINewsProvider` (NewsAPI) — API key loaded only
+  from `NEWS_API_KEY` env var (never committed). Attached as the merge source
+  whenever configured: both feeds are fetched and merged, storage dedups by
+  `article_id`.
+- Article dedup via content hash; source metadata preserved (Google's
+  " - Source" title suffix is split into the source field; HTML stripped
+  from snippets).
 
 ### Sentiment — local FinBERT (no paid API)
 - Model: `ProsusAI/finbert` via Hugging Face transformers (configurable)

@@ -4,6 +4,7 @@ import FinCortextLogo from '../utils/FinCortextLogo.png';
 import { FinCortextProvider, useFinCortext } from './FinCortextContext';
 import CompanySelector from '../components/common/CompanySelector';
 import StatusBadge from '../components/common/StatusBadge';
+import { describeFreshness } from '../features/company/useMarketQuote';
 import DashboardPage from '../features/dashboard/DashboardPage';
 import CompanyAnalysisPage from '../features/company/CompanyAnalysisPage';
 import DataSourcesPage from '../features/data/DataSourcesPage';
@@ -118,29 +119,38 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 /** Right side of the topbar: real data freshness for the selected company.
- *  Never claims "live" — the badge mirrors the stored series status and the
- *  latest available trading date. */
+ *  The timestamp is the actual Upstox quote timestamp when available — never
+ *  the server startup time, never the page-load time, never manufactured. */
 function FreshnessPill() {
-  const { symbol, pricesOf, ensurePrices } = useFinCortext();
+  const { symbol, pricesOf, ensurePrices, quoteOf, ensureQuote } = useFinCortext();
   const series = pricesOf(symbol);
-  // Warm the shared per-symbol cache so the pill is live on every page.
+  const quote = quoteOf(symbol);
+  // Warm the shared per-symbol caches so the pill is live on every page.
   useEffect(() => {
     ensurePrices(symbol).catch(() => undefined);
-  }, [symbol, ensurePrices]);
-  if (series === undefined) {
+    ensureQuote(symbol).catch(() => undefined);
+  }, [symbol, ensurePrices, ensureQuote]);
+  if (series === undefined && quote === undefined) {
     return <span className="muted freshness-pill">Loading market data…</span>;
   }
-  if (series === null) {
+  const fresh = describeFreshness(
+    quote?.timestamp ?? series?.quote_timestamp,
+    quote?.source ?? series?.quote_source,
+    series?.latest_trade_date,
+    series?.source,
+  );
+  if (fresh.status === 'UNAVAILABLE') {
     return <span className="muted freshness-pill">Market data unavailable</span>;
   }
   return (
     <span className="freshness-pill">
-      <StatusBadge status={series.status} />
-      {series.status === 'LIVE' && (
-        <span className="live-dot" title="Latest available data" aria-label="Latest available data" />
+      <StatusBadge status={fresh.status} />
+      {fresh.status === 'LIVE' && (
+        <span className="live-dot" title="Current market data" aria-label="Current market data" />
       )}
       <span className="muted">
-        {series.latest_trade_date ? `As of ${series.latest_trade_date}` : 'No trading date'}
+        {fresh.label}
+        {fresh.source ? ` · Source: ${fresh.source}` : ''}
       </span>
     </span>
   );

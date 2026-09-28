@@ -19,6 +19,7 @@ class DataSourceType(str, Enum):
     YFINANCE = "yfinance"
     UPSTOX = "upstox"
     NEWS_API = "news_api"
+    GOOGLE_NEWS_RSS = "google_news_rss"
     OFFICIAL_FILING = "official_filing"
     SAMPLE = "sample"
     UNKNOWN = "unknown"

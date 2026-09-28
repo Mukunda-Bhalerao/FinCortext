@@ -72,6 +72,60 @@ class NewsProvider(ABC):
         raise NotImplementedError
 
 
+class ResearchProvider(ABC):
+    """Web-research / enrichment (company classification, peer discovery).
+
+    Research-only: grounded web lookup for metadata the structured providers
+    cannot supply (sector/industry for dynamic equities, peer candidates,
+    business context). NEVER a market-data source — no prices, volumes,
+    timestamps, or ratios. NEVER a replacement for deterministic financial
+    calculations. Every claim must carry source evidence (title/URL/domain/
+    retrieval time). Implementations must raise
+    ProviderError/ProviderUnavailableError on failure — never fabricate.
+    """
+
+    name: str = "research_provider"
+
+    @abstractmethod
+    def research_company(self, symbol: str, company_name: str) -> dict:
+        """Research a company's classification via grounded web search.
+
+        Returns {"company_name", "sector", "industry",
+        "business_description", "confidence" (0..1), "sources": [...]}.
+        Sources: [{"title", "url", "domain", "retrieved_at"}].
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def suggest_peers(
+        self,
+        symbol: str,
+        company_name: str,
+        sector: str,
+        industry: str,
+        *,
+        max_peers: int = 8,
+    ) -> dict:
+        """Suggest listed peer candidates for a company via web research.
+
+        Returns {"peers": [{"symbol", "name", "reason"}], "sources": [...]}.
+        Symbols are CANDIDATES ONLY — the caller must validate each one as a
+        real NSE listing through Upstox before use. Never invented.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def research_news(self, symbol: str, company_name: str) -> dict:
+        """Web-research digest of recent company developments.
+
+        Returns {"items": [{"title", "summary", "url", "source",
+        "published_at"|None}], "sources": [...], "retrieved_at"}.
+        Clearly labeled web research — NEVER presented as NewsAPI articles
+        and never scored by FinBERT as news.
+        """
+        raise NotImplementedError
+
+
 class MacroDataProvider(ABC):
     """Macro indicator retrieval (market-wide, not per-company)."""
 

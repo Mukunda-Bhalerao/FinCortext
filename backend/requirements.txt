@@ -20,6 +20,9 @@ requests>=2.31,<3
 transformers>=4.40,<5
 torch>=2.1
 
+# --- Web research / enrichment (grounded search only, no scraping) -------
+google-genai>=1.0                # official Google GenAI SDK (Gemini API)
+
 # --- Filing parsing -----------------------------------------------------
 # XBRL/XML: stdlib xml.etree is used; lxml is optional but faster.
 lxml>=5.0

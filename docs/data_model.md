@@ -68,6 +68,22 @@ generated_at, data_version, status (`OK|DEGRADED|UNAVAILABLE`).
 event_id (PK), event_type, entity_id, source_type, source_name, content_hash,
 rows_ingested, rows_rejected, detail, ingested_at.
 
+### `market_quotes` — live quote snapshots (one row per symbol, upsert)
+symbol (PK), instrument_key, trading_symbol, exchange, segment, source,
+timestamp (provider timestamp, never wall clock), OHLC + volume + 52-week
+fields, day change, updated_at. Newer-wins; Upstox outranks yfinance.
+
+### `upstox_instruments` — instrument registry (dynamic equity metadata cache)
+instrument_key (PK), symbol, trading_symbol, name, exchange, segment, isin,
+exchange_token, instrument_type, updated_at.
+
+### `research_reports` — web-research evidence (Gemini grounding, labeled)
+report_id (PK), entity_id, report_type (`company_profile` | `peer_discovery` |
+`news_digest`), subject, payload_json, confidence, sources_json, model,
+source_name, created_at. Evidence ONLY — never market data, never articles,
+never scored. Upserted per entity+type+subject (no duplicates on repeat
+preparation).
+
 ## Canonical metric keys (initial set)
 
 `total_revenue`, `revenue_growth`, `net_income`, `operating_profit`,

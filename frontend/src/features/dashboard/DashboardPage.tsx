@@ -26,7 +26,8 @@ import {
   snapshot,
 } from '../company/priceStats';
 import { useFilingsCount } from '../company/useFilingsCount';
-import { useMarketQuote, fmtPriceNA, fmtIntNA } from '../company/useMarketQuote';
+import { useMarketQuote, fmtPriceNA, fmtIntNA, describeFreshness } from '../company/useMarketQuote';
+import PreparationStatus from '../../components/common/PreparationStatus';
 import { usePeerQuotes } from '../company/usePeerQuotes';
 
 const RANGES = [
@@ -225,7 +226,7 @@ export default function DashboardPage() {
   const series = pricesOf(symbol);
   const seriesError = pricesErrorOf(symbol);
   const seriesLoading = series === undefined && seriesError === null;
-  const { quote, error: quoteError, loading: quoteLoading } = useMarketQuote(symbol);
+  const { quote, loading: quoteLoading } = useMarketQuote(symbol);
   const outputs = outputsOf(symbol);
   const outputsError = outputsErrorOf(symbol);
   const outputsLoading = outputs === undefined && outputsError === null;
@@ -298,6 +299,14 @@ export default function DashboardPage() {
 
   const displayName = entry?.name ?? quote?.name ?? symbol;
   const priceLoading = seriesLoading || quoteLoading;
+  // Freshness: the Upstox quote timestamp wins over the stored series date —
+  // an old cached date is never shown when newer quote data exists.
+  const freshness = describeFreshness(
+    quote?.timestamp ?? series?.quote_timestamp,
+    quote?.source ?? series?.quote_source,
+    series?.latest_trade_date,
+    series?.source,
+  );
 
   return (
     <section className="page dashboard">
@@ -339,11 +348,16 @@ export default function DashboardPage() {
                 : `${fmtSigned(animatedChange)} (${fmtSigned(liveChangePct ?? 0)}%)`}
           </div>
           <div className="muted term-asof">
-            {series?.latest_trade_date || quote?.timestamp
-              ? `As of ${quote?.timestamp ? String(quote.timestamp).slice(0, 10) : series?.latest_trade_date} · ${series?.count ?? 0} stored days${quote?.source ? ` · ${quote.source}` : ''}`
-              : seriesError && quoteError
-                ? 'Price history unavailable'
-                : 'Loading price history…'}
+            {priceLoading ? (
+              'Loading price history…'
+            ) : freshness.status === 'UNAVAILABLE' ? (
+              'Price history unavailable'
+            ) : (
+              <>
+                {freshness.label} · {series?.count ?? 0} stored days
+                {freshness.source ? ` · Source: ${freshness.source}` : ''}
+              </>
+            )}
           </div>
           {livePrevClose !== null && livePrevClose !== undefined && (
             <div className="muted term-prevclose">
@@ -380,6 +394,8 @@ export default function DashboardPage() {
           ▶ Analyze Company
         </button>
       </header>
+
+      <PreparationStatus symbol={symbol} />
 
       {/* Section tabs (anchor navigation) */}
       <nav className="dash-tabs fade-in" aria-label="Dashboard sections" style={{ animationDelay: '0.04s' }}>

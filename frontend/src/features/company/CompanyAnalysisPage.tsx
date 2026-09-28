@@ -6,8 +6,9 @@ import { useFinCortext } from '../../app/FinCortextContext';
 import { deltaClass, fmtInt, fmtPrice, fmtSigned, snapshot } from './priceStats';
 import { useFilingsCount } from './useFilingsCount';
 import { useFundamentalsCoverage } from './useFundamentalsCoverage';
-import { useMarketQuote, fmtPriceNA } from './useMarketQuote';
+import { useMarketQuote, fmtPriceNA, describeFreshness } from './useMarketQuote';
 import { usePeerQuotes } from './usePeerQuotes';
+import PreparationStatus from '../../components/common/PreparationStatus';
 
 const ANALYSTS = [
   { id: 'firm_analyst', label: 'Firm Analyst', to: '/intelligence/firm' },
@@ -43,7 +44,7 @@ export default function CompanyAnalysisPage() {
   const series = pricesOf(symbol);
   const seriesError = pricesErrorOf(symbol);
   const seriesLoading = series === undefined && seriesError === null;
-  const { quote, error: quoteError, loading: quoteLoading } = useMarketQuote(symbol);
+  const { quote, loading: quoteLoading } = useMarketQuote(symbol);
   const outputs = outputsOf(symbol);
   const news = newsOf(symbol);
   const filingsCount = useFilingsCount(symbol);
@@ -67,6 +68,12 @@ export default function CompanyAnalysisPage() {
   const liveChange = quote?.day_change ?? snap?.dayChange ?? null;
   const liveChangePct = quote?.day_change_pct ?? snap?.dayChangePct ?? null;
   const livePrevClose = quote?.prev_close ?? snap?.prev?.close ?? null;
+  const freshness = describeFreshness(
+    quote?.timestamp ?? series?.quote_timestamp,
+    quote?.source ?? series?.quote_source,
+    series?.latest_trade_date,
+    series?.source,
+  );
 
   const runsByAgent = useMemo(() => {
     const map = new Map<string, { count: number; latest: string }>();
@@ -112,6 +119,7 @@ export default function CompanyAnalysisPage() {
         Company overview and the data behind the views — what FinCortext holds for{' '}
         {displayName}, and what is missing. Select the company in the search bar above.
       </p>
+      <PreparationStatus symbol={symbol} />
 
       {/* Identity */}
       <header className="card company-head fade-in">
@@ -146,11 +154,16 @@ export default function CompanyAnalysisPage() {
                   : `${fmtSigned(liveChange)} (${fmtSigned(liveChangePct ?? 0)}%)`}
             </div>
             <div className="muted term-asof">
-              {series?.latest_trade_date || quote?.timestamp
-                ? `As of ${quote?.timestamp ? String(quote.timestamp).slice(0, 10) : series?.latest_trade_date} · ${series?.count ?? 0} stored days${quote?.source ? ` · ${quote.source}` : ''}`
-                : seriesError && quoteError
-                  ? 'Price history unavailable'
-                  : 'Loading price history…'}
+              {priceLoading ? (
+                'Loading price history…'
+              ) : freshness.status === 'UNAVAILABLE' ? (
+                'Price history unavailable'
+              ) : (
+                <>
+                  {freshness.label} · {series?.count ?? 0} stored days
+                  {freshness.source ? ` · Source: ${freshness.source}` : ''}
+                </>
+              )}
             </div>
             <div className="muted term-prevclose">
               {priceLoading ? '…' : `Prev close ${fmtPriceNA(livePrevClose)}`}

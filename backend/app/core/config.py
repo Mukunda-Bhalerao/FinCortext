@@ -70,6 +70,11 @@ class Settings:
 
     # --- News provider -------------------------------------------------
     news_api_key: str = field(default_factory=lambda: os.getenv("NEWS_API_KEY", "").strip())
+    # Primary news source: "google_rss" (free, keyless, default) or "newsapi".
+    # The other configured source is attached as the secondary merge source.
+    news_provider: str = field(
+        default_factory=lambda: os.getenv("NEWS_PROVIDER", "google_rss").strip().lower() or "google_rss"
+    )
 
     # --- Storage -------------------------------------------------------
     db_path: Path = field(
@@ -114,6 +119,22 @@ class Settings:
         default_factory=lambda: _env_int("UPSTOX_TIMEOUT_SECONDS", 10)
     )
 
+    # --- Gemini web research / enrichment ------------------------------
+    # Research-only layer (company classification, peer discovery, business
+    # context). Never a market-data provider; never replaces deterministic
+    # financial calculations. Key is read from GEMINI_API_KEY only and is
+    # never logged or exposed.
+    gemini_api_key: str = field(default_factory=lambda: os.getenv("GEMINI_API_KEY", "").strip())
+    gemini_model: str = field(
+        default_factory=lambda: os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
+    )
+    gemini_timeout_seconds: int = field(
+        default_factory=lambda: _env_int("GEMINI_TIMEOUT_SECONDS", 30)
+    )
+    gemini_web_search_enabled: bool = field(
+        default_factory=lambda: _env_bool("GEMINI_WEB_SEARCH_ENABLED", True)
+    )
+
     # --- Sentiment model -----------------------------------------------
     sentiment_model_id: str = field(
         default_factory=lambda: os.getenv("FINCORTEXT_SENTIMENT_MODEL", "ProsusAI/finbert")
@@ -140,16 +161,23 @@ class Settings:
     def has_upstox_token(self) -> bool:
         return bool(self.upstox_access_token)
 
+    @property
+    def has_gemini_key(self) -> bool:
+        return bool(self.gemini_api_key)
+
     def summary(self) -> dict:
         """Safe summary for logging/health checks (never exposes secrets)."""
         return {
             "db_path": str(self.db_path),
             "news_api_configured": self.has_news_api_key,
+            "news_provider": self.news_provider,
             "cors_origins": self.cors_origins,
             "log_level": self.log_level,
             "market_history_days": self.market_history_days,
             "live_market_provider": self.live_market_provider,
             "upstox_configured": self.has_upstox_token,
+            "gemini_configured": self.has_gemini_key,
+            "gemini_model": self.gemini_model,
             "sentiment_model_id": self.sentiment_model_id,
             "allow_sample_data": self.allow_sample_data,
         }

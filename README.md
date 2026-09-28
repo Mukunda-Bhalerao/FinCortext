@@ -186,9 +186,10 @@ recorded into the session cache (and the outputs-history cache) the moment they 
 
 | Source | Adapter | Notes |
 |---|---|---|
-| Market prices | `YFinanceMarketProvider` (yfinance) | NSE `.NS` ticker mapping from universe config; all failures wrapped as `ProviderError`. Canonical storage key is always the internal symbol (`TCS`), never the provider ticker (`TCS.NS`). |
-| News | `NewsAPINewsProvider` (NewsAPI) | Key **only** from `NEWS_API_KEY`; missing key → graceful `UNAVAILABLE`, never a crash. 401/403 → unavailable, 429 → rate-limit error. |
+| Market prices | `UpstoxMarketProvider` (Upstox, primary when `LIVE_MARKET_PROVIDER=upstox`) + `YFinanceMarketProvider` (fallback) | Upstox instrument search / full quotes V3 / historical candles V3; NSE-equity filter; `instrument_key` canonical. Canonical storage key is always the internal symbol (`TCS`), never the provider ticker (`TCS.NS`). yfinance fallback bars are honestly marked `yfinance` and can never overwrite newer Upstox data. |
+| News | `NewsAPINewsProvider` (NewsAPI) | Key **only** from `NEWS_API_KEY`; missing key → graceful `UNAVAILABLE`, never a crash. 401/403 → unavailable, 429 → rate-limit error. Company-name query variants tried during preparation. |
 | Fundamentals | Ingested official filings (primary truth) + provider annual statements (fallback) | `YFinanceFundamentalsProvider` implements the `FundamentalDataProvider` seam: annual income/balance rows with real fiscal periods plus snapshot P/E + ROE. Stored as `source_type=yfinance`, never as official filings. |
+| Web research | `GeminiResearchProvider` (official `google-genai` SDK, Search grounding) | Research/enrichment **only**: company sector/industry classification, peer candidates, news digests. Never market data, never scores. Key **only** from `GEMINI_API_KEY` (SDK client arg only, never logged); missing key → `UNAVAILABLE`. Failures carry distinct sanitized diagnostics (invalid key / retired model naming `GEMINI_MODEL` / rate limit / endpoint / timeout). Evidence stored in `research_reports`, never as articles or prices. |
 | Future | Licensed feeds, RSS/GDELT, industry reports | Seams reserved at the provider boundary. |
 
 ## 11. Market data pipeline
@@ -201,11 +202,15 @@ Per-symbol failure isolation: one bad symbol never blocks the rest of the univer
 
 ## 12. News pipeline
 
-Provider fetch → canonical `NewsArticle` (stable `article_id` = SHA-256 of URL, `content_hash` audit
-hash, source metadata, publication/collection timestamps) → `NewsService` entity association +
-dedup-on-store + provenance → DuckDB → API (`GET /api/news/status`,
-`POST /api/news/refresh/{symbol}`, `GET /api/news/{symbol}`). Missing key degrades gracefully; the
-backend and all unrelated modules keep working.
+Provider fetch (Google News RSS by default, NewsAPI optional — both merged with
+dedup when configured) → canonical `NewsArticle` (stable `article_id` = SHA-256 of URL,
+`content_hash` audit hash, source metadata, publication/collection timestamps) →
+`NewsService` entity association + dedup-on-store + provenance → DuckDB → API
+(`GET /api/news/status`, `POST /api/news/refresh/{symbol}`, `GET /api/news/{symbol}`).
+Google News RSS is free and keyless (feed XML only, no article scraping; polite
+fetching with retries and a 6h cache); NewsAPI stays as an optional secondary
+merge source. Missing keys degrade gracefully; the backend and all unrelated
+modules keep working.
 
 ## 13. Firm Analyst
 
@@ -221,14 +226,21 @@ mixed-vintage data never silently drops a factor. Methodology: `backend/app/agen
 Deterministic scoring over 4 documented factors — peer momentum 0.30, relative strength 0.30,
 peer fundamentals 0.25, sector volatility 0.15 — with median-based peer stats (company excluded from
 peer medians) and a documented volatility convention (simple daily returns, population std-dev,
-× √252). Peer grouping comes from the versioned universe config. Methodology:
-[docs/industry_methodology.md](docs/industry_methodology.md).
+× √252). Peer grouping comes from the versioned universe config, extended to any searched
+stock: official NSE Nifty 500 industry list (committed CSV) classifies dynamic equities,
+and peers are drawn from configured entries, curated candidates, and same-industry CSV
+symbols — every peer validated live with real price history before it counts.
+Agent runs resolve renamed/demerged symbols canonically (ZOMATO→ETERNAL,
+TATAMOTORS→TMCV); unknown symbols stay honest 404s.
+Methodology: [docs/industry_methodology.md](docs/industry_methodology.md).
 
 ## 15. Sentiment Analyst
 
 Deterministic financial-relevance screen (`relevance.py`: company identity AND
 financial/business context required, brand-sport/tragedy/retail-promo topics
-excluded, former-affiliation bio-lines disqualified; stored/relevant/rejected
+excluded, former-affiliation bio-lines disqualified; identity patterns are
+auto-generated from any company name — curated aliases keep priority, single
+common-noun words stay case-sensitive; stored/relevant/rejected
 counts with per-reason breakdown in every output) → local FinBERT
 (ProsusAI/finbert default, configurable; lazy-loaded, ~440 MB first download)
 → polarity P(pos) − P(neg) → recency-weighted aggregation with 7-day
@@ -368,7 +380,14 @@ the backend provides none, so the UI invents none.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `NEWS_API_KEY` | (empty) | NewsAPI key; absent → news `UNAVAILABLE`, everything else works |
+| `NEWS_PROVIDER` | `google_rss` | Primary news source: `google_rss` (free, keyless) or `newsapi`; the other configured source merges as secondary |
+| `NEWS_API_KEY` | (empty) | NewsAPI key; absent → NewsAPI skipped (RSS still serves), everything else works |
+| `LIVE_MARKET_PROVIDER` | `yfinance` | `upstox` selects Upstox as the primary market provider (yfinance stays as fallback) |
+| `UPSTOX_ACCESS_TOKEN` | (empty) | Upstox key; absent → Upstox `UNAVAILABLE`, yfinance serves |
+| `GEMINI_API_KEY` | (empty) | Gemini key; absent → web research `UNAVAILABLE`, everything else works |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model id (must support generation for the key; `GET /api/research/verify` checks; switch without code changes) |
+| `GEMINI_TIMEOUT_SECONDS` | `30` | Gemini request timeout |
+| `GEMINI_WEB_SEARCH_ENABLED` | `true` | Gemini Search grounding (no website scraping) |
 | `FINCORTEXT_DB_PATH` | `data/processed/fincortext.duckdb` | DuckDB location |
 | `FINCORTEXT_HOST` / `FINCORTEXT_PORT` | `127.0.0.1` / `8000` | Backend bind |
 | `FINCORTEXT_CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Dev CORS |
@@ -423,8 +442,13 @@ Markers: `unit` (fast, isolated), `integration` (cross-module), `system` (end-to
 
 ## 31. Current test status
 
-- Backend: **220 passed** (`python -m pytest`).
-- Frontend: **60 passed** (`npm test`) — sidebar navigation (incl. Portfolio Synthesis),
+- Backend: **325 passed** (`python -m pytest`) — incl. Upstox provider, central
+  preparation (incl. Gemini-enriched ADANIPOWER/BBL scenarios, mocked), 18
+  SDK-mocked Gemini provider tests (incl. the BBL research task), startup-sync
+  skip/retry tests, DuckDB concurrent-write regression tests, 19 Google News
+  RSS tests, 12 industry-classifier tests, 10 auto-alias relevance tests, and
+  an NHPC end-to-end prepare→industry+sentiment test (outside the original 10).
+- Frontend: **61 passed** (`npm test`) — sidebar navigation (incl. Portfolio Synthesis),
   macro page/summary-strip with environment score, company search/switching, dashboard honesty
   (no invented indices/scores), takeaway derivation, company analysis page (incl. fundamentals
   coverage), context isolation, no-stale/mid-flight run guards, side-by-side-no-blend summary,
@@ -440,7 +464,18 @@ Markers: `unit` (fast, isolated), `integration` (cross-module), `system` (end-to
 - `POST /api/market/refresh` is synchronous — a full-universe refresh takes ~10–30s live.
 - PDF filing parsing is a basic extraction fallback, not a reliable parser for arbitrary annual reports.
 - Firm momentum needs ≥ 2 price points; single-period filings leave revenue growth unavailable.
-- Industry peer set is limited to the 10-symbol universe; single-member sectors yield no peer factors.
+- Industry peers: configured universe first, then curated same-sector candidates, then
+  Gemini-suggested peers — every candidate validated live via Upstox (exact-listing gate)
+  with real market history before it counts. Companies whose sector cannot be established
+  (research unavailable/unconfident) honestly report unavailable peer factors.
+- Gemini web research needs a key with an available model id and quota; when the
+  configured model is retired or quota is exhausted, research degrades to `UNAVAILABLE`
+  with the reason stated (structured providers keep working). `GET /api/research/verify`
+  performs a real minimal generation to confirm model+key health. Research never
+  fabricates: low-confidence classifications are stored as evidence but not applied.
+- Readiness honesty: backend `ready` requires market + fundamentals + metadata +
+  peers + news; the UI says "Company data ready" only when market/fundamentals/
+  company-info are READY, otherwise it names exactly what is ready vs unavailable.
 - FinBERT downloads on first sentiment run (~440 MB); until then sentiment reports `UNAVAILABLE`.
 - Provider fundamentals supplement official filings (labeled `source_type=yfinance`,
   never official): annual statements carry real fiscal periods; snapshot P/E + ROE carry

@@ -56,6 +56,10 @@ export interface PriceSeriesResponse {
   latest_trade_date: string | null;
   instrument_key?: string | null;
   source?: string | null;
+  /** Newest live-quote snapshot carried with the series (Upstox timestamp). */
+  quote_timestamp?: string | null;
+  quote_source?: string | null;
+  quote_last_price?: number | null;
   prices: MarketPricePoint[];
 }
 
@@ -103,6 +107,95 @@ export interface MarketQuote {
   year_low: number | null;
   day_change: number | null;
   day_change_pct: number | null;
+  /** True when this snapshot came from a live provider fetch (not storage). */
+  live?: boolean | null;
+}
+
+/** One preparation area inside a company-preparation response. */
+export interface PreparationArea {
+  status: DataStatusValue;
+  [key: string]: unknown;
+}
+
+/** Central preparation result: readiness of every analyst input for a company.
+ *  `readiness` is `ready` (quote+history usable), `partial` (something
+ *  prepared) or `unavailable` (nothing usable) — never fabricated.
+ *  `components` reports per-domain readiness (market, fundamentals,
+ *  company_metadata, industry, peers, news, web_research) as
+ *  READY / PARTIAL / UNAVAILABLE. */
+export interface CompanyPreparation {
+  symbol: string;
+  name: string;
+  instrument_key: string | null;
+  sector?: string | null;
+  industry?: string | null;
+  readiness: 'ready' | 'partial' | 'unavailable' | string;
+  areas: Record<string, PreparationArea>;
+  components?: Record<string, 'READY' | 'PARTIAL' | 'UNAVAILABLE' | string>;
+}
+
+/** One web-research evidence item (Gemini grounded search — labeled, unscored). */
+export interface ResearchItem {
+  title: string;
+  summary?: string | null;
+  url?: string | null;
+  source?: string | null;
+  published_at?: string | null;
+}
+
+export interface ResearchSource {
+  title?: string | null;
+  url: string;
+  domain?: string | null;
+  retrieved_at?: string | null;
+}
+
+export interface ResearchReport {
+  report_id: string;
+  entity_id: string;
+  report_type: 'company_profile' | 'peer_discovery' | 'news_digest' | string;
+  subject: string;
+  payload?: Record<string, unknown> | null;
+  confidence?: number | null;
+  sources?: ResearchSource[] | null;
+  model?: string | null;
+  source_name?: string | null;
+  created_at?: string | null;
+}
+
+export interface ResearchListResponse {
+  symbol: string;
+  name: string;
+  count: number;
+  provider: string;
+  provider_configured: boolean;
+  reports: ResearchReport[];
+}
+
+export interface ResearchStatusResponse {
+  provider: string;
+  configured: boolean;
+  model?: string | null;
+  status: DataStatusValue;
+  message: string | null;
+}
+
+export interface CompanyPeer {
+  symbol: string;
+  name: string;
+  sector: string;
+  industry: string;
+  relation: string;
+  rows: number;
+  latest_trade_date: string | null;
+}
+
+export interface CompanyPeersResponse {
+  symbol: string;
+  sector: string;
+  industry: string;
+  count: number;
+  peers: CompanyPeer[];
 }
 
 export interface MarketResolveResponse {

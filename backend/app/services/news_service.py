@@ -18,6 +18,7 @@ from datetime import date, timedelta
 from app.core.config import Settings, settings
 from app.core.exceptions import ProviderError, ProviderUnavailableError
 from app.core.logging import get_logger
+from app.data.universe.company_names import short_company_name
 from app.data.universe.universe_config import get_universe_entry
 from app.domain.contracts.providers import NewsProvider
 from app.domain.models.base import DataStatus
@@ -28,6 +29,10 @@ from app.repositories.provenance_repository import ProvenanceRepository
 logger = get_logger("services.news")
 
 DEFAULT_LOOKBACK_DAYS = 7
+
+# Provider name of the keyless RSS implementation (see
+# app/data/providers/news/googlenews_rss.py).
+RSS_PROVIDER_NAME = "google_news_rss"
 
 
 def default_news_query(entry) -> str:
@@ -66,18 +71,34 @@ class NewsService:
         news_repo: NewsRepository,
         provenance_repo: ProvenanceRepository,
         config: Settings | None = None,
+        secondary_provider: NewsProvider | None = None,
     ):
         self.provider = provider
         self.news_repo = news_repo
         self.provenance_repo = provenance_repo
         self.config = config or settings
+        # Optional second source (e.g. NewsAPI alongside RSS): fetched after
+        # the primary and merged; storage dedups by article_id.
+        self.secondary_provider = secondary_provider
+
+    def _provider_status(self, provider: NewsProvider | None) -> dict | None:
+        if provider is None:
+            return None
+        configured = getattr(provider, "is_configured", True)
+        return {
+            "provider": provider.name,
+            "configured": configured,
+            "status": (
+                DataStatus.LIVE.value if configured else DataStatus.UNAVAILABLE.value
+            ),
+        }
 
     # -- status ------------------------------------------------------------------
 
     def get_status(self) -> dict:
         """Provider configuration status (safe for health/UI display)."""
         configured = getattr(self.provider, "is_configured", True)
-        return {
+        status: dict = {
             "provider": self.provider.name,
             "configured": configured,
             "status": (
@@ -91,6 +112,39 @@ class NewsService:
                 "explicitly selected."
             ),
         }
+        secondary = self._provider_status(self.secondary_provider)
+        if secondary is not None:
+            status["secondary"] = secondary
+        return status
+
+    # -- query variants ------------------------------------------------------------
+
+    def default_query(self, entry) -> str:
+        """Provider-appropriate default retrieval query for an entry."""
+        if getattr(self.provider, "name", "") == RSS_PROVIDER_NAME:
+            from app.data.providers.news.googlenews_rss import rss_query_variants
+
+            variants = rss_query_variants(entry)
+            return variants[0] if variants else entry.symbol
+        return default_news_query(entry)
+
+    def query_variants(self, entry) -> list[str]:
+        """Ordered retrieval queries to try until articles are stored.
+
+        RSS provider: short|full|symbol pipe queries. NewsAPI provider: the
+        default OR-query plus short-name / business-context alternates.
+        """
+        if getattr(self.provider, "name", "") == RSS_PROVIDER_NAME:
+            from app.data.providers.news.googlenews_rss import rss_query_variants
+
+            return rss_query_variants(entry)
+        variants: list[str] = [default_news_query(entry)]
+        short = short_company_name(entry.name)
+        if short and short.upper() != entry.name.upper():
+            variants.append(f'"{short}" OR {entry.symbol}')
+        variants.append(f'"{short or entry.name}" stock OR {entry.symbol} shares')
+        seen: set[str] = set()
+        return [v for v in variants if not (v in seen or seen.add(v))]
 
     # -- refresh (live retrieval) ---------------------------------------------------
 
@@ -120,10 +174,13 @@ class NewsService:
                 "retrieval unavailable.",
             }
 
-        effective_query = query or default_news_query(entry)
+        effective_query = query if query is not None else self.default_query(entry)
         to_date = date.today()
         from_date = to_date - timedelta(days=max(1, int(days)))
 
+        articles: list[NewsArticle] = []
+        secondary_fetched = 0
+        secondary_error: str | None = None
         try:
             articles = self.provider.fetch_articles(
                 effective_query,
@@ -143,13 +200,46 @@ class NewsService:
                 "message": exc.message,
             }
         except ProviderError as exc:
-            return self._provider_error_result(entry.symbol, exc.message)
+            # A configured secondary source still gets its chance below.
+            logger.warning("Primary news provider failed for %s: %s", entry.symbol, exc.message)
+            articles = []
+            secondary_error = exc.message
         except Exception as exc:  # any provider crash → explicit ERROR, never propagate
             logger.exception("Unexpected news provider failure for %s", entry.symbol)
-            return self._provider_error_result(entry.symbol, f"{type(exc).__name__}: {exc}")
+            articles = []
+            secondary_error = f"{type(exc).__name__}: {exc}"
+
+        # Optional secondary source (e.g. NewsAPI beside RSS): fetched with
+        # the same query and merged; storage dedups by article_id.
+        secondary_name: str | None = None
+        secondary = self.secondary_provider
+        if secondary is not None and getattr(secondary, "is_configured", False):
+            secondary_name = secondary.name
+            try:
+                extra = secondary.fetch_articles(
+                    effective_query,
+                    from_date=from_date.isoformat(),
+                    to_date=to_date.isoformat(),
+                    page_size=page_size,
+                )
+                secondary_fetched = len(extra)
+                articles = list(articles) + list(extra)
+            except (ProviderError, ProviderUnavailableError) as exc:
+                logger.warning(
+                    "Secondary news provider failed for %s: %s", entry.symbol, exc.message
+                )
+                if secondary_error is None:
+                    secondary_error = exc.message
+            except Exception as exc:
+                logger.exception("Unexpected secondary news failure for %s", entry.symbol)
+                if secondary_error is None:
+                    secondary_error = f"{type(exc).__name__}: {exc}"
+
+        if not articles and secondary_error is not None:
+            return self._provider_error_result(entry.symbol, secondary_error)
 
         stored = self.store_articles(articles, entity_id=entry.symbol)
-        return {
+        result: dict = {
             "symbol": entry.symbol,
             "status": DataStatus.LIVE.value if stored["stored"] else DataStatus.CACHED.value,
             "fetched": stored["fetched"],
@@ -160,6 +250,10 @@ class NewsService:
             "from_date": from_date.isoformat(),
             "to_date": to_date.isoformat(),
         }
+        if secondary_name is not None:
+            result["secondary_provider"] = secondary_name
+            result["secondary_fetched"] = secondary_fetched
+        return result
 
     def _provider_error_result(self, symbol: str, message: str) -> dict:
         """Uniform ERROR result for provider failures (recorded in provenance)."""

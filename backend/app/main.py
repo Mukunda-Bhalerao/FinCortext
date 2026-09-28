@@ -80,6 +80,7 @@ def create_app() -> FastAPI:
     from app.api.routes.portfolio import router as portfolio_router
     from app.api.routes.agents import router as agents_router
     from app.api.routes.news import router as news_router
+    from app.api.routes.research import router as research_router
 
     app.include_router(health_router)
     app.include_router(universe_router)
@@ -90,6 +91,7 @@ def create_app() -> FastAPI:
     app.include_router(portfolio_router)
     app.include_router(agents_router)
     app.include_router(news_router)
+    app.include_router(research_router)
 
     return app
 

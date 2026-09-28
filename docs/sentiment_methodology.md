@@ -23,15 +23,19 @@ those as company sentiment would fabricate signal from noise, so every stored
 article passes a deterministic two-gate screen (`relevance.py`) before it can
 influence the score. An article is **relevant** only if it has BOTH:
 
-1. **Company identity** — the full legal name (substring) or a curated alias /
-   ticker from the universe entry. Single-token identifiers match whole-word
-   only (`TCS` never fires inside "switches"); tokens shorter than 3
-   characters never bare-match (`LT` would collide constantly — only `L&T`
-   or the full name identifies Larsen & Toubro); bare forms that collide with
-   ordinary words stay out of `aliases` (documented per company in
-   `universe_config.py`), except case-sensitive brand tokens in
-   `strict_aliases` (capitalized `Reliance` = the company, lowercase
-   `reliance` = the common noun).
+1. **Company identity** — the full legal name (substring), a curated alias /
+   ticker from the universe entry, or a generated name-derived alias
+   (`generated_aliases` in `relevance.py`, so every searched stock works
+   without hand curation). Generated forms: the suffix-stripped short name
+   ("Adani Power Limited" → "Adani Power"), first-two-words forms, `&`/`and`
+   variants, and the symbol itself. Curated aliases keep priority on ties.
+   Single-token identifiers match whole-word only (`TCS` never fires inside
+   "switches"); tokens shorter than 3 characters never bare-match (`LT`
+   would collide constantly — only `L&T` or the full name identifies Larsen
+   & Toubro); single common-noun words stay case-sensitive/strict ("Reliance",
+   "Titan", "Page" match only capitalized) while all-caps ticker-like tokens
+   match case-insensitively. The financial-context gate below is never
+   loosened to compensate.
 2. **Financial/business context** — at least one term from the documented
    `FINANCIAL_KEYWORDS` set (earnings & results, corporate actions, leadership
    & workforce, market action & analyst views, regulatory/legal, money),

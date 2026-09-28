@@ -25,7 +25,7 @@ class InstrumentRepository:
         if not key:
             return
         symbol = str(meta.get("symbol") or meta.get("trading_symbol") or "").strip().upper()
-        self.storage.connect().execute(
+        self.storage.execute(
             """
             INSERT OR REPLACE INTO upstox_instruments
             (instrument_key, symbol, trading_symbol, name, exchange, segment,

@@ -22,12 +22,15 @@ function matches(entry: UniverseEntry, q: string): boolean {
  *
  * Typing filters the cached universe instantly; for queries with 2+ chars a
  * debounced backend search (Upstox NSE EQ) offers ANY valid Indian stock.
- * Selecting an Upstox result resolves/registers it backend-side (which also
- * warms history + quote), merges it into the session universe, then selects
- * it. Loading and error states are explicit; nothing is fabricated.
+ * Every selection runs the central company preparation (quote, history,
+ * fundamentals, news, peers) so analyst tabs find ready data instead of
+ * racing ahead; the input shows "Preparing company data…" meanwhile.
+ * Loading and error states are explicit; nothing is fabricated.
  */
 export default function CompanySelector({ value, onChange, id }: CompanySelectorProps) {
-  const { universe, universeError, mergeUniverseEntry, invalidatePrices } = useFinCortext();
+  const { universe, universeError, mergeUniverseEntry, invalidatePrices, ensurePreparation } =
+    useFinCortext();
+  const [preparing, setPreparing] = useState<string | null>(null);
   const [query, setQuery] = useState(value);
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
@@ -104,10 +107,24 @@ export default function CompanySelector({ value, onChange, id }: CompanySelector
     return universe.filter((e) => matches(e, q));
   }, [universe, query, value]);
 
+  const runPreparation = (symbol: string) => {
+    setPreparing(symbol);
+    // Fire-and-forget: the preparation cache records readiness and the
+    // analyst tabs render it; a failure never blocks company selection.
+    ensurePreparation(symbol, true)
+      .catch(() => undefined)
+      .finally(() => {
+        setPreparing((cur) => (cur === symbol ? null : cur));
+      });
+  };
+
   const pick = (symbol: string) => {
     setOpen(false);
     setQuery(symbol);
-    if (symbol !== value) onChange(symbol);
+    if (symbol !== value) {
+      runPreparation(symbol);
+      onChange(symbol);
+    }
   };
 
   const pickRemote = (row: UpstoxSearchResult) => {
@@ -127,7 +144,19 @@ export default function CompanySelector({ value, onChange, id }: CompanySelector
           instrument_key: resolved.instrument_key,
         });
         invalidatePrices(resolved.symbol);
-        pick(resolved.symbol);
+        setOpen(false);
+        setQuery(resolved.symbol);
+        if (resolved.symbol !== value) {
+          // /resolve already warmed history+quote; run the full central
+          // preparation (fundamentals, news, peers) before selecting.
+          setPreparing(resolved.symbol);
+          ensurePreparation(resolved.symbol, true)
+            .catch(() => undefined)
+            .finally(() => {
+              setPreparing((cur) => (cur === resolved.symbol ? null : cur));
+            });
+          onChange(resolved.symbol);
+        }
       })
       .catch((e) => {
         setRemoteError(e instanceof Error ? e.message : String(e));
@@ -283,6 +312,11 @@ export default function CompanySelector({ value, onChange, id }: CompanySelector
           <div className="search-empty error-text">Upstox search failed: {remoteError}</div>
         )}
       </div>
+      {preparing && (
+        <div className="muted preparation-hint" role="status">
+          Preparing company data for {preparing}…
+        </div>
+      )}
     </div>
   );
 }

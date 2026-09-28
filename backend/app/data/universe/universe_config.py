@@ -118,6 +118,93 @@ UNIVERSE: list[UniverseEntry] = [
 
 _BY_SYMBOL: dict[str, UniverseEntry] = {e.symbol: e for e in UNIVERSE}
 
+# Curated same-sector candidate peers for dynamic industry-peer discovery.
+# These are real NSE-listed companies (configuration metadata, like UNIVERSE
+# itself) — every candidate is validated live through Upstox search before use
+# and skipped when Upstox returns no NSE equity for it, so peers are never
+# invented. Ordered: same-industry names first, then broader sector names.
+# Each tuple: (symbol, company name, industry).
+SECTOR_PEER_CANDIDATES: dict[str, list[tuple[str, str, str]]] = {
+    "Information Technology": [
+        ("WIPRO", "Wipro", "IT Services & Consulting"),
+        ("HCLTECH", "HCL Technologies", "IT Services & Consulting"),
+        ("TECHM", "Tech Mahindra", "IT Services & Consulting"),
+        ("LTIM", "LTIMindtree", "IT Services & Consulting"),
+        ("PERSISTENT", "Persistent Systems", "IT Services & Consulting"),
+        ("COFORGE", "Coforge", "IT Services & Consulting"),
+    ],
+    "Financial Services": [
+        ("KOTAKBANK", "Kotak Mahindra Bank", "Private Sector Bank"),
+        ("AXISBANK", "Axis Bank", "Private Sector Bank"),
+        ("INDUSINDBK", "IndusInd Bank", "Private Sector Bank"),
+        ("BANKBARODA", "Bank of Baroda", "Public Sector Bank"),
+        ("PNB", "Punjab National Bank", "Public Sector Bank"),
+        ("CANBK", "Canara Bank", "Public Sector Bank"),
+        ("UNIONBANK", "Union Bank of India", "Public Sector Bank"),
+        ("HDFCLIFE", "HDFC Life Insurance", "Life Insurance"),
+        ("SBILIFE", "SBI Life Insurance", "Life Insurance"),
+        ("BAJFINANCE", "Bajaj Finance", "NBFC"),
+        ("BAJAJFINSV", "Bajaj Finserv", "NBFC"),
+    ],
+    "Energy": [
+        ("ONGC", "Oil & Natural Gas Corporation", "Oil & Gas Exploration"),
+        ("NTPC", "NTPC", "Power Generation"),
+        ("POWERGRID", "Power Grid Corporation", "Power Transmission"),
+        ("COALINDIA", "Coal India", "Coal Mining"),
+        ("BPCL", "Bharat Petroleum", "Refining & Marketing"),
+        ("IOC", "Indian Oil Corporation", "Refining & Marketing"),
+        ("GAIL", "GAIL (India)", "Gas Distribution"),
+        ("TATAPOWER", "Tata Power", "Power Generation"),
+    ],
+    "Telecommunication": [
+        ("BHARTIHEXA", "Bharti Hexacom", "Telecom Services"),
+        ("IDEA", "Vodafone Idea", "Telecom Services"),
+        ("INDUSTOWER", "Indus Towers", "Telecom Infrastructure"),
+        ("TATACOMM", "Tata Communications", "Telecom Services"),
+    ],
+    "Fast Moving Consumer Goods": [
+        ("NESTLEIND", "Nestle India", "Food & Beverages"),
+        ("BRITANNIA", "Britannia Industries", "Food & Beverages"),
+        ("DABUR", "Dabur India", "Household & Personal Products"),
+        ("GODREJCP", "Godrej Consumer Products", "Household & Personal Products"),
+        ("MARICO", "Marico", "Household & Personal Products"),
+        ("TATACONSUM", "Tata Consumer Products", "Food & Beverages"),
+    ],
+    "Construction": [
+        ("ULTRACEMCO", "UltraTech Cement", "Cement"),
+        ("GRASIM", "Grasim Industries", "Cement & Diversified"),
+        ("SHREECEM", "Shree Cement", "Cement"),
+        ("AMBUJACEM", "Ambuja Cements", "Cement"),
+    ],
+    "Automobile": [
+        ("MARUTI", "Maruti Suzuki", "Passenger Vehicles"),
+        ("TATAMOTORS", "Tata Motors", "Passenger & Commercial Vehicles"),
+        ("M&M", "Mahindra & Mahindra", "Passenger & Commercial Vehicles"),
+        ("HEROMOTOCO", "Hero MotoCorp", "Two Wheelers"),
+        ("EICHERMOT", "Eicher Motors", "Two Wheelers"),
+        ("BAJAJ-AUTO", "Bajaj Auto", "Two & Three Wheelers"),
+    ],
+    "Pharmaceuticals": [
+        ("SUNPHARMA", "Sun Pharmaceutical", "Pharmaceuticals"),
+        ("DRREDDY", "Dr. Reddy's Laboratories", "Pharmaceuticals"),
+        ("CIPLA", "Cipla", "Pharmaceuticals"),
+        ("DIVISLAB", "Divi's Laboratories", "Pharmaceuticals"),
+        ("LUPIN", "Lupin", "Pharmaceuticals"),
+    ],
+    "Metals & Mining": [
+        ("TATASTEEL", "Tata Steel", "Steel"),
+        ("JSWSTEEL", "JSW Steel", "Steel"),
+        ("HINDALCO", "Hindalco Industries", "Aluminium"),
+        ("VEDL", "Vedanta", "Diversified Metals"),
+        ("HINDZINC", "Hindustan Zinc", "Zinc Mining"),
+    ],
+}
+
+
+def get_sector_peer_candidates(sector: str) -> list[tuple[str, str, str]]:
+    """Curated same-sector candidate (symbol, name, industry) rows."""
+    return list(SECTOR_PEER_CANDIDATES.get(sector or "", []))
+
 # Dynamic NSE equities resolved via Upstox search at runtime. Static universe
 # entries stay untouched; dynamic entries let ANY valid Upstox NSE equity be
 # analyzed without manually editing the hardcoded list.

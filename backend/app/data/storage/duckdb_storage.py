@@ -7,6 +7,7 @@ provenance) are stored separately from normalized canonical data
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 from threading import RLock
 
@@ -200,6 +201,34 @@ _SCHEMA_STATEMENTS = [
         PRIMARY KEY (output_id)
     )
     """,
+    # --- Live market quote snapshots (one row per symbol, upsert) ---------
+    # Stores the latest normalized quote per symbol so the UI freshness
+    # timestamp travels Upstox response -> repository -> API -> frontend even
+    # when a later live fetch fails (stored snapshot served as CACHED).
+    """
+    CREATE TABLE IF NOT EXISTS market_quotes (
+        symbol VARCHAR PRIMARY KEY,
+        instrument_key VARCHAR,
+        trading_symbol VARCHAR,
+        exchange VARCHAR,
+        segment VARCHAR,
+        source VARCHAR,
+        timestamp VARCHAR,
+        last_price DOUBLE,
+        prev_close DOUBLE,
+        open DOUBLE,
+        high DOUBLE,
+        low DOUBLE,
+        close DOUBLE,
+        volume DOUBLE,
+        average_price DOUBLE,
+        year_high DOUBLE,
+        year_low DOUBLE,
+        day_change DOUBLE,
+        day_change_pct DOUBLE,
+        updated_at TIMESTAMP
+    )
+    """,
     # --- Portfolio outputs (per-company synthesis views) ------------------
     """
     CREATE TABLE IF NOT EXISTS portfolio_outputs (
@@ -209,6 +238,24 @@ _SCHEMA_STATEMENTS = [
         view_json VARCHAR,
         status VARCHAR,
         PRIMARY KEY (output_id)
+    )
+    """,
+    # --- Web-research reports (Gemini grounding evidence, labeled) -------
+    # Stores enrichment outputs (company profiles, peer discoveries, news
+    # digests) with their sources. Research is EVIDENCE ONLY — never scored
+    # as market data, never presented as provider articles.
+    """
+    CREATE TABLE IF NOT EXISTS research_reports (
+        report_id VARCHAR PRIMARY KEY,
+        entity_id VARCHAR,
+        report_type VARCHAR,
+        subject VARCHAR,
+        payload_json VARCHAR,
+        confidence DOUBLE,
+        sources_json VARCHAR,
+        model VARCHAR,
+        source_name VARCHAR,
+        created_at TIMESTAMP
     )
     """,
     # --- Upstox instrument registry (dynamic NSE equity metadata cache) ----
@@ -277,6 +324,39 @@ class DuckDBStorage:
                 conn.execute(sql, params or [])
             except duckdb.Error as exc:
                 raise StorageError(f"SQL failed: {exc}") from exc
+
+    def executemany(self, sql: str, rows: list | None = None) -> None:
+        """Locked multi-row write. All repository writes MUST go through here
+        (or ``transaction``) — never raw ``connect().execute()`` — because
+        concurrent requests share one connection and interleaved writes raise
+        ``TransactionContext ... Conflict on update!`` / constraint errors."""
+        conn = self.connect()
+        with self._lock:
+            try:
+                conn.executemany(sql, rows or [])
+            except duckdb.Error as exc:
+                raise StorageError(f"SQL failed: {exc}") from exc
+
+    @contextlib.contextmanager
+    def transaction(self):
+        """Locked explicit transaction for multi-statement writes.
+
+        Yields the shared connection with the storage lock held, so BEGIN ..
+        COMMIT sequences from concurrent requests can never interleave.
+        Rolls back (without hiding the original error) on failure.
+        """
+        conn = self.connect()
+        with self._lock:
+            try:
+                conn.execute("BEGIN TRANSACTION")
+                yield conn
+                conn.execute("COMMIT")
+            except Exception:
+                try:
+                    conn.execute("ROLLBACK")
+                except duckdb.Error:
+                    pass
+                raise
 
     def fetch_all(self, sql: str, params: list | None = None) -> list[dict]:
         conn = self.connect()

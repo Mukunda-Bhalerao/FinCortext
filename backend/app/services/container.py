@@ -16,6 +16,7 @@ from app.data.providers.macro.curated_provider import CuratedMacroProvider
 from app.data.providers.macro.yfinance_macro_provider import YFinanceMacroProvider
 from app.data.providers.market.yfinance_provider import YFinanceMarketProvider
 from app.data.providers.news.newsapi_provider import NewsAPINewsProvider
+from app.data.providers.research.gemini_research import GeminiResearchProvider
 from app.data.storage.duckdb_storage import DuckDBStorage
 from app.data.universe.universe_config import get_static_universe, get_universe, register_dynamic_entry
 from app.core.config import settings
@@ -27,13 +28,16 @@ from app.repositories.market_repository import MarketRepository
 from app.repositories.news_repository import NewsRepository
 from app.repositories.portfolio_repository import PortfolioRepository
 from app.repositories.provenance_repository import ProvenanceRepository
+from app.repositories.research_repository import ResearchRepository
 from app.repositories.universe_repository import UniverseRepository
 from app.services.agent_service import AgentService
+from app.services.company_preparation_service import CompanyPreparationService
 from app.services.filing_service import FilingService
 from app.services.fundamentals_service import FundamentalsService
 from app.services.macro_service import MacroService
 from app.services.market_service import MarketService
 from app.services.news_service import NewsService
+from app.services.research_service import ResearchService
 
 
 class Container:
@@ -91,7 +95,21 @@ class Container:
         else:
             self.market_provider = yfinance_provider
             self.yfinance_provider = yfinance_provider
-        self.news_provider = NewsAPINewsProvider(settings.news_api_key)
+        # News: Google News RSS is the free keyless default; NewsAPI stays as
+        # an optional secondary merge source (and as primary when selected).
+        # NEWS_PROVIDER=google_rss|newsapi (default google_rss).
+        from app.data.providers.news.googlenews_rss import GoogleNewsRssProvider
+
+        rss_provider = GoogleNewsRssProvider()
+        newsapi_provider = NewsAPINewsProvider(settings.news_api_key)
+        if (settings.news_provider or "google_rss").strip().lower() == "newsapi":
+            self.news_provider = newsapi_provider
+            self.news_secondary_provider = rss_provider
+        else:
+            self.news_provider = rss_provider
+            self.news_secondary_provider = (
+                newsapi_provider if newsapi_provider.is_configured else None
+            )
         # Provider fundamentals (fallback/enrichment): the Firm Agent reads
         # the shared financial repository generically and never depends on
         # this provider specifically — official filings stay primary.
@@ -110,12 +128,44 @@ class Container:
             self.fundamentals_provider, self.financial_repo, self.provenance_repo
         )
         self.news_service = NewsService(
-            self.news_provider, self.news_repo, self.provenance_repo
+            self.news_provider,
+            self.news_repo,
+            self.provenance_repo,
+            secondary_provider=self.news_secondary_provider,
+        )
+        # Gemini web-research/enrichment layer (grounded search, no scraping).
+        # Research-only: company classification, peer discovery, news digests.
+        # Never a market-data provider; never replaces deterministic finance.
+        # Without GEMINI_API_KEY it degrades to UNAVAILABLE and everything
+        # else keeps working.
+        self.research_repo = ResearchRepository(self.storage)
+        self.research_provider = GeminiResearchProvider(
+            settings.gemini_api_key,
+            model=settings.gemini_model,
+            timeout_seconds=settings.gemini_timeout_seconds,
+            web_search_enabled=settings.gemini_web_search_enabled,
+        )
+        self.research_service = ResearchService(
+            self.research_provider, self.research_repo, self.provenance_repo
         )
         self.macro_service = MacroService(
             [CuratedMacroProvider(), YFinanceMacroProvider()],
             self.macro_repo,
             self.provenance_repo,
+        )
+        # Central SEARCH -> PREPARE -> STORE -> AGENTS flow: one service warms
+        # every repository the analysts read (market, fundamentals, news,
+        # peers) whenever a company is selected. Agents stay repository-only.
+        self.company_preparation_service = CompanyPreparationService(
+            market_service=self.market_service,
+            fundamentals_service=self.fundamentals_service,
+            news_service=self.news_service,
+            market_repo=self.market_repo,
+            financial_repo=self.financial_repo,
+            news_repo=self.news_repo,
+            instrument_repo=self.instrument_repo,
+            universe_repo=self.universe_repo,
+            research_service=self.research_service,
         )
         # Lazy-loading local FinBERT wrapper — never loads at startup.
         self.sentiment_model = get_sentiment_model()

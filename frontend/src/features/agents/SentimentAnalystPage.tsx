@@ -3,7 +3,12 @@ import AgentOutputCard from '../../components/common/AgentOutputCard';
 import StatusBadge from '../../components/common/StatusBadge';
 import { sameSymbol, useFinCortext } from '../../app/FinCortextContext';
 import { api, ApiRequestError } from '../../services/api';
-import type { AgentOutput, NewsStatusResponse } from '../../types/api';
+import type {
+  AgentOutput,
+  NewsStatusResponse,
+  ResearchItem,
+  ResearchListResponse,
+} from '../../types/api';
 
 const AGENT_ID = 'sentiment_analyst';
 
@@ -33,6 +38,7 @@ export default function SentimentAnalystPage() {
 
   const [output, setOutput] = useState<AgentOutput | null>(() => runOf(symbol, AGENT_ID) ?? null);
   const [newsStatus, setNewsStatus] = useState<NewsStatusResponse | null>(null);
+  const [research, setResearch] = useState<ResearchListResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState<{ forSymbol: string; text: string } | null>(null);
@@ -57,6 +63,25 @@ export default function SentimentAnalystPage() {
   useEffect(() => {
     ensureNews(symbol).catch(() => undefined);
   }, [symbol, ensureNews]);
+
+  // Labeled web-research digest (background context only — never articles,
+  // never FinBERT-scored). Loaded so an empty NewsAPI result still shows
+  // what research found, with sources.
+  useEffect(() => {
+    let cancelled = false;
+    setResearch(null);
+    api.research
+      .list(symbol, 'news_digest')
+      .then((r) => {
+        if (!cancelled && sameSymbol(symbolRef.current, symbol)) setResearch(r);
+      })
+      .catch(() => {
+        if (!cancelled) setResearch(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [symbol]);
 
   const loadNewsStatus = () => {
     api.news
@@ -181,6 +206,36 @@ export default function SentimentAnalystPage() {
 
       {visibleMessage && <p className="muted">{visibleMessage}</p>}
       {visibleError && <p className="error-text">Error: {visibleError}</p>}
+
+      {storedNews && storedNews.count === 0 && research && research.count > 0 && (
+        <div className="prereq-card" aria-label="Web research context">
+          <h4>Web research context (not scored articles)</h4>
+          <p className="muted">
+            NewsAPI returned no usable articles for {symbol}, so grounded web
+            research gathered background context instead. These items are
+            evidence only — they are not NewsAPI articles and are not scored
+            by the sentiment model.
+          </p>
+          <ul>
+            {research.reports.flatMap((rep) => {
+              const payload = (rep.payload ?? {}) as { items?: ResearchItem[] };
+              return (payload.items ?? []).slice(0, 8).map((item, i) => (
+                <li key={`${rep.report_id}-${i}`}>
+                  {item.url ? (
+                    <a href={item.url} target="_blank" rel="noreferrer">
+                      {item.title}
+                    </a>
+                  ) : (
+                    <span>{item.title}</span>
+                  )}
+                  {item.source && <span className="muted"> — {item.source}</span>}
+                  {item.summary && <div className="muted">{item.summary}</div>}
+                </li>
+              ));
+            })}
+          </ul>
+        </div>
+      )}
 
       {visibleOutput && <AgentOutputCard output={visibleOutput} />}
 

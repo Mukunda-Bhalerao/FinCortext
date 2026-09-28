@@ -3,6 +3,8 @@
 import type {
   AgentOutput,
   AgentOutputSummary,
+  CompanyPeersResponse,
+  CompanyPreparation,
   FilingsListResponse,
   FilingImportResult,
   FundamentalsCoverageResponse,
@@ -18,6 +20,8 @@ import type {
   PortfolioView,
   PriceSeriesResponse,
   RefreshResult,
+  ResearchListResponse,
+  ResearchStatusResponse,
   UniverseResponse,
   UpstoxSearchResponse,
 } from '../types/api';
@@ -95,6 +99,27 @@ export const api = {
           instrumentKey ? { symbol, instrument_key: instrumentKey } : { symbol },
         ),
       }),
+    /** Central preparation: warms every repository the analysts read. */
+    prepare: (symbol: string, instrumentKey?: string | null) =>
+      request<CompanyPreparation>(
+        `/api/market/prepare/${encodeURIComponent(symbol)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(
+            instrumentKey ? { instrument_key: instrumentKey } : {},
+          ),
+        },
+      ),
+    /** Readiness from stored data only (no network fetch). */
+    preparedStatus: (symbol: string) =>
+      request<CompanyPreparation>(
+        `/api/market/prepared/${encodeURIComponent(symbol)}`,
+      ),
+    peers: (symbol: string) =>
+      request<CompanyPeersResponse>(
+        `/api/market/peers/${encodeURIComponent(symbol)}`,
+      ),
   },
 
   filings: {
@@ -139,6 +164,14 @@ export const api = {
     coverage: (symbol: string) =>
       request<FundamentalsCoverageResponse>(
         `/api/fundamentals/${encodeURIComponent(symbol)}`,
+      ),
+  },
+
+  research: {
+    status: () => request<ResearchStatusResponse>('/api/research/status'),
+    list: (symbol: string, reportType?: string) =>
+      request<ResearchListResponse>(
+        `/api/research/${encodeURIComponent(symbol)}${reportType ? `?report_type=${encodeURIComponent(reportType)}` : ''}`,
       ),
   },
 

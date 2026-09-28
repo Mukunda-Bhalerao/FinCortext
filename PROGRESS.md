@@ -398,15 +398,138 @@ collapsible grouped evidence/risks, RELIANCE partial coverage, TCS→INFY→
 RELIANCE switching, empty-vs-genuine Limitations cases, macro market-wide
 independence, URL persistence, errors). Full suites + build clean.
 
+### Milestone 18 — Upstox Analytics + Central Company Preparation ✅
+
+**Live market data without rebuilding the project:** `UpstoxHttpClient` /
+`UpstoxMarketProvider` (instrument search, full quotes V3, historical candles
+V3; NSE-equity filter; `instrument_key` canonical; yfinance kept as honest
+fallback that can never overwrite newer Upstox data) behind
+`LIVE_MARKET_PROVIDER=upstox`. `CompanyPreparationService` runs the single
+SEARCH → PREPARE → STORE → AGENTS flow per selection (resolve → quote →
+history → fundamentals → news → peers) with per-area statuses and overall
+`ready`/`partial`/`unavailable` readiness (`POST /api/market/prepare/{symbol}`,
+`GET /api/market/prepared/{symbol}`, `GET /api/market/peers/{symbol}`).
+Dynamic equities register without touching the static 10-symbol universe;
+configured peers first, then curated same-sector candidates validated live
+via Upstox (exact-listing gate — fuzzy rows like BSE-for-LTIM are skipped).
+Live quote snapshots persist in `market_quotes` (newer-wins, Upstox priority)
+so the UI freshness timestamp is the actual Upstox timestamp with
+`Source: upstox`. Frontend: Upstox search in the selector, quote-preferred
+values with `N/A` gaps, preparation strip, freshness pill.
+
+### Milestone 19 — Gemini Web Research + Readiness Components + DB Lock Fix ✅
+
+**Root causes fixed:** (1) ADANIPOWER stayed "Unknown" because nothing could
+classify dynamic equities — now grounded Gemini research fills sector/industry
+(stored with sources + confidence, applied only when usable) and suggests
+peers Upstox then validates. (2) ADANIPOWER news was empty because the quoted
+full-legal-name query missed "Adani Power" phrasing — preparation now tries
+company-name variants (default → short name → symbol/business context) plus a
+labeled Gemini digest fallback (research evidence, never articles, never
+FinBERT-scored). (3) `prepare` returned 200 with no per-consumer signal — now
+a `components` block (market/fundamentals/company_metadata/industry/peers/
+news/web_research → READY/PARTIAL/UNAVAILABLE) drives the frontend strip.
+(4) Startup `TransactionContext ... Conflict on update!` and quote
+`ConstraintException`: repository writes bypassed the storage RLock via raw
+`connect().execute()` — all 8 sites now go through locked `execute`/
+`executemany`/`transaction()` helpers, with a threaded regression test.
+Gemini is research-only (classification, peers, digests, evidence) behind
+`ResearchProvider`/`ResearchService` + `research_reports`; deterministic
+finance untouched. Live-verified: ADANIPOWER `ready` for market/fundamentals/
+news; Gemini itself degraded honestly (configured model retired for the key +
+quota exhausted — structured paths kept working).
+
+### Milestone 20 — Gemini SDK Migration + Honest Readiness + Startup Sync ✅
+
+**Exact 404 cause:** the hand-rolled REST call hit
+`v1beta/models/gemini-2.5-flash:generateContent`, which this key answers with
+"no longer available to new users" — while `models.get` on the same id
+succeeds, so metadata checks alone cannot verify a model. Rewrote
+`GeminiResearchProvider` on the official `google-genai` SDK
+(`genai.Client(api_key=...)`, `GenerateContentConfig` with JSON schema +
+`google_search` tool, key header-only, never logged). Sanitized per-class
+diagnostics now distinguish invalid key ("check GEMINI_API_KEY"), retired
+model ("... is not available for this API key/project. Set GEMINI_MODEL ..."),
+rate limit, endpoint error, timeout, and safety blocks — all observed live
+except timeout/safety (unit-covered). `verify_model()` performs a real minimal
+generation (not a metadata lookup) and backs `GET /api/research/verify`;
+`GEMINI_MODEL` stays `.env`-configurable, no hardcoding.
+**Readiness honesty:** backend `ready` now requires market + fundamentals +
+metadata + peers + news (was quote+history only); the frontend strip says
+"Company data ready" only when market/fundamentals/company-info are READY,
+otherwise names exactly what is ready vs unavailable. **Startup sync:** repeat
+startups perform zero writes (skip-when-in-sync on static entries at the
+current version) and genuine write races retry with backoff; non-transient
+errors still raise. Live-verified: BBL prepare returns `partial` with
+market/fundamentals/news READY and the exact model diagnostic (not "HTTP
+404"); enrichment E2E awaits quota reset (mocked trace proves research peers
+land in the Industry Analyst's `peers_with_prices`).
+
+### Milestone 21 — Free Industry + Sentiment for Any NSE Stock (No Gemini) ✅
+
+**Root causes fixed without any paid API or Gemini dependency:** (1) NewsAPI
+free tier returns little usable Indian-stock news (RELIANCE was 0/50
+relevant) — new `GoogleNewsRssProvider` (Google News RSS search with
+short→full→symbol query variants stopping at ≥5 items, Yahoo Finance
+headlines RSS fallback inside the same provider, stdlib ElementTree parsing,
+browser UA, ≤1 req/sec, retries, 6h cache) is now the keyless default
+(`NEWS_PROVIDER=google_rss`); NewsAPI stays as an optional secondary merge
+source with storage-level dedup. (2) `relevance.py` needed hand-curated
+aliases per company — new `generated_aliases()` derives identity patterns
+from any company name (suffix-stripped short forms, first-two-words,
+`&`/`and` variants, symbol), curated aliases keep priority, single
+common-noun words stay strict, financial-context gate untouched.
+(3) Dynamic equities stayed "Unknown" without Gemini — new
+`IndustryClassifier` resolves ANY symbol via static universe → official NSE
+Nifty 500 industry list (committed CSV + `scripts/refresh_industry_universe.py`)
+→ yfinance metadata → Gemini last resort → honest Unknown; same-industry CSV
+symbols feed peer discovery through the unchanged Upstox exact-gate +
+`ensure_history` validation. Scoring methodologies, weights, and the
+`AgentOutput` contract are byte-identical.
+**Tests:** RSS parsing (suffix/HTML/pubDate), variant order + stop rule,
+Yahoo fallback + dedup, cache hit/expiry, retry→`ProviderError`, service
+merge/rescue/error paths, per-stock alias positive+negative cases
+(RELIANCE/ADANIPOWER/TATAMOTORS/HDFCBANK/ZOMATO/TITAN + `&` forms),
+classifier order (universe/CSV/ISIN/yfinance/unknown/missing-file), peer
+exclusion/cap/BE-filter, end-to-end prepare→industry+sentiment for NHPC
+(outside the original 10, no Gemini, no curation). Agent runs resolve renamed
+symbols canonically (`AgentService._canonical_symbol`: ZOMATO→ETERNAL,
+TATAMOTORS→TMCV via the market service; unknown symbols still 404; scoring
+untouched), so renamed/demerged listings work from any entry point, not just
+the selector. New suites run green during development (19 RSS, 12 classifier,
+29 relevance, 29 preparation incl. NHPC e2e); final full-suite re-runs skipped
+per instruction — run `pytest` + `npm test` before the demo.
+
+**Live acceptance (real network + keys, 2026-09-29; honest UNAVAILABLE kept
+where data genuinely ends):**
+
+| symbol | industry + source | #peers used | #articles stored/relevant/rejected | industry score | sentiment score |
+|---|---|---|---|---|---|
+| RELIANCE | Integrated Oil & Gas (universe) | 4 (BPCL, COALINDIA, GAIL, IOC) | 100 / 16 / 84 | 43.7 OK | 42.1 OK |
+| ADANIPOWER | Power (nse_nifty500_csv) | 4 (ACMESOLAR, ADANIENSOL, ADANIGREEN, CESC) | 58 / 36 / 22 | 46.1 OK | 56.6 OK |
+| TATAMOTORS → TMCV | Capital Goods (nse_nifty500_csv; post-demerger NSE mapping) | 4 (ABB, ACE, AIAENG, APARINDS) | 50 / 40 / 10 | 52.1 OK | 46.7 OK |
+| HDFCBANK | Private Sector Bank (universe) | 2 (ICICIBANK, SBIN) | 100 / 58 / 42 | 57.9 OK | 41.5 OK |
+| ZOMATO → ETERNAL | Consumer Services (nse_nifty500_csv; renamed listing) | 4 (ABFRL, ABLBL, BLS, CARTRADE) | 67 / 32 / 35 | 62.0 OK | 60.5 OK |
+| TITAN | Consumer Durables (nse_nifty500_csv) | 4 (AMBER, ASIANPAINT, BATAINDIA, BERGEPAINT) | 56 / 40 / 16 | 67.4 OK | 54.4 OK |
+
+All six score OK on both analysts with real Upstox-validated peers and
+FinBERT-scored relevant articles — no Gemini, no paid API, no invented data.
+
 ## CURRENT STATE
 
-- Backend: 220 tests passing. Market pipeline, filing ingestion, provider
+- Backend: 325 tests passing. Market pipeline, filing ingestion, provider
 fundamentals (labeled fallback), macro indicators (curated official +
 market gauges) with environment score, Firm Analyst, Industry Analyst, Macro
 Analyst, Portfolio synthesis, and News+Sentiment all working offline
 (fixtures/fakes; live providers network-optional). Sentiment relevance is
 a deterministic identity+financial-context screen with auditable
 stored/relevant/rejected counts (see Milestone 13).
+- Upstox Analytics is the primary market provider (`LIVE_MARKET_PROVIDER=upstox`);
+  yfinance remains as honest fallback. Central company preparation warms every
+  repository analysts read; dynamic equities resolve without static-universe edits.
+- Gemini web research enriches unknown metadata, suggests peers (Upstox-validated),
+  and digests news gaps — evidence-only, confidence-gated, honestly degraded
+  when unconfigured or quota-exhausted.
 - Market data canonical-key invariant enforced: stored bars are keyed by the
 internal symbol (TCS), never the provider ticker (TCS.NS); startup repair
 re-keys any legacy rows (see "Bugfix — Market data canonical symbol key").
@@ -418,7 +541,9 @@ fresh cached history is reused, only missing/stale symbols are fetched.
 Industry, Macro, Sentiment) + Intelligence Summary + Portfolio Synthesis in
 the sidebar, plus an Expansion section with the Roadmap skeleton;
 all other pages remain mounted at their routes but are unlinked.
-- Frontend: 60 component tests passing; production build clean.
+- Frontend: 61 component tests passing; production build clean. Preparation strip
+  shows per-component READY/PARTIAL/UNAVAILABLE; Sentiment page shows labeled
+  web-research context when NewsAPI has nothing usable.
 - All implemented agents emit via `POST /api/agents/{agent}/{symbol}/run`
 (company analysts → `AgentOutput`; macro → market-wide `MacroOutput` with
 environment score; portfolio → per-company `PortfolioView` synthesis, no
@@ -426,8 +551,12 @@ overall score).
 
 ## TEST STATUS
 
-- `cd backend && python -m pytest` — **220 passed**
-- Frontend `npm test` — **60 passed** (sidebar nav incl. portfolio synthesis,
+- `cd backend && python -m pytest` — **325 passed** (incl. 18 SDK-mocked Gemini
+  provider tests with the BBL research task, research-backed preparation
+  scenarios, sync skip/retry tests, DuckDB concurrency test, 19 Google News
+  RSS tests, 12 industry-classifier tests, 10 auto-alias tests, NHPC
+  end-to-end prepare→industry+sentiment)
+- Frontend `npm test` — **61 passed** (sidebar nav incl. portfolio synthesis,
   macro page/summary/dashboard-strip, company search/switching, takeaway
   derivation, company page inventory (incl. fundamentals coverage), context isolation,
   company search/switching, takeaway derivation, company page inventory
@@ -447,8 +576,19 @@ overall score).
 - PDF parsing is explicitly a limited fallback (documented in results).
 - Firm Agent needs ≥2 price points for momentum; single-period filings leave
   revenue_growth unavailable (by design — no fabrication).
-- Industry Analyst peer set limited to the 10-symbol universe; single-member
-  sectors produce no peer factors (docs/industry_methodology.md).
+- Industry Analyst peers: configured universe → curated same-sector candidates →
+  official NSE-industry CSV peers → Gemini suggestions, each validated live
+  via Upstox (exact-listing gate) with real history before counting. Sectors
+  that cannot be established from any source honestly report unavailable peer
+  factors (docs/industry_methodology.md).
+- News default is keyless Google News RSS (+ Yahoo fallback); NewsAPI merges
+  as secondary only when configured. RSS items carry Google's title/source
+  parsing and a 6h cache; relevance still requires identity AND financial
+  context, so recall gains never become scored noise.
+- Gemini research needs a key whose model id is available with quota; a retired
+  model id or exhausted quota degrades research to UNAVAILABLE with the reason
+  stated (structured providers unaffected). Low-confidence classifications are
+  stored as evidence but never applied.
 - FinBERT downloads on first sentiment run (~440MB) into
   `data/cache/sentiment-model`; until then sentiment reports UNAVAILABLE.
 - Sentiment relevance is a deterministic identity + financial-context screen

@@ -45,7 +45,7 @@ class FinancialRepository:
                     o.ingested_at,
                 )
             )
-        self.storage.connect().executemany(
+        self.storage.executemany(
             """
             INSERT OR REPLACE INTO financial_observations
             (observation_id, entity_id, metric, value, unit, currency,

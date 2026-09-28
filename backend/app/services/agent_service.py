@@ -70,6 +70,24 @@ class AgentService:
             PortfolioAgent(portfolio_repo) if portfolio_repo is not None else None
         )
 
+    def _canonical_symbol(self, symbol: str) -> str:
+        """Resolve any searched symbol to its canonical internal symbol.
+
+        Renamed/demerged listings (ZOMATO -> ETERNAL, TATAMOTORS -> TMCV)
+        resolve through the market service to whatever selection registered;
+        truly unknown symbols still raise NotFoundError (honest 404).
+        Resolution only — scoring logic is untouched.
+        """
+        resolve = getattr(self.market_service, "resolve_symbol", None)
+        if callable(resolve):
+            try:
+                return resolve(symbol)["symbol"]
+            except NotFoundError:
+                raise
+            except Exception:
+                pass  # provider hiccup: fall through to the registry lookup
+        return get_universe_entry(symbol).symbol
+
     def run_agent(
         self, agent_id: str, symbol: str, *, persist: bool = True
     ) -> AgentOutput | MacroOutput | PortfolioView:
@@ -81,7 +99,7 @@ class AgentService:
         score); the symbol only provides request context. The Portfolio
         Agent runs all four analysts for the symbol, then synthesizes.
         """
-        entry = get_universe_entry(symbol)  # validate symbol
+        entry = get_universe_entry(self._canonical_symbol(symbol))  # validate symbol
         agent_id = AGENT_ALIASES.get(agent_id.lower(), agent_id.lower())
         if agent_id == AgentId.FIRM_ANALYST.value:
             return self._firm_agent.run(entry.symbol, persist=persist)
@@ -133,7 +151,7 @@ class AgentService:
                 "Portfolio agent requires a portfolio repository, which "
                 "is not wired in this container."
             )
-        entry = get_universe_entry(symbol)  # validate symbol
+        entry = get_universe_entry(self._canonical_symbol(symbol))  # validate symbol
         firm = self.run_agent(AgentId.FIRM_ANALYST.value, entry.symbol, persist=persist)
         industry = self.run_agent(
             AgentId.INDUSTRY_ANALYST.value, entry.symbol, persist=persist

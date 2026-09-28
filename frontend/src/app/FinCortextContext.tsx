@@ -13,6 +13,7 @@ import { api } from '../services/api';
 import type {
   AgentOutput,
   AgentOutputSummary,
+  CompanyPreparation,
   MarketQuote,
   MarketStatusResponse,
   NewsListResponse,
@@ -50,6 +51,9 @@ interface FinCortextContextValue {
   quoteOf: (s: string) => MarketQuote | null | undefined;
   quoteErrorOf: (s: string) => string | null;
   ensureQuote: (s: string, refresh?: boolean) => Promise<MarketQuote | null>;
+  preparationOf: (s: string) => CompanyPreparation | null | undefined;
+  preparationErrorOf: (s: string) => string | null;
+  ensurePreparation: (s: string, refresh?: boolean) => Promise<CompanyPreparation | null>;
   outputsOf: (s: string) => AgentOutputSummary[] | null | undefined;
   outputsErrorOf: (s: string) => string | null;
   ensureOutputs: (s: string, refresh?: boolean) => Promise<AgentOutputSummary[]>;
@@ -98,6 +102,8 @@ export function FinCortextProvider({ children }: { children: ReactNode }) {
   const [pricesError, setPricesError] = useState<Record<string, string | null>>({});
   const [quotes, setQuotes] = useState<Record<string, MarketQuote | null>>({});
   const [quotesError, setQuotesError] = useState<Record<string, string | null>>({});
+  const [preparation, setPreparation] = useState<Record<string, CompanyPreparation | null>>({});
+  const [preparationError, setPreparationError] = useState<Record<string, string | null>>({});
   const [outputs, setOutputs] = useState<Record<string, AgentOutputSummary[] | null>>({});
   const [outputsError, setOutputsError] = useState<Record<string, string | null>>({});
   const [news, setNews] = useState<Record<string, NewsListResponse | null>>({});
@@ -111,6 +117,7 @@ export function FinCortextProvider({ children }: { children: ReactNode }) {
   // switches must never issue a duplicate fetch for settled data.
   const pricesCache = useRef<Record<string, PriceSeriesResponse | null>>({});
   const quotesCache = useRef<Record<string, MarketQuote | null>>({});
+  const preparationCache = useRef<Record<string, CompanyPreparation | null>>({});
   const outputsCache = useRef<Record<string, AgentOutputSummary[] | null>>({});
   const newsCache = useRef<Record<string, NewsListResponse | null>>({});
 
@@ -247,6 +254,23 @@ export function FinCortextProvider({ children }: { children: ReactNode }) {
       delete next[s];
       return next;
     });
+    if (s in preparationCache.current) {
+      const next = { ...preparationCache.current };
+      delete next[s];
+      preparationCache.current = next;
+    }
+    setPreparation((prev) => {
+      if (!(s in prev)) return prev;
+      const next = { ...prev };
+      delete next[s];
+      return next;
+    });
+    setPreparationError((prev) => {
+      if (!(s in prev)) return prev;
+      const next = { ...prev };
+      delete next[s];
+      return next;
+    });
   }, []);
 
   const ensureQuote = useCallback(
@@ -267,6 +291,34 @@ export function FinCortextProvider({ children }: { children: ReactNode }) {
             setQuotes((prev) => (s in prev ? prev : { ...prev, [s]: null }));
           }
           setQuotesError((prev) => ({ ...prev, [s]: message }));
+          return null;
+        }
+      });
+    },
+    [once],
+  );
+
+  /** Central preparation: warms every repository the analysts read for one
+   *  company (quote, history, fundamentals, news, peers). Cached per symbol
+   *  per session; agent tabs wait on this instead of racing ahead. */
+  const ensurePreparation = useCallback(
+    (s: string, refresh = false): Promise<CompanyPreparation | null> => {
+      if (!refresh && s in preparationCache.current)
+        return Promise.resolve(preparationCache.current[s] ?? null);
+      return once(`prepare:${s}`, async () => {
+        try {
+          const prep = await api.market.prepare(s);
+          preparationCache.current = { ...preparationCache.current, [s]: prep };
+          setPreparation((prev) => ({ ...prev, [s]: prep }));
+          setPreparationError((prev) => ({ ...prev, [s]: null }));
+          return prep;
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e);
+          if (!(s in preparationCache.current)) {
+            preparationCache.current = { ...preparationCache.current, [s]: null };
+            setPreparation((prev) => (s in prev ? prev : { ...prev, [s]: null }));
+          }
+          setPreparationError((prev) => ({ ...prev, [s]: message }));
           return null;
         }
       });
@@ -416,6 +468,9 @@ export function FinCortextProvider({ children }: { children: ReactNode }) {
       quoteOf: (s) => (s in quotes ? quotes[s] : undefined),
       quoteErrorOf: (s) => quotesError[s] ?? null,
       ensureQuote,
+      preparationOf: (s) => (s in preparation ? preparation[s] : undefined),
+      preparationErrorOf: (s) => preparationError[s] ?? null,
+      ensurePreparation,
       outputsOf: (s) => (s in outputs ? outputs[s] : undefined),
       outputsErrorOf: (s) => outputsError[s] ?? null,
       ensureOutputs,
@@ -446,6 +501,9 @@ export function FinCortextProvider({ children }: { children: ReactNode }) {
       quotes,
       quotesError,
       ensureQuote,
+      preparation,
+      preparationError,
+      ensurePreparation,
       outputs,
       outputsError,
       ensureOutputs,

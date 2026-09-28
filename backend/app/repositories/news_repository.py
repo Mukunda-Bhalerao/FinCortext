@@ -115,7 +115,7 @@ class NewsRepository:
             )
             for s in results
         ]
-        self.storage.connect().executemany(
+        self.storage.executemany(
             """
             INSERT OR REPLACE INTO sentiment_results
             (article_id, entity_id, label, positive_probability,

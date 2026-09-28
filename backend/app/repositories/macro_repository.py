@@ -66,7 +66,7 @@ class MacroRepository:
                     o.ingested_at,
                 )
             )
-        self.storage.connect().executemany(
+        self.storage.executemany(
             """
             INSERT OR REPLACE INTO macro_observations
             (observation_id, indicator_id, value, unit, period_start,

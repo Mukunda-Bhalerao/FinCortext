@@ -197,6 +197,115 @@ def test_agent_output_persistence(storage):
     assert repo.latest_output("firm_analyst", "RELIANCE") is not None
 
 
+# --- Concurrent writes (startup + requests race) ---------------------------------------
+# Regression: repository writes used to call storage.connect().execute()
+# directly, bypassing the storage lock. Concurrent requests sharing one
+# connection then failed with "TransactionContext ... Conflict on update!"
+# (universe sync) and ConstraintException (quote upserts). All writes must
+# go through the locked helpers.
+
+
+def test_concurrent_writes_do_not_conflict(tmp_path):
+    import threading
+
+    from app.repositories.universe_repository import UniverseRepository
+
+    storage = DuckDBStorage(tmp_path / "concurrent.duckdb")
+    storage.connect()
+    market_repo = MarketRepository(storage)
+    universe_repo = UniverseRepository(storage)
+    errors: list = []
+
+    def bars(n: int):
+        return [
+            MarketPrice(
+                symbol="TCS",
+                provider_ticker="TCS.NS",
+                trade_date=date(2024, 1, 2),
+                open=100,
+                high=110,
+                low=95,
+                close=100 + n,
+                volume=1000,
+            )
+        ]
+
+    def quote(n: int):
+        return {
+            "symbol": "TCS",
+            "instrument_key": "NSE_EQ|INE467B01029",
+            "source": "upstox",
+            "timestamp": f"2026-09-28T10:{n:02d}:00+05:30",
+            "last_price": 3000.0 + n,
+        }
+
+    def worker(n: int):
+        try:
+            for _ in range(5):
+                universe_repo.sync_from_config()
+                market_repo.upsert_bars(bars(n))
+                market_repo.upsert_quote(quote(n))
+        except Exception as exc:  # noqa: BLE001 — collected, asserted below
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=60)
+    assert not [t for t in threads if t.is_alive()]
+    assert errors == []
+    assert market_repo.count("TCS") == 1  # upsert, never duplicates
+    assert market_repo.get_stored_quote("TCS") is not None
+    storage.close()
+
+
+# --- Startup sync guard (skip-when-in-sync + conflict retry) ----------------------
+# Regression: concurrent startup workers sharing one DuckDB file failed with
+# "Universe sync failed: TransactionContext Error: Conflict on update!".
+
+
+def test_sync_skips_write_when_already_in_sync(storage):
+    urepo = UniverseRepository(storage)
+    assert urepo.sync_from_config() == 10  # first sync writes
+    assert urepo.sync_from_config() == 0  # repeat startup: zero writes
+    assert len(urepo.list_entries()) == 10
+
+
+def test_sync_retries_transient_conflicts(storage, monkeypatch):
+    from app.core.exceptions import StorageError
+
+    urepo = UniverseRepository(storage)
+    calls = {"n": 0}
+    real = DuckDBStorage.executemany
+
+    def flaky(self, sql, rows=None):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise StorageError("SQL failed: TransactionContext Error: Conflict on update!")
+        return real(self, sql, rows)
+
+    monkeypatch.setattr(DuckDBStorage, "executemany", flaky)
+    assert urepo.sync_from_config() == 10
+    assert calls["n"] == 3
+    assert len(urepo.list_entries()) == 10
+
+
+def test_sync_reraises_non_transient_errors(storage, monkeypatch):
+    from app.core.exceptions import StorageError
+
+    urepo = UniverseRepository(storage)
+    monkeypatch.setattr(
+        DuckDBStorage,
+        "executemany",
+        lambda self, sql, rows=None: (_ for _ in ()).throw(
+            StorageError("SQL failed: some real corruption")
+        ),
+    )
+    with pytest.raises(StorageError):
+        urepo.sync_from_config()
+
+
 # --- Universe mirror + provenance ------------------------------------------------------------
 
 

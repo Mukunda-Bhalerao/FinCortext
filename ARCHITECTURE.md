@@ -84,10 +84,28 @@ Conceptual interfaces (see `app/domain/contracts/providers.py`):
   ratios, stored as `source_type=yfinance`, refresh replaces the previous
   provider snapshot per symbol via `FundamentalsService`).
 - `NewsProvider` — `fetch_articles(query, from, to) -> list[NewsArticle]`
+- `ResearchProvider` — grounded web research ONLY (`research_company`,
+  `suggest_peers`, `research_news`). Never market data, never scores.
+  Implemented by `GeminiResearchProvider` on the official `google-genai` SDK
+  (`genai.Client(api_key=...)`, JSON-schema responses, `google_search` tool;
+  key never in URLs/logs/errors). Failure diagnostics distinguish invalid key,
+  retired model (names `GEMINI_MODEL`), rate limit, endpoint error, timeout,
+  and safety blocks. `verify_model()` proves generation health with a minimal
+  prompt (metadata lookup alone is insufficient). Consumed exclusively by
+  `ResearchService`/`CompanyPreparationService`; evidence persists in
+  `research_reports`, never as articles or prices.
 
 Adapters translate provider-specific quirks (NSE `.NS` suffixes, NewsAPI payload
 shapes) into canonical domain models **at the boundary**. Agents never see
 provider payloads.
+
+**Responsibility split (load-bearing):** Upstox → market truth (prices, OHLCV,
+instrument resolution, peer market data). Structured providers (filings,
+yfinance, NewsAPI) → financial/fundamental/news truth. FinBERT → news
+sentiment. Gemini + Search grounding → research/enrichment (classification,
+peer discovery, context, evidence). Deterministic code → all calculations,
+scores, risk, constraints, optimization, backtesting. Gemini never prices,
+never scores, never overrides deterministic logic.
 
 ## 5. Storage
 

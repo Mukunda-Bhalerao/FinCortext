@@ -341,7 +341,16 @@ class MarketService:
                     quote = quote_fn(entry.symbol)
                 else:
                     raise ProviderError("Quote provider unavailable.")
-            except (ProviderError, ProviderUnavailableError):
+            except (ProviderError, ProviderUnavailableError) as exc:
+                # Live quote failed: serve the last stored snapshot (CACHED)
+                # so the UI keeps showing the latest valid market timestamp.
+                stored = self.market_repo.get_stored_quote(entry.symbol)
+                if stored and stored.get("last_price") is not None:
+                    logger.warning(
+                        "Live quote failed for %s (%s); serving stored snapshot",
+                        entry.symbol, type(exc).__name__,
+                    )
+                    return self._stored_quote_response(entry, stored, live=False)
                 raise
             # Enrich with company context; never overwrite real quote numbers.
             quote.setdefault("symbol", entry.symbol)
@@ -370,6 +379,16 @@ class MarketService:
                         )
                 except Exception:
                     pass
+            # Persist the live snapshot so the provider timestamp survives in
+            # storage (newer-wins; yfinance can never overwrite Upstox).
+            try:
+                self.market_repo.upsert_quote(quote)
+            except Exception as exc:
+                logger.warning(
+                    "Quote snapshot store failed for %s: %s",
+                    entry.symbol, type(exc).__name__,
+                )
+            quote["live"] = True
             return quote
 
         # yfinance-only fallback: derive an honest snapshot from stored bars.
@@ -397,6 +416,7 @@ class MarketService:
                 "year_low": None,
                 "day_change": None,
                 "day_change_pct": None,
+                "live": False,
             }
         last = prices[-1]
         prev = prices[-2] if len(prices) > 1 else None
@@ -426,6 +446,34 @@ class MarketService:
             "year_low": min(lows) if enough_for_year else None,
             "day_change": day_change,
             "day_change_pct": ((day_change / prev.close) * 100.0) if (day_change is not None and prev and prev.close) else None,
+            "live": False,
+        }
+
+    def _stored_quote_response(self, entry, stored: dict, *, live: bool) -> dict:
+        """Shape a stored quote snapshot as a quote response (field-identical)."""
+        return {
+            "symbol": entry.symbol,
+            "name": entry.name,
+            "instrument_key": stored.get("instrument_key"),
+            "trading_symbol": stored.get("trading_symbol") or entry.symbol,
+            "exchange": stored.get("exchange") or entry.exchange,
+            "segment": stored.get("segment") or "EQ",
+            "source": stored.get("source"),
+            "status": DataStatus.LIVE.value if live else DataStatus.CACHED.value,
+            "timestamp": stored.get("timestamp"),
+            "last_price": stored.get("last_price"),
+            "prev_close": stored.get("prev_close"),
+            "open": stored.get("open"),
+            "high": stored.get("high"),
+            "low": stored.get("low"),
+            "close": stored.get("close"),
+            "volume": stored.get("volume"),
+            "average_price": stored.get("average_price"),
+            "year_high": stored.get("year_high"),
+            "year_low": stored.get("year_low"),
+            "day_change": stored.get("day_change"),
+            "day_change_pct": stored.get("day_change_pct"),
+            "live": live,
         }
 
     # -- history ------------------------------------------------------------------
@@ -596,7 +644,11 @@ class MarketService:
         end: date | None = None,
         instrument_key: str | None = None,
     ) -> dict:
-        """Stored price series with explicit data status."""
+        """Stored price series with explicit data status.
+
+        Carries the stored live-quote freshness (Upstox timestamp + source) so
+        the UI never shows a stale cached date when newer quote data exists.
+        """
         entry = self._resolve_entry(symbol, instrument_key)
         prices: list[MarketPrice] = self.market_repo.get_prices(entry.symbol, start, end)
         if not prices:
@@ -607,6 +659,7 @@ class MarketService:
             status = DataStatus.LIVE.value
         else:
             status = DataStatus.CACHED.value
+        stored_quote = self.market_repo.get_stored_quote(entry.symbol)
         return {
             "symbol": entry.symbol,
             "name": entry.name,
@@ -617,6 +670,10 @@ class MarketService:
             "latest_trade_date": (
                 prices[-1].trade_date.isoformat() if prices else None
             ),
+            # Freshness: newest valid market observation available.
+            "quote_timestamp": (stored_quote or {}).get("timestamp"),
+            "quote_source": (stored_quote or {}).get("source"),
+            "quote_last_price": (stored_quote or {}).get("last_price"),
             "prices": [
                 {
                     "date": p.trade_date.isoformat(),
