@@ -353,19 +353,6 @@ export default function CompanyAnalysisPage() {
         />
       </section>
 
-      <nav className="analysis-links fade-in" aria-label="Continue to analysis" style={{ animationDelay: '0.12s' }}>
-        {ANALYSTS.map((a) => (
-          <button key={a.to} className="analysis-link" onClick={() => go(a.to)}>
-            <strong>{a.label} →</strong>
-          </button>
-        ))}
-        <button className="analysis-link" onClick={() => go('/intelligence/summary')}>
-          <strong>Combined Summary →</strong>
-        </button>
-        <button className="analysis-link" onClick={() => go('/portfolio')}>
-          <strong>Portfolio Synthesis →</strong>
-        </button>
-      </nav>
     </section>
   );
 }

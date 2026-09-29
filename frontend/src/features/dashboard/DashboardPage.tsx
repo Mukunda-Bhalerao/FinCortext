@@ -3,11 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import CandleChart from '../../components/common/CandleChart';
 import PeerTable from '../../components/common/PeerTable';
 import StatusBadge from '../../components/common/StatusBadge';
-import { MACRO_SIGNAL_CLASS } from '../../components/common/MacroOutputCard';
-import { SIGNAL_CLASS } from '../../components/common/AgentOutputCard';
 import { useFinCortext } from '../../app/FinCortextContext';
-import { api } from '../../services/api';
-import type { AgentOutputSummary, MacroOutput } from '../../types/api';
+import type { AgentOutputSummary } from '../../types/api';
 import {
   deltaClass,
   fmtPrice,
@@ -131,58 +128,6 @@ export function buildTakeaway(
   };
 }
 
-/** Compact market-wide macro indicator. Symbol-independent by design:
- *  the same stored view applies to every company, so company switching
- *  can never corrupt it. */
-function MacroStrip({ onOpen }: { onOpen: () => void }) {
-  const [macro, setMacro] = useState<MacroOutput | null>(null);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    api.macro
-      .latest()
-      .then((r) => {
-        if (!cancelled) setMacro(r.output);
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (failed) return null;
-  if (macro === null) {
-    return (
-      <div className="macro-strip">
-        <span className="muted">Macro environment — no stored view yet.</span>
-        <button className="link-btn" onClick={onOpen}>
-          Open Macro Analyst →
-        </button>
-      </div>
-    );
-  }
-  const newestThrough =
-    Object.values(macro.data_through ?? {}).sort().reverse()[0] ?? null;
-  return (
-    <button className="macro-strip macro-strip-live" onClick={onOpen}>
-      <span className="muted">Macro Environment</span>
-      <strong>
-        {macro.score !== null && macro.score !== undefined ? `${macro.score.toFixed(0)}/100` : '—'}
-      </strong>
-      <strong className={`badge ${MACRO_SIGNAL_CLASS[macro.overall_signal]}`}>
-        {macro.overall_signal.toUpperCase()}
-      </strong>
-      <span className="muted">
-        {Math.round(macro.confidence * 100)}% · {macro.status}
-        {newestThrough ? ` · through ${newestThrough}` : ''}
-      </span>
-      <span className="link-btn">Open Macro Analyst →</span>
-    </button>
-  );
-}
-
 /** Dashboard — company/market overview in the terminal layout.
  *
  * All numbers come from the running backend: stored OHLCV
@@ -206,7 +151,6 @@ export default function DashboardPage() {
     outputsErrorOf,
     ensureNews,
     newsOf,
-    newsErrorOf,
     ensureMarketStatus,
     marketStatus,
   } = useFinCortext();
@@ -220,8 +164,6 @@ export default function DashboardPage() {
   const outputsError = outputsErrorOf(symbol);
   const outputsLoading = outputs === undefined && outputsError === null;
   const news = newsOf(symbol);
-  const newsError = newsErrorOf(symbol);
-  const newsLoading = news === undefined && newsError === null;
 
   const [rangeBars, setRangeBars] = useState<number>(Number.POSITIVE_INFINITY);
   const filingsCount = useFilingsCount(symbol);
@@ -511,103 +453,6 @@ export default function DashboardPage() {
           onSelect={setSymbol}
         />
       </section>
-
-      <div className="dash-grid">
-        {/* Compact intelligence overview — stored results only */}
-        <section id="dash-intelligence" className="card fade-in" aria-label="FinCortext intelligence" style={{ animationDelay: '0.1s' }}>
-          <div className="dash-heading">
-            <h3>FinCortext Intelligence</h3>
-            <button className="link-btn" onClick={() => go('/intelligence/summary')}>
-              View Detailed Analysis →
-            </button>
-          </div>
-          <p className="muted dash-section-note">
-            Latest stored analyst views for {symbol} — full evidence on each analyst page.
-          </p>
-          {outputsLoading ? (
-            <div className="intel-cards">
-              <div className="skeleton intel-skeleton" />
-              <div className="skeleton intel-skeleton" />
-              <div className="skeleton intel-skeleton" />
-            </div>
-          ) : outputsError ? (
-            <p className="muted">Stored results could not be loaded.</p>
-          ) : (
-            <div className="intel-cards">
-              {ANALYSTS.map((a) => {
-                const out = latestByAgent.get(a.id);
-                return (
-                  <button key={a.id} className="intel-card" onClick={() => go(a.to)}>
-                    <span className="intel-label">{a.label}</span>
-                    <strong className={out && out.score !== null ? '' : 'muted'}>
-                      {out && out.score !== null ? Math.round(out.score) : '—'}
-                      <span className="muted intel-den">/100</span>
-                    </strong>
-                    {out ? (
-                      <span className="badge-row">
-                        <span className={`badge ${SIGNAL_CLASS[out.signal] ?? ''}`}>
-                          {out.signal.replace(/_/g, ' ').toUpperCase()}
-                        </span>
-                        <span className={`badge badge-status-${out.status.toLowerCase()}`}>
-                          {out.status}
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="muted">Not run yet</span>
-                    )}
-                    <span className="muted intel-conf">
-                      {out ? `Confidence ${Math.round(out.confidence * 100)}%` : 'Open the analyst to run it'}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          <MacroStrip onOpen={() => go('/intelligence/macro')} />
-          <p className="muted dash-section-note">
-            Four views, one synthesis —{' '}
-            <button className="link-btn" onClick={() => go('/portfolio')}>
-              Open Portfolio Synthesis →
-            </button>
-          </p>
-        </section>
-
-        {/* Recent financial news */}
-        <section id="dash-news" className="card dash-news fade-in" aria-label="Recent financial news" style={{ animationDelay: '0.12s' }}>
-          <div className="dash-heading">
-            <h3>Recent News</h3>
-            <button className="link-btn" onClick={() => go('/intelligence/sentiment')}>
-              View All →
-            </button>
-          </div>
-          {newsLoading ? (
-            <div className="skeleton skeleton-line" />
-          ) : news && news.articles.length > 0 ? (
-            <ul className="news-list">
-              {news.articles.map((a) => (
-                <li key={a.article_id}>
-                  {a.source_url ? (
-                    <a href={a.source_url} target="_blank" rel="noreferrer" className="news-title">
-                      {a.title}
-                    </a>
-                  ) : (
-                    <span className="news-title">{a.title}</span>
-                  )}
-                  <span className="muted news-meta">
-                    {[a.source, a.published_at?.slice(0, 10)].filter(Boolean).join(' · ')}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="muted">
-              {newsError
-                ? 'Stored news could not be loaded.'
-                : `No stored articles for ${symbol} yet. Use Fetch news on the Sentiment Analyst page — nothing is shown until real articles exist.`}
-            </p>
-          )}
-        </section>
-      </div>
 
       {/* Key takeaway — composed from stored outputs only */}
       <section className="card takeaway fade-in" aria-label="Key takeaway" style={{ animationDelay: '0.14s' }}>
