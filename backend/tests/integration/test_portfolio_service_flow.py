@@ -151,8 +151,18 @@ def test_without_portfolio_repo_portfolio_run_rejected(tmp_path):
         storage.close()
 
 
+def _run_all_analysts(service, symbol):
+    """Compute each analyst from its own run (the only supported path);
+    portfolio synthesis below must reuse these stored outputs."""
+    service.run_agent("firm_analyst", symbol)
+    service.run_agent("industry_analyst", symbol)
+    service.run_agent("sentiment_analyst", symbol)
+    service.run_agent("macro_analyst", symbol)
+
+
 def test_run_portfolio_end_to_end_tcs(stack):
     service, portfolio_repo, _ = stack
+    _run_all_analysts(service, "TCS")
     view = service.run_portfolio("TCS", persist=True)
     assert view.entity_id == "TCS"
     assert [p.agent_id for p in view.perspectives] == [
@@ -171,6 +181,8 @@ def test_run_portfolio_end_to_end_tcs(stack):
 
 def test_company_switching_isolated(stack):
     service, _, _ = stack
+    for symbol in ("TCS", "INFY", "RELIANCE"):
+        _run_all_analysts(service, symbol)
     tcs = service.run_portfolio("TCS", persist=True)
     infy = service.run_portfolio("INFY", persist=True)
     rel = service.run_portfolio("RELIANCE", persist=True)
@@ -182,10 +194,32 @@ def test_company_switching_isolated(stack):
     assert macro_of(tcs).score == macro_of(infy).score == macro_of(rel).score
 
 
+def test_run_portfolio_does_not_rerun_analysts(stack):
+    """Synthesis must reuse stored analyst outputs: running it adds no new
+    analyst rows, only the synthesis view itself."""
+    service, _, _ = stack
+    _run_all_analysts(service, "TCS")
+    before = service.list_outputs(None, "TCS", limit=100)
+    assert len(before) == 4
+    view = service.run_portfolio("TCS", persist=True)
+    after = service.list_outputs(None, "TCS", limit=100)
+    assert len(after) == len(before)
+    assert view.agreement.available_count == 4
+
+
+def test_run_portfolio_with_nothing_stored_marks_all_missing(stack):
+    service, _, _ = stack
+    view = service.run_portfolio("INFY", persist=False)
+    assert view.status == "UNAVAILABLE"
+    assert view.agreement.available_count == 0
+    assert all(p.direction == "missing" for p in view.perspectives)
+
+
 def test_degraded_perspective_flagged_not_hidden(stack):
     service, _, _ = stack
     # Firm runs on momentum only here (no filings) → DEGRADED; synthesis must
     # surface that instead of treating it as fully reliable.
+    service.run_agent("firm_analyst", "TCS")
     view = service.run_portfolio("TCS", persist=False)
     firm = next(p for p in view.perspectives if p.agent_id == "firm_analyst")
     assert firm.status == "DEGRADED"

@@ -150,7 +150,6 @@ function FreshnessPill() {
       )}
       <span className="muted">
         {fresh.label}
-        {fresh.source ? ` · Source: ${fresh.source}` : ''}
       </span>
     </span>
   );
@@ -222,26 +221,6 @@ function Shell() {
               <span className="nav-label">{item.label}</span>
             </NavLink>
           ))}
-        </nav>
-        <div className="side-section-label" aria-hidden="true">
-          Expansion
-        </div>
-        <nav className="side-nav side-nav-secondary" aria-label="Expansion">
-          <NavLink
-            to={withSymbol('/roadmap')}
-            title="Roadmap"
-            className={({ isActive }) =>
-              isActive ? 'nav-link active' : 'nav-link'
-            }
-          >
-            <span className="nav-icon">
-              <svg {...iconProps}>
-                <path d="M3 13.5 13.5 3M13.5 3H8m5.5 0v5.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
-              </svg>
-            </span>
-            <span className="nav-label">Roadmap</span>
-            <span className="badge badge-coming-soon nav-badge">Soon</span>
-          </NavLink>
         </nav>
         <div className="side-foot">
           <span className="side-flow">Data → Intelligence → Decision</span>

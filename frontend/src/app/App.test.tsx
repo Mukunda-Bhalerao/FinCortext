@@ -32,17 +32,17 @@ describe('App demo navigation', () => {
     expect(nav).not.toHaveTextContent('Experiments');
   });
 
-  it('shows a separate expansion area with the roadmap marked as upcoming', () => {    render(
+  it('hides the roadmap from the sidebar everywhere', () => {
+    render(
       <MemoryRouter initialEntries={['/']}>
         <App />
       </MemoryRouter>,
     );
-    const expansion = screen.getByRole('navigation', { name: 'Expansion' });
-    expect(expansion).toHaveTextContent('Roadmap');
-    expect(expansion).toHaveTextContent('Soon');
-    // Primary nav stays clean — the roadmap lives outside it.
+    // No expansion section and no Roadmap entry anywhere in the sidebar.
+    expect(screen.queryByRole('navigation', { name: 'Expansion' })).toBeNull();
     const nav = screen.getByRole('navigation', { name: 'Main navigation' });
     expect(nav).not.toHaveTextContent('Roadmap');
+    expect(screen.queryByRole('link', { name: /roadmap/i })).toBeNull();
   });
 
   it('collapses the sidebar to icons and expands it back', () => {

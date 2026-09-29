@@ -9,10 +9,13 @@ from app.agents.macro.macro_agent import MacroAgent
 from app.agents.portfolio.portfolio_agent import PortfolioAgent
 from app.agents.sentiment.sentiment_agent import SentimentAgent
 from app.core.exceptions import NotFoundError
+from app.core.logging import get_logger
 from app.data.universe.universe_config import get_sector_peers, get_universe_entry
 from app.domain.models.agent_output import AgentId, AgentOutput
 from app.domain.models.macro import MacroOutput
 from app.domain.models.portfolio import PortfolioView
+
+logger = get_logger("services.agent")
 from app.repositories.agent_output_repository import AgentOutputRepository
 from app.repositories.financial_repository import FinancialRepository
 from app.repositories.macro_repository import MacroRepository
@@ -51,6 +54,8 @@ class AgentService:
         self.financial_repo = financial_repo
         self.market_repo = market_repo
         self.output_repo = output_repo
+        self.macro_repo = macro_repo
+        self.portfolio_repo = portfolio_repo
         # Optional MarketService for agents that prepare their own market
         # data before analysis (Industry Analyst). When absent, agents run
         # purely on cached data (existing behavior; tests/fakes).
@@ -97,7 +102,8 @@ class AgentService:
         (used for deterministic re-runs / previews). The Macro Analyst
         returns a MacroOutput (market-wide environment view, NOT a company
         score); the symbol only provides request context. The Portfolio
-        Agent runs all four analysts for the symbol, then synthesizes.
+        Agent synthesizes the latest stored analyst outputs without
+        re-running any analyst.
         """
         entry = get_universe_entry(self._canonical_symbol(symbol))  # validate symbol
         agent_id = AGENT_ALIASES.get(agent_id.lower(), agent_id.lower())
@@ -140,11 +146,50 @@ class AgentService:
             return self.run_portfolio(entry.symbol, persist=persist)
         raise NotFoundError(f"Unknown agent '{agent_id}'")
 
-    def run_portfolio(self, symbol: str, *, persist: bool = True) -> PortfolioView:
-        """Run all four analysts for one company, then synthesize.
+    def _latest_agent_output(self, agent_id: str, symbol: str) -> AgentOutput | None:
+        """Latest stored output for one analyst + company (None when never run).
 
-        Each analyst persists its own output (same as an individual run), so
-        the synthesis and the underlying views stay consistent in history.
+        Rows persist the full model dump, so rehydration is lossless. A corrupt
+        row is logged and treated as missing — never fabricated, never raised.
+        """
+        try:
+            row = self.output_repo.latest_output(agent_id, symbol)
+        except Exception as exc:
+            logger.warning("Stored-output read failed for %s/%s: %s", agent_id, symbol, exc)
+            return None
+        if row is None:
+            return None
+        try:
+            return AgentOutput.model_validate_json(row["factors_json"])
+        except Exception as exc:
+            logger.warning("Stored-output parse failed for %s/%s: %s", agent_id, symbol, exc)
+            return None
+
+    def _latest_macro_output(self) -> MacroOutput | None:
+        """Latest stored market-wide macro output (None when never run)."""
+        if self.macro_repo is None:
+            return None
+        try:
+            row = self.macro_repo.latest_output()
+        except Exception as exc:
+            logger.warning("Stored macro-output read failed: %s", exc)
+            return None
+        if row is None:
+            return None
+        try:
+            return MacroOutput.model_validate_json(row["factors_json"])
+        except Exception as exc:
+            logger.warning("Stored macro-output parse failed: %s", exc)
+            return None
+
+    def run_portfolio(self, symbol: str, *, persist: bool = True) -> PortfolioView:
+        """Synthesize the latest stored analyst outputs for one company.
+
+        Analysts are NEVER re-run here: each view must already have been
+        computed from its own analyst page ("Run fresh analysis") and stored.
+        A never-run analyst becomes a "missing" perspective in the synthesis —
+        shown explicitly, never filled in. Only the synthesis view itself is
+        computed (and persisted) by this call.
         """
         if self._portfolio_agent is None:
             raise NotFoundError(
@@ -152,20 +197,10 @@ class AgentService:
                 "is not wired in this container."
             )
         entry = get_universe_entry(self._canonical_symbol(symbol))  # validate symbol
-        firm = self.run_agent(AgentId.FIRM_ANALYST.value, entry.symbol, persist=persist)
-        industry = self.run_agent(
-            AgentId.INDUSTRY_ANALYST.value, entry.symbol, persist=persist
-        )
-        sentiment = self.run_agent(
-            AgentId.SENTIMENT_ANALYST.value, entry.symbol, persist=persist
-        )
-        macro = self.run_agent(
-            AgentId.MACRO_ANALYST.value, entry.symbol, persist=persist
-        )
-        assert isinstance(firm, AgentOutput)
-        assert isinstance(industry, AgentOutput)
-        assert isinstance(sentiment, AgentOutput)
-        assert isinstance(macro, MacroOutput)
+        firm = self._latest_agent_output(AgentId.FIRM_ANALYST.value, entry.symbol)
+        industry = self._latest_agent_output(AgentId.INDUSTRY_ANALYST.value, entry.symbol)
+        sentiment = self._latest_agent_output(AgentId.SENTIMENT_ANALYST.value, entry.symbol)
+        macro = self._latest_macro_output()
         return self._portfolio_agent.run(
             entry.symbol,
             persist=persist,

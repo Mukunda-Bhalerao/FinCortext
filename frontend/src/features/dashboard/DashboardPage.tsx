@@ -1,16 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Area,
-  Bar,
-  CartesianGrid,
-  ComposedChart,
-  ReferenceDot,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import CandleChart from '../../components/common/CandleChart';
 import PeerTable from '../../components/common/PeerTable';
 import StatusBadge from '../../components/common/StatusBadge';
 import { MACRO_SIGNAL_CLASS } from '../../components/common/MacroOutputCard';
@@ -20,7 +10,6 @@ import { api } from '../../services/api';
 import type { AgentOutputSummary, MacroOutput } from '../../types/api';
 import {
   deltaClass,
-  fmtInt,
   fmtPrice,
   fmtSigned,
   snapshot,
@@ -259,15 +248,56 @@ export default function DashboardPage() {
   const liveHigh = quote?.high ?? snap?.last.high ?? null;
   const liveLow = quote?.low ?? snap?.last.low ?? null;
   const liveVolume = quote?.volume ?? snap?.last.volume ?? null;
+  // Current-day candle from the live Upstox quote (real OHLC, never
+  // fabricated): appended when newer than stored history, or merged into the
+  // same-date bar when the quote is the fresher truth for that day. Skipped
+  // entirely when any live OHLC leg is missing.
+  const liveCandle = useMemo(() => {
+    const ts = quote?.timestamp;
+    if (
+      ts === null ||
+      ts === undefined ||
+      quote?.open === null ||
+      quote?.open === undefined ||
+      quote?.high === null ||
+      quote?.high === undefined ||
+      quote?.low === null ||
+      quote?.low === undefined ||
+      quote?.close === null ||
+      quote?.close === undefined
+    ) {
+      return null;
+    }
+    return {
+      date: String(ts).slice(0, 10),
+      open: quote.open,
+      high: quote.high,
+      low: quote.low,
+      close: quote.close,
+      volume: quote.volume ?? 0,
+    };
+  }, [quote]);
+  const chartPrices = useMemo(() => {
+    if (liveCandle === null || prices.length === 0) {
+      return liveCandle === null ? prices : [...prices, liveCandle];
+    }
+    const lastDate = prices[prices.length - 1].date;
+    if (liveCandle.date > lastDate) {
+      return [...prices, liveCandle];
+    }
+    if (liveCandle.date === lastDate) {
+      return [...prices.slice(0, -1), liveCandle];
+    }
+    return prices;
+  }, [prices, liveCandle]);
+  const hasLiveCandle =
+    liveCandle !== null &&
+    chartPrices.length > 0 &&
+    chartPrices[chartPrices.length - 1].date === liveCandle.date;
   const visible = useMemo(
-    () => (rangeBars === Number.POSITIVE_INFINITY ? prices : prices.slice(-rangeBars)),
-    [prices, rangeBars],
+    () => (rangeBars === Number.POSITIVE_INFINITY ? chartPrices : chartPrices.slice(-rangeBars)),
+    [chartPrices, rangeBars],
   );
-  const chartData = useMemo(
-    () => visible.map((p) => ({ date: p.date, close: p.close, volume: p.volume })),
-    [visible],
-  );
-
   const animatedPrice = useCountUp(livePrice, 600);
   const animatedChange = useCountUp(liveChange);
 
@@ -406,133 +436,81 @@ export default function DashboardPage() {
         ))}
       </nav>
 
-      <div className="dash-grid">
-        {/* Price performance */}
-        <section id="dash-price" className="card chart-card fade-in" aria-label="Price performance" style={{ animationDelay: '0.06s' }}>
+      {/* Price performance — OHLC candlesticks over stored history */}
+      <section id="dash-price" className="card chart-card fade-in" aria-label="Price performance" style={{ animationDelay: '0.06s' }}>
           <div className="chart-head">
             <h3>Price Performance</h3>
-            <span className="muted from-stored">◇ From Stored Data</span>
           </div>
-          {seriesLoading ? (
-            <div className="skeleton skeleton-chart" />
-          ) : seriesError && !series ? (
-            <div className="dash-empty">
-              <p>
-                <StatusBadge status="UNAVAILABLE" />
-              </p>
-              <p className="muted">
-                No stored price history for {symbol} yet — nothing is shown until
-                real data is collected.
-              </p>
+        {seriesLoading ? (
+          <div className="skeleton skeleton-chart" />
+        ) : seriesError && !series ? (
+          <div className="dash-empty">
+            <p>
+              <StatusBadge status="UNAVAILABLE" />
+            </p>
+            <p className="muted">
+              No stored price history for {symbol} yet — nothing is shown until
+              real data is collected.
+            </p>
+          </div>
+        ) : !snap || visible.length < 2 ? (
+          <div className="dash-empty">
+            <p>
+              <StatusBadge status={series?.status ?? 'UNAVAILABLE'} />
+            </p>
+            <p className="muted">
+              Not enough stored trading days for {symbol} to draw a chart yet.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="range-bar" role="group" aria-label="Chart range">
+              {RANGES.map((r) => (
+                <button
+                  key={r.label}
+                  className={`range-btn${rangeBars === r.bars ? ' active' : ''}`}
+                  onClick={() => setRangeBars(r.bars)}
+                  disabled={r.bars !== Number.POSITIVE_INFINITY && prices.length <= r.bars}
+                >
+                  {r.label}
+                </button>
+              ))}
             </div>
-          ) : !snap || chartData.length < 2 ? (
-            <div className="dash-empty">
-              <p>
-                <StatusBadge status={series?.status ?? 'UNAVAILABLE'} />
-              </p>
-              <p className="muted">
-                Not enough stored trading days for {symbol} to draw a chart yet.
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="range-bar" role="group" aria-label="Chart range">
-                {RANGES.map((r) => (
-                  <button
-                    key={r.label}
-                    className={`range-btn${rangeBars === r.bars ? ' active' : ''}`}
-                    onClick={() => setRangeBars(r.bars)}
-                    disabled={r.bars !== Number.POSITIVE_INFINITY && prices.length <= r.bars}
-                  >
-                    {r.label}
-                  </button>
-                ))}
-              </div>
-              <ResponsiveContainer width="100%" height={280}>
-                <ComposedChart data={chartData} margin={{ top: 10, right: 8, bottom: 0, left: 8 }}>
-                  <defs>
-                    <linearGradient id="dashCloseFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#2ecc8f" stopOpacity={0.35} />
-                      <stop offset="100%" stopColor="#2ecc8f" stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="#1c2942" vertical={false} />
-                  <XAxis
-                    dataKey="date"
-                    stroke="#8fa0b8"
-                    fontSize={11}
-                    minTickGap={48}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    yAxisId="price"
-                    stroke="#8fa0b8"
-                    fontSize={11}
-                    domain={['auto', 'auto']}
-                    tickFormatter={(v: number) => v.toLocaleString('en-IN')}
-                    tickLine={false}
-                    width={72}
-                  />
-                  <YAxis yAxisId="volume" orientation="right" hide />
-                  <Tooltip
-                    contentStyle={{ background: '#141f36', border: '1px solid #22304d' }}
-                    labelStyle={{ color: '#e6ecf5' }}
-                    formatter={(value: number | string, name: string) =>
-                      name === 'volume'
-                        ? [fmtInt(Number(value)), 'Volume']
-                        : [`₹${fmtPrice(Number(value))}`, 'Close']
-                    }
-                  />
-                  <Bar yAxisId="volume" dataKey="volume" fill="#22304d" opacity={0.55} isAnimationActive={false} />
-                  <Area
-                    yAxisId="price"
-                    type="monotone"
-                    dataKey="close"
-                    stroke="#2ecc8f"
-                    strokeWidth={2}
-                    fill="url(#dashCloseFill)"
-                    animationDuration={900}
-                    dot={false}
-                    activeDot={{ r: 4 }}
-                  />
-                  <ReferenceDot x={snap.last.date} y={snap.last.close} yAxisId="price" r={4} fill="#2ecc8f" stroke="#0b1220" />
-                </ComposedChart>
-              </ResponsiveContainer>
-              <p className="muted dash-chart-note">
-                Daily closes from stored OHLCV history — showing {visible.length} of{' '}
-                {series?.count} trading days
-                {snap.storedHigh && (
-                  <>
-                    {' '}· stored high ₹{fmtPrice(snap.storedHigh.high)} ({snap.storedHigh.date}) · stored
-                    low ₹{fmtPrice(snap.storedLow.low)} ({snap.storedLow.date})
-                  </>
-                )}
-              </p>
-            </>
-          )}
-        </section>
+            <CandleChart data={chartPrices} rangeBars={rangeBars} />
+            <p className="muted dash-chart-note">
+              Daily candles from stored OHLCV history{hasLiveCandle ? ' plus the live Upstox candle' : ''} — showing {visible.length} of{' '}
+              {chartPrices.length} trading days
+              {snap.storedHigh && (
+                <>
+                  {' '}· stored high ₹{fmtPrice(snap.storedHigh.high)} ({snap.storedHigh.date}) · stored
+                  low ₹{fmtPrice(snap.storedLow.low)} ({snap.storedLow.date})
+                </>
+              )}
+            </p>
+          </>
+        )}
+      </section>
 
-        {/* Market context — real sector peers only */}
-        <section id="dash-peers" className="card fade-in" aria-label="Market context" style={{ animationDelay: '0.08s' }}>
-          <div className="dash-heading">
-            <h3>Market Context</h3>
-          </div>
-          <p className="muted dash-section-note">
-            {entry ? `Sector · ${entry.sector}` : 'Sector unavailable'}
-            {coverageCount !== null
-              ? ` · ${coverageCount} of ${marketStatus?.symbols.length ?? ''} companies hold stored prices.`
-              : ''}
-          </p>
-          <PeerTable
-            peers={peers}
-            marketStatus={marketStatus}
-            quotes={quotes}
-            quotesLoading={!quotesReady}
-            current={symbol}
-            onSelect={setSymbol}
-          />
-        </section>
-      </div>
+      {/* Market context — full width below the chart, real sector peers only */}
+      <section id="dash-peers" className="card fade-in" aria-label="Market context" style={{ animationDelay: '0.08s' }}>
+        <div className="dash-heading">
+          <h3>Market Context</h3>
+        </div>
+        <p className="muted dash-section-note">
+          {entry ? `Sector · ${entry.sector}` : 'Sector unavailable'}
+          {coverageCount !== null
+            ? ` · ${coverageCount} of ${marketStatus?.symbols.length ?? ''} companies hold stored prices.`
+            : ''}
+        </p>
+        <PeerTable
+          peers={peers}
+          marketStatus={marketStatus}
+          quotes={quotes}
+          quotesLoading={!quotesReady}
+          current={symbol}
+          onSelect={setSymbol}
+        />
+      </section>
 
       <div className="dash-grid">
         {/* Compact intelligence overview — stored results only */}

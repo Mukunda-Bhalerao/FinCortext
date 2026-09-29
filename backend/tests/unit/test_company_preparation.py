@@ -529,6 +529,9 @@ def test_sentiment_preparation_runs(stack):
 
 def test_portfolio_receives_outputs(stack):
     stack["prep"].prepare_company("INFY")
+    # Analysts run from their own runs first; synthesis only reads storage.
+    for agent_id in ("firm_analyst", "industry_analyst", "sentiment_analyst", "macro_analyst"):
+        stack["agents"].run_agent(agent_id, "INFY")
     view = stack["agents"].run_portfolio("INFY")
     assert len(view.perspectives) == 4
     assert view.agreement.available_count >= 1
