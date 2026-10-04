@@ -23,6 +23,7 @@ class DataSourceType(str, Enum):
 
     LEGACY_IMPORT = "legacy_import"
     PROVIDER = "provider"
+    WEB_RESEARCH = "web_research"
     UPSTOX = "upstox"
     NEWS_API = "news_api"
     GOOGLE_NEWS_RSS = "google_news_rss"

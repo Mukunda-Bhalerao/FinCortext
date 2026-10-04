@@ -15,6 +15,9 @@ Degradation contract (mirrors NewsService):
 
 from __future__ import annotations
 
+import hashlib
+from datetime import datetime, timedelta, timezone
+
 from app.core.config import Settings, settings
 from app.core.exceptions import ProviderError, ProviderUnavailableError
 from app.core.logging import get_logger
@@ -370,3 +373,208 @@ class ResearchService:
             "sources": sources,
             "report_id": report_id,
         }
+
+    # -- fundamentals enrichment (labeled web research) -----------------------------------
+
+    FUNDAMENTALS_SOURCE_NAME = "Gemini web research (annual figures)"
+    FUNDAMENTALS_RATE_LIMIT_MINUTES = 10
+    FUNDAMENTALS_METRICS = (
+        "total_revenue", "net_income", "total_assets",
+        "total_equity", "total_debt", "operating_profit", "eps",
+    )
+
+    def enrich_fundamentals(
+        self,
+        symbol: str,
+        company_name: str | None = None,
+        *,
+        financial_repo=None,
+    ) -> dict:
+        """Web-research enrichment of key fundamental figures.
+
+        For inputs the structured providers cannot supply (dynamic equities
+        with no stored observations). Values are WEB-RESEARCHED and stored
+        with an explicit `web_research` source type so downstream consumers
+        distinguish them from provider/official data — never blended into a
+        score as if they carried the same reliability (the distinction
+        survives to the UI via per-metric source labels and evidence).
+        Cached: the latest stored report serves within the rate-limit
+        window (one research per symbol per 10 minutes). Confidence-gated:
+        below MIN_APPLY_CONFIDENCE the report is kept as evidence only.
+        """
+        entity = (symbol or "").strip().upper()
+        if financial_repo is None:
+            return {
+                **self._unavailable(
+                    "Fundamentals enrichment requires financial storage."
+                ),
+                "usable": False,
+            }
+        if not getattr(self.provider, "is_configured", True):
+            return {
+                **self._unavailable(
+                    "GEMINI_API_KEY is not configured — fundamentals "
+                    "enrichment unavailable."
+                ),
+                "usable": False,
+            }
+
+        # Rate limit: serve the latest stored report within the window.
+        latest = self.research_repo.latest_report(entity, "fundamentals")
+        if latest and latest.get("created_at"):
+            try:
+                age_min = (
+                    datetime.now(timezone.utc)
+                    - datetime.fromisoformat(str(latest["created_at"]))
+                ).total_seconds() / 60.0
+                if age_min < self.FUNDAMENTALS_RATE_LIMIT_MINUTES:
+                    payload = latest.get("payload") or {}
+                    stored_metrics = payload.get("metrics") or {}
+                    if stored_metrics:
+                        saved = self._store_web_fundamentals(
+                            entity, stored_metrics, payload, financial_repo
+                        )
+                        return {
+                            "status": DataStatus.CACHED.value,
+                            "provider": self.provider.name,
+                            "metrics_stored": saved,
+                            "confidence": latest.get("confidence"),
+                            "sources": latest.get("sources") or [],
+                            "usable": True,
+                            "report_id": latest.get("report_id"),
+                            "cached": True,
+                        }
+                    return {
+                        **self._unavailable(
+                            "Web-researched fundamentals from the last run "
+                            "were not usable; rate limit prevents re-running "
+                            f"for {self.FUNDAMENTALS_RATE_LIMIT_MINUTES} minutes."
+                        ),
+                        "usable": False,
+                    }
+            except (TypeError, ValueError):
+                pass
+
+        try:
+            result = self.provider.research_fundamentals(entity, company_name or entity)
+        except ProviderUnavailableError as exc:
+            logger.warning("Fundamentals research unavailable for %s: %s", entity, exc.message)
+            return {**self._unavailable(exc.message), "usable": False}
+        except ProviderError as exc:
+            return {**self._error(entity, "fundamentals", exc.message), "usable": False}
+        except Exception as exc:
+            logger.exception("Unexpected fundamentals-research failure for %s", entity)
+            return {**self._error(entity, "fundamentals", f"{type(exc).__name__}"), "usable": False}
+
+        metrics = {
+            m: v for m, v in (result.get("metrics") or {}).items()
+            if m in self.FUNDAMENTALS_METRICS
+        }
+        try:
+            confidence = float(result.get("confidence", 0.0))
+        except (TypeError, ValueError):
+            confidence = 0.0
+        sources = result.get("sources") or []
+        usable = bool(metrics) and confidence >= MIN_APPLY_CONFIDENCE
+
+        payload = {
+            "metrics": metrics,
+            "fiscal_year": result.get("fiscal_year"),
+            "currency": result.get("currency"),
+            "usable": usable,
+        }
+        report_id = None
+        try:
+            report_id = self.research_repo.save_report(
+                entity,
+                "fundamentals",
+                company_name or entity,
+                payload,
+                confidence=confidence,
+                sources=sources,
+                model=result.get("model"),
+            )
+            self.provenance_repo.record(
+                "research_fundamentals",
+                entity_id=entity,
+                source_type=self.provider.name,
+                source_name=self.FUNDAMENTALS_SOURCE_NAME,
+                rows_ingested=len(metrics) if usable else 0,
+                rows_rejected=0,
+                detail=f"fiscal_year={result.get('fiscal_year')}; usable={usable}",
+            )
+        except Exception as exc:
+            logger.warning("Fundamentals research persist failed: %s", type(exc).__name__)
+
+        stored = 0
+        if usable:
+            stored = self._store_web_fundamentals(entity, metrics, payload, financial_repo)
+        logger.info(
+            "Fundamentals research for %s: %d metrics, usable=%s, stored=%s",
+            entity, len(metrics), usable, stored,
+        )
+        return {
+            "status": DataStatus.LIVE.value if usable else DataStatus.UNAVAILABLE.value,
+            "provider": self.provider.name,
+            "metrics_stored": stored,
+            "confidence": confidence,
+            "sources": sources,
+            "usable": usable,
+            "report_id": report_id,
+            "cached": False,
+        }
+
+    def _store_web_fundamentals(
+        self, entity: str, metrics: dict, payload: dict, financial_repo
+    ) -> int:
+        """Store web-researched figures as labeled observations (never official)."""
+        from datetime import date as _date
+
+        from app.domain.models.financial import (
+            ConsolidationBasis,
+            FinancialObservation,
+            StatementType,
+        )
+
+        fiscal_year = str(payload.get("fiscal_year") or "").strip()
+        period_end = None
+        for suffix in ("FY", "fy"):
+            if fiscal_year.startswith(suffix) and fiscal_year[len(suffix):].isdigit():
+                period_end = _date(int(fiscal_year[len(suffix):]), 3, 31)
+                break
+        currency = str(payload.get("currency") or "INR").strip() or "INR"
+        content_hash = hashlib.sha256(
+            repr(sorted(metrics.items())).encode("utf-8")
+        ).hexdigest()
+        source_name = self.FUNDAMENTALS_SOURCE_NAME + (
+            f" ({fiscal_year})" if fiscal_year else ""
+        )
+        observations: list = []
+        for metric, value in metrics.items():
+            observations.append(
+                FinancialObservation(
+                    entity_id=entity,
+                    metric=metric,
+                    value=value,
+                    unit="ratio" if metric == "eps" else "INR",
+                    currency=currency,
+                    period_start=period_end - timedelta(days=365) if period_end else None,
+                    period_end=period_end,
+                    statement_type=(
+                        StatementType.INCOME_STATEMENT
+                        if metric in ("total_revenue", "net_income", "operating_profit", "eps")
+                        else StatementType.BALANCE_SHEET
+                    ),
+                    consolidation_basis=ConsolidationBasis.UNKNOWN,
+                    fiscal_year=fiscal_year or None,
+                    source_type="web_research",
+                    source_name=source_name,
+                    source_reference="web research (see research reports)",
+                    content_hash=content_hash,
+                )
+            )
+        # Replace the previous web-research snapshot (scoped by source type);
+        # official filings and legacy imports are never touched.
+        replaced = financial_repo.delete_observations(entity, "web_research")
+        saved = financial_repo.save_observations(observations) if observations else 0
+        return saved

@@ -95,6 +95,19 @@ class FirmAgent(BaseAgent):
                 "No analyzable data available. Ingest official filings and/or "
                 "refresh market data, then re-run the analysis.",
             )
+        # Web-researched fundamentals are labeled and carry lower reliability
+        # than official/provider data — the distinction must survive to the
+        # output (the UI renders it; scores never treat them as equal).
+        _source_kinds = {
+            (o.source_type.value if isinstance(o.source_type, DataSourceType) else str(o.source_type))
+            for o in observations
+        }
+        if "web_research" in _source_kinds:
+            limitations.append(
+                "Some fundamentals are web-researched (labeled per metric) — "
+                "they carry lower reliability than official filings or "
+                "provider statements."
+            )
 
         # Honest status: a computed score resting on less than half of the
         # documented factor weights (e.g. momentum only, no filings) is

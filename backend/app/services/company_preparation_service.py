@@ -459,6 +459,13 @@ class CompanyPreparationService:
                     "observations": count,
                     "note": f"Fundamentals refresh failed ({exc.message}); using stored observations.",
                 }
+            # No stored observations (e.g. dynamic equities): clearly-labeled
+            # web-research enrichment, cached + rate-limited, every value
+            # stored with source_type=web_research (the UI distinguishes it
+            # from provider/official data).
+            enrich = self._enrich_fundamentals_via_research(symbol)
+            if enrich is not None:
+                return enrich
             return {"status": DataStatus.ERROR.value, "error": exc.message}
         except Exception as exc:  # provider crash -> honest ERROR, never propagate
             logger.exception("Fundamentals preparation failed for %s", symbol)
@@ -468,6 +475,37 @@ class CompanyPreparationService:
             "metrics": outcome.get("metrics", []),
             "observations_stored": outcome.get("observations_stored", 0),
             "warnings": outcome.get("warnings", []),
+        }
+
+    def _enrich_fundamentals_via_research(self, symbol: str) -> dict | None:
+        """Labeled web-research fundamentals enrichment (None when not possible)."""
+        if self.research_service is None:
+            return None
+        try:
+            outcome = self.research_service.enrich_fundamentals(
+                symbol, financial_repo=self.financial_repo
+            )
+        except Exception as exc:
+            logger.exception("Fundamentals research enrichment failed for %s", symbol)
+            self._research_events.append({"kind": "fundamentals", "status": DataStatus.ERROR.value})
+            return None
+        self._research_events.append(
+            {"kind": "fundamentals", "status": outcome.get("status", DataStatus.UNAVAILABLE.value)}
+        )
+        if not outcome.get("usable"):
+            return None
+        coverage = self.fundamentals_service.get_coverage(symbol)
+        return {
+            "status": DataStatus.LIVE.value,
+            "metrics": sorted(coverage.get("metrics", {}).keys()),
+            "observations_stored": outcome.get("metrics_stored", 0),
+            "source": "web_research",
+            "confidence": outcome.get("confidence"),
+            "sources": outcome.get("sources") or [],
+            "note": (
+                "Fundamentals are web-researched (labeled per metric) — "
+                "treat with lower confidence than official filings."
+            ),
         }
 
     def _news_query_variants(self, entry) -> list[str]:

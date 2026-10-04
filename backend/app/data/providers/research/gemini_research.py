@@ -117,6 +117,28 @@ _NEWS_SCHEMA: dict = {
     "required": ["items"],
 }
 
+_FUNDAMENTALS_SCHEMA: dict = {
+    "type": "OBJECT",
+    "properties": {
+        "fiscal_year": {"type": "STRING"},
+        "currency": {"type": "STRING"},
+        "confidence": {"type": "NUMBER"},
+        "metrics": {
+            "type": "OBJECT",
+            "properties": {
+                "total_revenue": {"type": "NUMBER"},
+                "net_income": {"type": "NUMBER"},
+                "total_assets": {"type": "NUMBER"},
+                "total_equity": {"type": "NUMBER"},
+                "total_debt": {"type": "NUMBER"},
+                "operating_profit": {"type": "NUMBER"},
+                "eps": {"type": "NUMBER"},
+            },
+        },
+    },
+    "required": ["metrics", "fiscal_year"],
+}
+
 
 class GeminiResearchProvider(ResearchProvider):
     """Grounded Gemini research via the official GenAI SDK. Replaceable."""
@@ -302,6 +324,62 @@ class GeminiResearchProvider(ResearchProvider):
             )
         return {
             "items": items,
+            "sources": self._last_sources,
+            "grounded": self._last_grounded,
+            "model": self._model,
+            "retrieved_at": _utcnow_iso(),
+        }
+
+    def research_fundamentals(self, symbol: str, company_name: str) -> dict:
+        """Web-research enrichment of key fundamental figures (labeled).
+
+        Values are web-researched CANDIDATES: the caller must validate,
+        confidence-gate, and store them with an explicit `web_research`
+        source type. Only figures grounded in real sources are returned —
+        the model is told to omit anything it cannot source.
+        """
+        self._require_configured()
+        prompt = (
+            "You are a financial-research assistant for Indian equities. "
+            f"Using web search, find the LATEST available annual fundamental "
+            f"figures for NSE-listed '{company_name}' (trading symbol {symbol}) "
+            "from its annual report or credible financial-data pages: total "
+            "revenue, net income, total assets, total equity, total debt, "
+            "operating profit, and earnings per share. Return ONLY the "
+            "requested JSON: metrics (omit any figure you cannot source — "
+            "never estimate), fiscal_year (e.g. 'FY2025', the year the "
+            "figures belong to), currency (e.g. 'INR'), and confidence "
+            "(0-1, how well the figures are sourced)."
+        )
+        payload = self._generate(prompt, _FUNDAMENTALS_SCHEMA)
+        metrics: dict[str, float] = {}
+        raw_metrics = payload.get("metrics")
+        if isinstance(raw_metrics, dict):
+            for key, value in raw_metrics.items():
+                if value is None:
+                    continue
+                try:
+                    num = float(value)
+                except (TypeError, ValueError):
+                    continue
+                if num != num or num in (float("inf"), float("-inf")):
+                    continue  # NaN/inf guard
+                metrics[str(key).strip()] = num
+        if not metrics:
+            raise ProviderError(
+                "Gemini returned no sourced fundamental figures.",
+                details={"provider": self.name},
+            )
+        try:
+            confidence = float(payload.get("confidence", 0.5))
+        except (TypeError, ValueError):
+            confidence = 0.5
+        confidence = max(0.0, min(1.0, confidence))
+        return {
+            "metrics": metrics,
+            "fiscal_year": (payload.get("fiscal_year") or "").strip() or None,
+            "currency": (payload.get("currency") or "INR").strip() or "INR",
+            "confidence": confidence,
             "sources": self._last_sources,
             "grounded": self._last_grounded,
             "model": self._model,

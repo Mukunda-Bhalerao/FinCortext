@@ -125,6 +125,19 @@ class ResearchProvider(ABC):
         """
         raise NotImplementedError
 
+    @abstractmethod
+    def research_fundamentals(self, symbol: str, company_name: str) -> dict:
+        """Web-research enrichment of key fundamental figures (labeled).
+
+        Returns {"metrics": {metric: value, ...}, "fiscal_year",
+        "currency", "confidence" (0..1), "sources": [...], "retrieved_at"}.
+        Values are WEB-RESEARCHED candidates — the caller must validate,
+        confidence-gate, and store them with an explicit `web_research`
+        source type so downstream consumers distinguish them from
+        provider/official data. Never a market-data source; never scores.
+        """
+        raise NotImplementedError
+
 
 class MacroDataProvider(ABC):
     """Macro indicator retrieval (market-wide, not per-company)."""
