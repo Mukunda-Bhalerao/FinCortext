@@ -1,7 +1,7 @@
 """Macro data service: providers → validation → storage → provenance.
 
 Orchestration for market-wide macro indicators (RBI/MoSPI curated series +
-yfinance market gauges). Per-indicator failure isolation: one broken series
+Upstox market gauges). Per-indicator failure isolation: one broken series
 never blocks the rest. Macro data is market-wide — nothing here is keyed by
 company symbol, so company switching cannot misattribute it.
 """
@@ -41,7 +41,7 @@ class MacroService:
         for provider in self.providers:
             if meta.get("source") == "curated" and provider.name == "curated_official":
                 return provider
-            if meta.get("source") == "yfinance" and provider.name == "yfinance_macro":
+            if meta.get("source") == "upstox" and provider.name == "upstox_gauges":
                 return provider
         raise ProviderError(
             f"No macro provider wired for indicator '{indicator_id}'.",
@@ -70,8 +70,8 @@ class MacroService:
                 period_end=p["period_end"],
                 observed_at=p["period_end"],
                 published_at=p["published_at"],
-                source_type="yfinance"
-                if meta.get("source") == "yfinance"
+                source_type="upstox"
+                if meta.get("source") == "upstox"
                 else "unknown",
                 source_name=bundle.get("source_name") or meta.get("source", "unknown"),
                 source_url=p["source_url"],

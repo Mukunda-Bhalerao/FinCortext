@@ -94,8 +94,8 @@ def test_refresh_stores_canonical_observations_with_provenance(stack):
     obs = financial_repo.get_observations("TCS", metric="total_revenue", latest_period=False)
     assert len(obs) == 2
     assert all(o.entity_id == "TCS" for o in obs)
-    assert all(o.source_type.value == "yfinance" for o in obs)
-    assert all("yfinance" in o.source_name for o in obs)
+    assert all(o.source_type.value == "provider" for o in obs)
+    assert all("fake_fundamentals" in o.source_name for o in obs)
     assert obs[0].period_end in {date(2025, 3, 31), date(2024, 3, 31)}
     assert obs[0].unit == "INR" and obs[0].currency == "INR"
     # Snapshot ratios carry no statement period — honest point-in-time stamp.
@@ -181,7 +181,7 @@ def test_firm_agent_consumes_provider_fundamentals(stack):
     assert not names["market_momentum"].available  # no prices seeded
     assert out.status == "OK"
     # Evidence cites the provider source, not an official filing.
-    assert any("yfinance" in (e.source_name or "") for e in out.evidence)
+    assert any("fake_fundamentals" in (e.source_name or "") for e in out.evidence)
 
 
 def test_coverage_endpoint_shape(stack):

@@ -1,0 +1,1370 @@
+
+> fincortext-frontend@0.1.0 test
+> vitest run --run
+
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mD:/KODERRRR/FinCortext/frontend[39m
+
+ [32m✓[39m src/components/common/AgentOutputCard.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[90m 267[2mms[22m[39m
+ [32m✓[39m src/features/agents/AgentPage.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[90m 233[2mms[22m[39m
+ [32m✓[39m src/features/agents/SentimentAnalystPage.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[90m 261[2mms[22m[39m
+ [32m✓[39m src/features/agents/MacroAnalystPage.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[90m 297[2mms[22m[39m
+ [32m✓[39m src/features/agents/IntelligenceSummaryPage.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 419[2mms[22m[39m
+ [32m✓[39m src/features/company/CompanyAnalysisPage.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[33m 487[2mms[22m[39m
+   [33m[2m✓[22m[39m CompanyAnalysisPage[2m > [22mrenders company details, price statistics and data inventory [33m302[2mms[22m[39m
+ [32m✓[39m src/features/portfolio/PortfolioSynthesisPage.test.tsx [2m([22m[2m16 tests[22m[2m)[22m[33m 1833[2mms[22m[39m
+   [33m[2m✓[22m[39m PortfolioSynthesisPage[2m > [22mlinks each perspective to its analyst page and back to the dashboard [33m313[2mms[22m[39m
+ [32m✓[39m src/features/company/priceStats.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 6[2mms[22m[39m
+ [32m✓[39m src/app/FinCortextContext.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[90m 182[2mms[22m[39m
+ [31m❯[39m src/features/dashboard/DashboardPage.test.tsx [2m([22m[2m7 tests[22m[2m | [22m[31m3 failed[39m[2m)[22m[33m 1738[2mms[22m[39m
+[31m   [31m×[31m DashboardPage terminal[2m > [22mrenders the TCS overview with real market data and stored intelligence[33m 558[2mms[22m[31m[39m
+[31m     → Unable to find an element with the text: FinCortext Intelligence. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[31m
+  [36m<div>[31m
+    [36m<section[31m
+      [33mclass[31m=[32m"page dashboard"[31m
+    [36m>[31m
+      [36m<header[31m
+        [33mclass[31m=[32m"card dash-head fade-in"[31m
+        [33mid[31m=[32m"dash-overview"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-identity"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"term-symbol"[31m
+          [36m>[31m
+            [0mTCS[0m
+          [36m</div>[31m
+          [36m<div>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"term-name"[31m
+            [36m>[31m
+              [0mTata Consultancy Services[0m
+            [36m</div>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"term-chips"[31m
+            [36m>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip"[31m
+              [36m>[31m
+                [0mTCS.NS[0m
+              [36m</span>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip chip-sector"[31m
+              [36m>[31m
+                [0mInformation Technology[0m
+              [36m</span>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip"[31m
+              [36m>[31m
+                [0mIT Services & Consulting[0m
+              [36m</span>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip"[31m
+              [36m>[31m
+                [0mNSE[0m
+              [36m</span>[31m
+            [36m</div>[31m
+          [36m</div>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-pricecol"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"term-price"[31m
+          [36m>[31m
+            [0m₹947.24[0m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"term-change delta-up"[31m
+          [36m>[31m
+            [0m+0.40 (+0.04%)[0m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"muted term-asof"[31m
+          [36m>[31m
+            [0mAs of 2026-08-28[0m
+            [0m · [0m
+            [0m40[0m
+            [0m stored days[0m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"muted term-prevclose"[31m
+          [36m>[31m
+            [0mPrev close [0m
+            [0m₹2,338.00[0m
+          [36m</div>[31m
+        [36m</div>[31m
+        [36m<dl[31m
+          [33mclass[31m=[32m"dash-session"[31m
+        [36m>[31m
+          [36m<div>[31m
+            [36m<dt[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mDay High[0m
+            [36m</dt>[31m
+            [36m<dd>[31m
+              [0m₹2,344.00[0m
+            [36m</dd>[31m
+          [36m</div>[31m
+          [36m<div>[31m
+            [36m<dt[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mDay Low[0m
+            [36m</dt>[31m
+            [36m<dd>[31m
+              [0m₹2,334.00[0m
+            [36m</dd>[31m
+          [36m</div>[31m
+          [36m<div>[31m
+            [36m<dt[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mVolume[0m
+            [36m</dt>[31m
+            [36m<dd>[31m
+              [0m1,390[0m
+            [36m</dd>[31m
+          [36m</div>[31m
+          [36m<div>[31m
+            [36m<dt[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0m52w High[0m
+            [36m</dt>[31m
+            [36m<dd>[31m
+              [0mN/A[0m
+            [36m</dd>[31m
+          [36m</div>[31m
+          [36m<div>[31m
+            [36m<dt[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0m52w Low[0m
+            [36m</dt>[31m
+            [36m<dd>[31m
+              [0mN/A[0m
+            [36m</dd>[31m
+          [36m</div>[31m
+        [36m</dl>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"btn btn-primary btn-analyze"[31m
+        [36m>[31m
+          [0m▶ Analyze Company[0m
+        [36m</button>[31m
+      [36m</header>[31m
+      [36m<nav[31m
+        [33maria-label[31m=[32m"Dashboard sections"[31m
+        [33mclass[31m=[32m"dash-tabs fade-in"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.04s;"[31m
+      [36m>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"tab-btn"[31m
+        [36m>[31m
+          [0mOverview[0m
+        [36m</button>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"tab-btn"[31m
+        [36m>[31m
+          [0mPrice Chart[0m
+        [36m</button>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"tab-btn"[31m
+        [36m>[31m
+          [0mIntelligence[0m
+        [36m</button>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"tab-btn"[31m
+        [36m>[31m
+          [0mNews[0m
+        [36m</button>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"tab-btn"[31m
+        [36m>[31m
+          [0mPeers[0m
+        [36m</button>[31m
+      [36m</nav>[31m
+      [36m<section[31m
+        [33maria-label[31m=[32m"Price performance"[31m
+        [33mclass[31m=[32m"card chart-card fade-in"[31m
+        [33mid[31m=[32m"dash-price"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.06s;"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"chart-head"[31m
+        [36m>[31m
+          [36m<h3>[31m
+            [0mPrice Performance[0m
+          [36m</h3>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33maria-label[31m=[32m"Chart range"[31m
+          [33mclass[31m=[32m"range-bar"[31m
+          [33mrole[31m=[32m"group"[31m
+        [36m>[31m
+          [36m<button[31m
+            [33mclass[31m=[32m"range-btn"[31m
+          [36m>[31m
+            [0m1M[0m
+          [36m</button>[31m
+          [36m<button[31m
+            [33mclass[31m=[32m"range-btn"[31m
+            [33mdisabled[31m=[32m""[31m
+          [36m>[31m
+            [0m3M[0m
+          [36m</button>[31m
+          [36m<button[31m
+            [33mclass[31m=[32m"range-btn"[31m
+            [33mdisabled[31m=[32m""[31m
+          [36m>[31m
+            [0m6M[0m
+          [36m</button>[31m
+          [36m<button[31m
+            [33mclass[31m=[32m"range-btn"[31m
+            [33mdisabled[31m=[32m""[31m
+          [36m>[31m
+            [0m1Y[0m
+          [36m</button>[31m
+          [36m<button[31m
+            [33mclass[31m=[32m"range-btn active"[31m
+          [36m>[31m
+            [0mAll[0m
+          [36m</button>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"recharts-responsive-container"[31m
+          [33mstyle[31m=[32m"width: 100%; height: 340px; min-width: 0;"[31m
+        [36m>[31m
+          [36m<svg[31m
+            [33maria-label[31m=[32m"Price chart"[31m
+            [33mheight[31m=[32m"340"[31m
+            [33mrole[31m=[32m"img"[31m
+            [33mwidth[31m=[32m"0"[31m
+          [36m/>[31m
+        [36m</div>[31m
+        [36m<p[31m
+          [33mclass[31m=[32m"muted dash-chart-note"[31m
+        [36m>[31m
+          [0mDaily candles from stored OHLCV history[0m
+          [0m — showing [0m
+          [0m40[0m
+          [0m of[0m
+          [0m [0m
+          [0m40[0m
+          [0m trading days[0m
+          [0m [0m
+          [0m· stored high ₹[0m
+          [0m2,344.00[0m
+          [0m ([0m
+          [0m2026-07-12[0m
+          [0m) · stored low ₹[0m
+          [0m2,295.00[0m
+          [0m ([0m
+          [0m2026-07-01[0m
+          [0m)[0m
+        [36m</p>[31m
+      [36m</section>[31m
+      [36m<section[31m
+        [33maria-label[31m=[32m"Market context"[31m
+        [33mclass[31m=[32m"card fade-in"[31m
+        [33mid[31m=[32m"dash-peers"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.08s;"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-heading"[31m
+        [36m>[31m
+          [36m<h3>[31m
+            [0mMarket Context[0m
+          [36m</h3>[31m
+        [36m</div>[31m
+        [36m<p[31m
+          [33mclass[31m=[32m"muted dash-section-note"[31m
+        [36m>[31m
+          [0mSector · Information Technology[0m
+          [0m · 3 of 3 companies hold stored prices.[0m
+        [36m</p>[31m
+        [36m<table[31m
+          [33mclass[31m=[32m"data-table peer-table"[31m
+        [36m>[31m
+          [36m<thead>[31m
+            [36m<tr>[31m
+              [36m<th>[31m
+                [0mPeer[0m
+              [36m</th>[31m
+              [36m<th[31m
+                [33mclass[31m=[32m"num"[31m
+              [36m>[31m
+                [0mPrice[0m
+              [36m</th>[31m
+              [36m<th[31m
+                [33mclass[31m=[32m"num"[31m
+              [36m>[31m
+                [0mDay change[0m
+              [36m</th>[31m
+              [36m<th[31m
+                [33mclass[31m=[32m"num"[31m
+              [36m>[31m
+                [0mStored days[0m
+              [36m</th>[31m
+              [36m<th>[31m
+                [0mStatus[0m
+              [36m</th>[31m
+            [36m</tr>[31m
+          [36m</thead>[31m
+          [36m<tbody>[31m
+            [36m<tr[31m
+              [33mclass[31m=[32m"peer-self"[31m
+            [36m>[31m
+              [36m<td>[31m
+                [36m<button[31m
+                  [33mclass[31m=[32m"peer-link"[31m
+                  [33mdisabled[31m=[32m""[31m
+                  [33mtitle[31m=[32m"This company"[31m
+                [36m>[31m
+                  [0mTCS[0m
+                [36m</button>[31m
+                [0m [0m
+                [36m<span[31m
+                  [33mclass[31m=[32m"muted"[31m
+                [36m>[31m
+                  [0mTata Consultancy Services[0m
+                [36m</span>[31m
+              [36m</td>[31m
+              [36m<td[31m
+                [33mclass[31m=[32m"num"[31m
+              [36m>[31m
+                [0m₹2,339.00[0m
+              [36m</td>[31m
+              [36m<td[31m
+                [33mclass[31m=[32m"num delta-up"[31m
+              [36m>[31m
+                [0m+0.04%[0m
+              [36m</td>[31m
+              [36m<td[31m
+                [33mclass[31m=[32m"num"[31m
+              [36m>[31m
+                [0m40[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [36m<span[31m
+                  [33mclass[31m=[32m"badge badge-status-cached"[31m
+                [36m>[31m
+                  [0mCACHED[0m
+                [36m</span>[31m
+              [36m</td>[31m
+            [36m</tr>[31m
+            [36m<tr>[31m
+              [36m<td>[31m
+                [36m<button[31m
+                  [33mclass[31m=[32m"peer-link"[31m
+                  [33mtitle[31m=[32m"Switch to INFY"[31m
+                [36m>[31m
+                  [0mINFY[0m
+                [36m</button>[31m
+                [0m [0m
+                [36m<span[31m
+                  [33mclass[31m=[32m"muted"[31m
+                [36m>[31m
+                  [0mInfosys[0m
+                [36m</span>[31m
+              [36m</td>[31m
+              [36m<td[31m
+                [33mclass[31m=[32m"num"[31m
+              [36m>[31m
+                [0m₹1,739.00[0m
+              [36m</td>[31m
+              [36m<td[31m
+                [33mclass[31m=[32m"num delta-up"[31m
+              [36m>[31m
+                [0m+0.06%[0m
+              [36m</td>[31m
+              [36m<td[31m
+                [33mclass[31m=[32m"num"[31m
+              [36m>[31m
+                [0m40[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [36m<span[31m
+                  [33mclass[31m=[32m"badge badge-status-cached"[31m
+                [36m>[31m
+                  [0mCACHED[0m
+                [36m</span>[31m
+              [36m</td>[31m
+            [36m</tr>[31m
+          [36m</tbody>[31m
+        [36m</table>[31m
+      [36m</section>[31m
+      [36m<section[31m
+        [33maria-label[31m=[32m"Key takeaway"[31m
+        [33mclass[31m=[32m"card takeaway fade-in"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.14s;"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33maria-hidden[31m=[32m"true"[31m
+          [33mclass[31m=[32m"takeaway-icon"[31m
+        [36m>[31m
+          [0m◉[0m
+        [36m</div>[31m
+        [36m<div>[31m
+          [36m<h3>[31m
+            [0mKey Takeaway[0m
+          [36m</h3>[31m
+          [36m<p>[31m
+            [36m<strong>[31m
+              [0mAll three analyst views are stored for Tata Consultancy Services (TCS); 3 lean positive.[0m
+            [36m</strong>[31m
+          [36m</p>[31m
+          [36m<ul[31m
+            [33mclass[31m=[32m"takeaway-lines"[31m
+          [36m>[31m
+            [36m<li[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mFirm Analyst: buy at 59/100, confidence 6% (DEGRADED).[0m
+            [36m</li>[31m
+            [36m<li[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mIndustry Analyst: buy at 64/100, confidence 56% (OK).[0m
+            [36m</li>[31m
+            [36m<li[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mSentiment Analyst: buy at 57/100, confidence 79% (OK).[0m
+            [36m</li>[31m
+            [36m<li[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mCoverage is partial — DEGRADED or missing views rest on thin evidence. See the limitations on each analyst page before acting on this summary.[0m
+            [36m</li>[31m
+          [36m</ul>[31m
+        [36m</div>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"btn"[31m
+        [36m>[31m
+          [0mView Full Summary →[0m
+        [36m</button>[31m
+      [36m</section>[31m
+      [36m<p[31m
+        [33mclass[31m=[32m"muted evidence-strip"[31m
+      [36m>[31m
+        [0mData behind this view:[0m
+        [0m [0m
+        [0mCACHED · latest 2026-08-28 · 40 stored trading days[0m
+        [0m · [0m
+        [0m1 stored articles[0m
+        [0m · [0m
+        [0m2[0m
+        [0m ingested official filings[0m
+      [36m</p>[31m
+    [36m</section>[31m
+  [36m</div>[31m
+[36m</body>[31m[39m
+[31m   [31m×[31m DashboardPage terminal[2m > [22mrenders RELIANCE with its own data and an honest partial takeaway[90m 180[2mms[22m[31m[39m
+[31m     → Unable to find an element with the text: Reliance announces new energy push. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[31m
+  [36m<div>[31m
+    [36m<section[31m
+      [33mclass[31m=[32m"page dashboard"[31m
+    [36m>[31m
+      [36m<header[31m
+        [33mclass[31m=[32m"card dash-head fade-in"[31m
+        [33mid[31m=[32m"dash-overview"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-identity"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"term-symbol"[31m
+          [36m>[31m
+            [0mRELIANCE[0m
+          [36m</div>[31m
+          [36m<div>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"term-name"[31m
+            [36m>[31m
+              [0mReliance Industries[0m
+            [36m</div>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"term-chips"[31m
+            [36m>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip"[31m
+              [36m>[31m
+                [0mRELIANCE.NS[0m
+              [36m</span>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip chip-sector"[31m
+              [36m>[31m
+                [0mEnergy[0m
+              [36m</span>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip"[31m
+              [36m>[31m
+                [0mIntegrated Oil & Gas[0m
+              [36m</span>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip"[31m
+              [36m>[31m
+                [0mNSE[0m
+              [36m</span>[31m
+            [36m</div>[31m
+          [36m</div>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-pricecol"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"term-price"[31m
+          [36m>[31m
+            [0m₹0.02[0m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"term-change delta-up"[31m
+          [36m>[31m
+            [0m+0.00 (+0.07%)[0m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"muted term-asof"[31m
+          [36m>[31m
+            [0mAs of 2026-08-28[0m
+            [0m · [0m
+            [0m40[0m
+            [0m stored days[0m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"muted term-prevclose"[31m
+          [36m>[31m
+            [0mPrev close [0m
+            [0m₹1,438.00[0m
+          [36m</div>[31m
+        [36m</div>[31m
+        [36m<dl[31m
+          [33mclass[31m=[32m"dash-session"[31m
+        [36m>[31m
+          [36m<div>[31m
+            [36m<dt[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mDay High[0m
+            [36m</dt>[31m
+            [36m<dd>[31m
+              [0m₹1,444.00[0m
+            [36m</dd>[31m
+          [36m</div>[31m
+          [36m<div>[31m
+            [36m<dt[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mDay Low[0m
+            [36m</dt>[31m
+            [36m<dd>[31m
+              [0m₹1,434.00[0m
+            [36m</dd>[31m
+          [36m</div>[31m
+          [36m<div>[31m
+            [36m<dt[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mVolume[0m
+            [36m</dt>[31m
+            [36m<dd>[31m
+              [0m1,390[0m
+            [36m</dd>[31m
+          [36m</div>[31m
+          [36m<div>[31m
+            [36m<dt[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0m52w High[0m
+            [36m</dt>[31m
+            [36m<dd>[31m
+              [0mN/A[0m
+            [36m</dd>[31m
+          [36m</div>[31m
+          [36m<div>[31m
+            [36m<dt[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0m52w Low[0m
+            [36m</dt>[31m
+            [36m<dd>[31m
+              [0mN/A[0m
+            [36m</dd>[31m
+          [36m</div>[31m
+        [36m</dl>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"btn btn-primary btn-analyze"[31m
+        [36m>[31m
+          [0m▶ Analyze Company[0m
+        [36m</button>[31m
+      [36m</header>[31m
+      [36m<nav[31m
+        [33maria-label[31m=[32m"Dashboard sections"[31m
+        [33mclass[31m=[32m"dash-tabs fade-in"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.04s;"[31m
+      [36m>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"tab-btn"[31m
+        [36m>[31m
+          [0mOverview[0m
+        [36m</button>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"tab-btn"[31m
+        [36m>[31m
+          [0mPrice Chart[0m
+        [36m</button>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"tab-btn"[31m
+        [36m>[31m
+          [0mIntelligence[0m
+        [36m</button>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"tab-btn"[31m
+        [36m>[31m
+          [0mNews[0m
+        [36m</button>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"tab-btn"[31m
+        [36m>[31m
+          [0mPeers[0m
+        [36m</button>[31m
+      [36m</nav>[31m
+      [36m<section[31m
+        [33maria-label[31m=[32m"Price performance"[31m
+        [33mclass[31m=[32m"card chart-card fade-in"[31m
+        [33mid[31m=[32m"dash-price"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.06s;"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"chart-head"[31m
+        [36m>[31m
+          [36m<h3>[31m
+            [0mPrice Performance[0m
+          [36m</h3>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33maria-label[31m=[32m"Chart range"[31m
+          [33mclass[31m=[32m"range-bar"[31m
+          [33mrole[31m=[32m"group"[31m
+        [36m>[31m
+          [36m<button[31m
+            [33mclass[31m=[32m"range-btn"[31m
+          [36m>[31m
+            [0m1M[0m
+          [36m</button>[31m
+          [36m<button[31m
+            [33mclass[31m=[32m"range-btn"[31m
+            [33mdisabled[31m=[32m""[31m
+          [36m>[31m
+            [0m3M[0m
+          [36m</button>[31m
+          [36m<button[31m
+            [33mclass[31m=[32m"range-btn"[31m
+            [33mdisabled[31m=[32m""[31m
+          [36m>[31m
+            [0m6M[0m
+          [36m</button>[31m
+          [36m<button[31m
+            [33mclass[31m=[32m"range-btn"[31m
+            [33mdisabled[31m=[32m""[31m
+          [36m>[31m
+            [0m1Y[0m
+          [36m</button>[31m
+          [36m<button[31m
+            [33mclass[31m=[32m"range-btn active"[31m
+          [36m>[31m
+            [0mAll[0m
+          [36m</button>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"recharts-responsive-container"[31m
+          [33mstyle[31m=[32m"width: 100%; height: 340px; min-width: 0;"[31m
+        [36m>[31m
+          [36m<svg[31m
+            [33maria-label[31m=[32m"Price chart"[31m
+            [33mheight[31m=[32m"340"[31m
+            [33mrole[31m=[32m"img"[31m
+            [33mwidth[31m=[32m"0"[31m
+          [36m/>[31m
+        [36m</div>[31m
+        [36m<p[31m
+          [33mclass[31m=[32m"muted dash-chart-note"[31m
+        [36m>[31m
+          [0mDaily candles from stored OHLCV history[0m
+          [0m — showing [0m
+          [0m40[0m
+          [0m of[0m
+          [0m [0m
+          [0m40[0m
+          [0m trading days[0m
+          [0m [0m
+          [0m· stored high ₹[0m
+          [0m1,444.00[0m
+          [0m ([0m
+          [0m2026-07-12[0m
+          [0m) · stored low ₹[0m
+          [0m1,395.00[0m
+          [0m ([0m
+          [0m2026-07-01[0m
+          [0m)[0m
+        [36m</p>[31m
+      [36m</section>[31m
+      [36m<section[31m
+        [33maria-label[31m=[32m"Market context"[31m
+        [33mclass[31m=[32m"card fade-in"[31m
+        [33mid[31m=[32m"dash-peers"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.08s;"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-heading"[31m
+        [36m>[31m
+          [36m<h3>[31m
+            [0mMarket Context[0m
+          [36m</h3>[31m
+        [36m</div>[31m
+        [36m<p[31m
+          [33mclass[31m=[32m"muted dash-section-note"[31m
+        [36m>[31m
+          [0mSector · Energy[0m
+          [0m · 3 of 3 companies hold stored prices.[0m
+        [36m</p>[31m
+        [36m<table[31m
+          [33mclass[31m=[32m"data-table peer-table"[31m
+        [36m>[31m
+          [36m<thead>[31m
+            [36m<tr>[31m
+              [36m<th>[31m
+                [0mPeer[0m
+              [36m</th>[31m
+              [36m<th[31m
+                [33mclass[31m=[32m"num"[31m
+              [36m>[31m
+                [0mPrice[0m
+              [36m</th>[31m
+              [36m<th[31m
+                [33mclass[31m=[32m"num"[31m
+              [36m>[31m
+                [0mDay change[0m
+              [36m</th>[31m
+              [36m<th[31m
+                [33mclass[31m=[32m"num"[31m
+              [36m>[31m
+                [0mStored days[0m
+              [36m</th>[31m
+              [36m<th>[31m
+                [0mStatus[0m
+              [36m</th>[31m
+            [36m</tr>[31m
+          [36m</thead>[31m
+          [36m<tbody>[31m
+            [36m<tr[31m
+              [33mclass[31m=[32m"peer-self"[31m
+            [36m>[31m
+              [36m<td>[31m
+                [36m<button[31m
+                  [33mclass[31m=[32m"peer-link"[31m
+                  [33mdisabled[31m=[32m""[31m
+                  [33mtitle[31m=[32m"This company"[31m
+                [36m>[31m
+                  [0mRELIANCE[0m
+                [36m</button>[31m
+                [0m [0m
+                [36m<span[31m
+                  [33mclass[31m=[32m"muted"[31m
+                [36m>[31m
+                  [0mReliance Industries[0m
+                [36m</span>[31m
+              [36m</td>[31m
+              [36m<td[31m
+                [33mclass[31m=[32m"num"[31m
+              [36m>[31m
+                [0m₹1,439.00[0m
+              [36m</td>[31m
+              [36m<td[31m
+                [33mclass[31m=[32m"num delta-up"[31m
+              [36m>[31m
+                [0m+0.07%[0m
+              [36m</td>[31m
+              [36m<td[31m
+                [33mclass[31m=[32m"num"[31m
+              [36m>[31m
+                [0m40[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [36m<span[31m
+                  [33mclass[31m=[32m"badge badge-status-cached"[31m
+                [36m>[31m
+                  [0mCACHED[0m
+                [36m</span>[31m
+              [36m</td>[31m
+            [36m</tr>[31m
+          [36m</tbody>[31m
+        [36m</table>[31m
+      [36m</section>[31m
+      [36m<section[31m
+        [33maria-label[31m=[32m"Key takeaway"[31m
+        [33mclass[31m=[32m"card takeaway fade-in"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.14s;"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33maria-hidden[31m=[32m"true"[31m
+          [33mclass[31m=[32m"takeaway-icon"[31m
+        [36m>[31m
+          [0m◉[0m
+        [36m</div>[31m
+        [36m<div>[31m
+          [36m<h3>[31m
+            [0mKey Takeaway[0m
+          [36m</h3>[31m
+          [36m<p>[31m
+            [36m<strong>[31m
+              [0mAll three analyst views are stored for Reliance Industries (RELIANCE); 2 lean positive.[0m
+            [36m</strong>[31m
+          [36m</p>[31m
+          [36m<ul[31m
+            [33mclass[31m=[32m"takeaway-lines"[31m
+          [36m>[31m
+            [36m<li[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mFirm Analyst: buy at 56/100, confidence 6% (DEGRADED).[0m
+            [36m</li>[31m
+            [36m<li[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mIndustry Analyst: unavailable at unavailable, confidence 0% (UNAVAILABLE).[0m
+            [36m</li>[31m
+            [36m<li[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mSentiment Analyst: buy at 70/100, confidence 71% (OK).[0m
+            [36m</li>[31m
+            [36m<li[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mCoverage is partial — DEGRADED or missing views rest on thin evidence. See the limitations on each analyst page before acting on this summary.[0m
+            [36m</li>[31m
+          [36m</ul>[31m
+        [36m</div>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"btn"[31m
+        [36m>[31m
+          [0mView Full Summary →[0m
+        [36m</button>[31m
+      [36m</section>[31m
+      [36m<p[31m
+        [33mclass[31m=[32m"muted evidence-strip"[31m
+      [36m>[31m
+        [0mData behind this view:[0m
+        [0m [0m
+        [0mCACHED · latest 2026-08-28 · 40 stored trading days[0m
+        [0m · [0m
+        [0m1 stored articles[0m
+        [0m · [0m
+        [0m2[0m
+        [0m ingested official filings[0m
+      [36m</p>[31m
+    [36m</section>[31m
+  [36m</div>[31m
+[36m</body>[31m[39m
+[31m   [31m×[31m DashboardPage terminal[2m > [22mswitching companies in the search reloads the terminal with that company[33m 840[2mms[22m[31m[39m
+[31m     → Unable to find an element with the text: Infosys wins large deal. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[31m
+  [36m<div>[31m
+    [36m<div[31m
+      [33mclass[31m=[32m"company-search"[31m
+    [36m>[31m
+      [36m<label[31m
+        [33mclass[31m=[32m"muted"[31m
+        [33mfor[31m=[32m"company-search"[31m
+      [36m>[31m
+        [0mCompany[0m
+      [36m</label>[31m
+      [36m<div[31m
+        [33mclass[31m=[32m"search-wrap"[31m
+      [36m>[31m
+        [36m<svg[31m
+          [33maria-hidden[31m=[32m"true"[31m
+          [33mclass[31m=[32m"search-icon"[31m
+          [33mheight[31m=[32m"14"[31m
+          [33mviewBox[31m=[32m"0 0 16 16"[31m
+          [33mwidth[31m=[32m"14"[31m
+        [36m>[31m
+          [36m<circle[31m
+            [33mcx[31m=[32m"7"[31m
+            [33mcy[31m=[32m"7"[31m
+            [33mfill[31m=[32m"none"[31m
+            [33mr[31m=[32m"5"[31m
+            [33mstroke[31m=[32m"currentColor"[31m
+            [33mstroke-width[31m=[32m"1.6"[31m
+          [36m/>[31m
+          [36m<line[31m
+            [33mstroke[31m=[32m"currentColor"[31m
+            [33mstroke-width[31m=[32m"1.6"[31m
+            [33mx1[31m=[32m"11"[31m
+            [33mx2[31m=[32m"14.5"[31m
+            [33my1[31m=[32m"11"[31m
+            [33my2[31m=[32m"14.5"[31m
+          [36m/>[31m
+        [36m</svg>[31m
+        [36m<input[31m
+          [33maria-autocomplete[31m=[32m"list"[31m
+          [33maria-controls[31m=[32m":r0:"[31m
+          [33maria-expanded[31m=[32m"false"[31m
+          [33mclass[31m=[32m"search-input"[31m
+          [33mid[31m=[32m"company-search"[31m
+          [33mplaceholder[31m=[32m"Search company (e.g. TCS, RELIANCE, INFY…)"[31m
+          [33mrole[31m=[32m"combobox"[31m
+          [33mvalue[31m=[32m"INFY"[31m
+        [36m/>[31m
+      [36m</div>[31m
+    [36m</div>[31m
+    [36m<section[31m
+      [33mclass[31m=[32m"page dashboard"[31m
+    [36m>[31m
+      [36m<header[31m
+        [33mclass[31m=[32m"card dash-head fade-in"[31m
+        [33mid[31m=[32m"dash-overview"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-identity"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"term-symbol"[31m
+          [36m>[31m
+            [0mINFY[0m
+          [36m</div>[31m
+          [36m<div>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"term-name"[31m
+            [36m>[31m
+              [0mInfosys[0m
+            [36m</div>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"term-chips"[31m
+            [36m>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip"[31m
+              [36m>[31m
+                [0mINFY.NS[0m
+              [36m</span>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip chip-sector"[31m
+              [36m>[31m
+                [0mInformation Technology[0m
+              [36m</span>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip"[31m
+              [36m>[31m
+                [0mIT Services & Consulting[0m
+              [36m</span>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip"[31m
+              [36m>[31m
+                [0mNSE[0m
+              [36m</span>[31m
+            [36m</div>[31m
+          [36m</div>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-pricecol"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"term-price"[31m
+          [36m>[31m
+            [0m₹1,739.00[0m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"term-change delta-up"[31m
+          [36m>[31m
+            [0m+1.00 (+0.06%)[0m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"muted term-asof"[31m
+          [36m>[31m
+            [0mAs of 2026-08-28[0m
+            [0m · [0m
+            [0m40[0m
+            [0m stored days[0m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"muted term-prevclose"[31m
+          [36m>[31m
+            [0mPrev close [0m
+            [0m₹1,738.00[0m
+          [36m</div>[31m
+        [36m</div>[31m
+        [36m<dl[31m
+          [33mclass[31m=[32m"dash-session"[31m
+        [36m>[31m
+          [36m<div>[31m
+            [36m<dt[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mDay High[0m
+            [36m</dt>[31m
+            [36m<dd>[31m
+              [0m₹1,744.00[0m
+            [36m</dd>[31m
+          [36m</div>[31m
+          [36m<div>[31m
+            [36m<dt[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mDay Low[0m
+            [36m</dt>[31m
+            [36m<dd>[31m
+              [0m₹1,734.00[0m
+            [36m</dd>[31m
+          [36m</div>[31m
+          [36m<div>[31m
+            [36m<dt[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mVolume[0m
+            [36m</dt>[31m
+            [36m<dd>[31m
+              [0m1,390[0m
+            [36m</dd>[31m
+          [36m</div>[31m
+          [36m<div>[31m
+            [36m<dt[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0m52w High[0m
+            [36m</dt>[31m
+            [36m<dd>[31m
+              [0mN/A[0m
+            [36m</dd>[31m
+          [36m</div>[31m
+          [36m<div>[31m
+            [36m<dt[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0m52w Low[0m
+            [36m</dt>[31m
+            [36m<dd>[31m
+              [0mN/A[0m
+            [36m</dd>[31m
+          [36m</div>[31m
+        [36m</dl>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"btn btn-primary btn-analyze"[31m
+        [36m>[31m
+          [0m▶ Analyze Company[0m
+        [36m</button>[31m
+      [36m</header>[31m
+      [36m<nav[31m
+        [33maria-label[31m=[32m"Dashboard sections"[31m
+        [33mclass[31m=[32m"dash-tabs fade-in"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.04s;"[31m
+      [36m>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"tab-btn"[31m
+        [36m>[31m
+          [0mOverview[0m
+        [36m</button>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"tab-btn"[31m
+        [36m>[31m
+          [0mPrice Chart[0m
+        [36m</button>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"tab-btn"[31m
+        [36m>[31m
+          [0mIntelligence[0m
+        [36m</button>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"tab-btn"[31m
+        [36m>[31m
+          [0mNews[0m
+        [36m</button>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"tab-btn"[31m
+        [36m>[31m
+          [0mPeers[0m
+        [36m</button>[31m
+      [36m</nav>[31m
+      [36m<section[31m
+        [33maria-label[31m=[32m"Price performance"[31m
+        [33mclass[31m=[32m"card chart-card fade-in"[31m
+        [33mid[31m=[32m"dash-price"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.06s;"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"chart-head"[31m
+        [36m>[31m
+          [36m<h3>[31m
+            [0mPrice Performance[0m
+          [36m</h3>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33maria-label[31m=[32m"Chart range"[31m
+          [33mclass[31m=[32m"range-bar"[31m
+          [33mrole[31m=[32m"group"[31m
+        [36m>[31m
+          [36m<button[31m
+            [33mclass[31m=[32m"range-btn"[31m
+          [36m>[31m
+            [0m1M[0m
+          [36m</button>[31m
+          [36m<button[31m
+            [33mclass[31m=[32m"range-btn"[31m
+            [33mdisabled[31m=[32m""[31m
+          [36m>[31m
+            [0m3M[0m
+          [36m</button>[31m
+          [36m<button[31m
+            [33mclass[31m=[32m"range-btn"[31m
+            [33mdisabled[31m=[32m""[31m
+          [36m>[31m
+            [0m6M[0m
+          [36m</button>[31m
+          [36m<button[31m
+            [33mclass[31m=[32m"range-btn"[31m
+            [33mdisabled[31m=[32m""[31m
+          [36m>[31m
+            [0m1Y[0m
+          [36m</button>[31m
+          [36m<button[31m
+            [33mclass[31m=[32m"range-btn active"[31m
+          [36m>[31m
+            [0mAll[0m
+          [36m</button>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"recharts-responsive-container"[31m
+          [33mstyle[31m=[32m"width: 100%; height: 340px; min-width: 0;"[31m
+        [36m>[31m
+          [36m<svg[31m
+            [33maria-label[31m=[32m"Price chart"[31m
+            [33mheight[31m=[32m"340"[31m
+            [33mrole[31m=[32m"img"[31m
+            [33mwidth[31m=[32m"0"[31m
+          [36m/>[31m
+        [36m</div>[31m
+        [36m<p[31m
+          [33mclass[31m=[32m"muted dash-chart-note"[31m
+        [36m>[31m
+          [0mDaily candles from stored OHLCV history[0m
+          [0m — showing [0m
+          [0m40[0m
+          [0m of[0m
+          [0m [0m
+          [0m40[0m
+          [0m trading days[0m
+          [0m [0m
+          [0m· stored high ₹[0m
+          [0m1,744.00[0m
+          [0m ([0m
+          [0m2026-07-12[0m
+          [0m) · stored low ₹[0m
+          [0m1,695.00[0m
+          [0m ([0m
+          [0m2026-07-01[0m
+          [0m)[0m
+        [36m</p>[31m
+      [36m</section>[31m
+      [36m<section[31m
+        [33maria-label[31m=[32m"Market context"[31m
+        [33mclass[31m=[32m"card fade-in"[31m
+        [33mid[31m=[32m"dash-peers"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.08s;"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-heading"[31m
+        [36m>[31m
+          [36m<h3>[31m
+            [0mMarket Context[0m
+          [36m</h3>[31m
+        [36m</div>[31m
+        [36m<p[31m
+          [33mclass[31m=[32m"muted dash-section-note"[31m
+        [36m>[31m
+          [0mSector · Information Technology[0m
+          [0m · 3 of 3 companies hold stored prices.[0m
+        [36m</p>[31m
+        [36m<table[31m
+          [33mclass[31m=[32m"data-table peer-table"[31m
+        [36m>[31m
+          [36m<thead>[31m
+            [36m<tr>[31m
+              [36m<th>[31m
+                [0mPeer[0m
+              [36m</th>[31m
+              [36m<th[31m
+                [33mclass[31m=[32m"num"[31m
+              [36m>[31m
+                [0mPrice[0m
+              [36m</th>[31m
+              [36m<th[31m
+                [33mclass[31m=[32m"num"[31m
+              [36m>[31m
+                [0mDay change[0m
+              [36m</th>[31m
+              [36m<th[31m
+                [33mclass[31m=[32m"num"[31m
+              [36m>[31m
+                [0mStored days[0m
+              [36m</th>[31m
+              [36m<th>[31m
+                [0mStatus[0m
+              [36m</th>[31m
+            [36m</tr>[31m
+          [36m</thead>[31m
+          [36m<tbody>[31m
+            [36m<tr>[31m
+              [36m<td>[31m
+                [36m<button[31m
+                  [33mclass[31m=[32m"peer-link"[31m
+                  [33mtitle[31m=[32m"Switch to TCS"[31m
+                [36m>[31m
+                  [0mTCS[0m
+                [36m</button>[31m
+                [0m [0m
+                [36m<span[31m
+                  [33mclass[31m=[32m"muted"[31m
+                [36m>[31m
+                  [0mTata Consultancy Services[0m
+                [36m</span>[31m
+              [36m</td>[31m
+              [36m<td[31m
+                [33mclass[31m=[32m"num"[31m
+              [36m>[31m
+                [0m₹2,339.00[0m
+              [36m</td>[31m
+              [36m<td[31m
+                [33mclass[31m=[32m"num delta-up"[31m
+              [36m>[31m
+                [0m+0.04%[0m
+              [36m</td>[31m
+              [36m<td[31m
+                [33mclass[31m=[32m"num"[31m
+              [36m>[31m
+                [0m40[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [36m<span[31m
+                  [33mclass[31m=[32m"badge badge-status-cached"[31m
+                [36m>[31m
+                  [0mCACHED[0m
+                [36m</span>[31m
+              [36m</td>[31m
+            [36m</tr>[31m
+            [36m<tr[31m
+              [33mclass[31m=[32m"peer-self"[31m
+            [36m>[31m
+              [36m<td>[31m
+                [36m<button[31m
+                  [33mclass[31m=[32m"peer-link"[31m
+                  [33mdisabled[31m=[32m""[31m
+                  [33mtitle[31m=[32m"This company"[31m
+                [36m>[31m
+                  [0mINFY[0m
+                [36m</button>[31m
+                [0m [0m
+                [36m<span[31m
+                  [33mclass[31m=[32m"muted"[31m
+                [36m>[31m
+                  [0mInfosys[0m
+                [36m</span>[31m
+              [36m</td>[31m
+              [36m<td[31m
+                [33mclass[31m=[32m"num"[31m
+              [36m>[31m
+                [0m₹1,739.00[0m
+              [36m</td>[31m
+              [36m<td[31m
+                [33mclass[31m=[32m"num delta-up"[31m
+              [36m>[31m
+                [0m+0.06%[0m
+              [36m</td>[31m
+              [36m<td[31m
+                [33mclass[31m=[32m"num"[31m
+              [36m>[31m
+                [0m40[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [36m<span[31m
+                  [33mclass[31m=[32m"badge badge-status-cached"[31m
+                [36m>[31m
+                  [0mCACHED[0m
+                [36m</span>[31m
+              [36m</td>[31m
+            [36m</tr>[31m
+          [36m</tbody>[31m
+        [36m</table>[31m
+      [36m</section>[31m
+      [36m<section[31m
+        [33maria-label[31m=[32m"Key takeaway"[31m
+        [33mclass[31m=[32m"card takeaway fade-in"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.14s;"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33maria-hidden[31m=[32m"true"[31m
+          [33mclass[31m=[32m"takeaway-icon"[31m
+        [36m>[31m
+          [0m◉[0m
+        [36m</div>[31m
+        [36m<div>[31m
+          [36m<h3>[31m
+            [0mKey Takeaway[0m
+          [36m</h3>[31m
+          [36m<p>[31m
+            [36m<strong>[31m
+              [0mNo analyst results stored for Infosys yet.[0m
+            [36m</strong>[31m
+          [36m</p>[31m
+          [36m<ul[31m
+            [33mclass[31m=[32m"takeaway-lines"[31m
+          [36m>[31m
+            [36m<li[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mRun the Firm, Industry and Sentiment analysts — their stored views will be summarized here.[0m
+            [36m</li>[31m
+          [36m</ul>[31m
+        [36m</div>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"btn"[31m
+        [36m>[31m
+          [0mView Full Summary →[0m
+        [36m</button>[31m
+      [36m</section>[31m
+      [36m<p[31m
+        [33mclass[31m=[32m"muted evidence-strip"[31m
+      [36m>[31m
+        [0mData behind this view:[0m
+        [0m [0m
+        [0mCACHED · latest 2026-08-28 · 40 stored trading days[0m
+        [0m · [0m
+        [0m1 stored articles[0m
+        [0m · [0m
+        [0m2[0m
+        [0m ingested official filings[0m
+      [36m</p>[31m
+    [36m</section>[31m
+  [36m</div>[31m
+[36m</body>[31m[39m
+ [32m✓[39m src/components/common/StatusBadge.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[90m 52[2mms[22m[39m
+ [32m✓[39m src/app/App.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 1835[2mms[22m[39m
+   [33m[2m✓[22m[39m App demo navigation[2m > [22mshows the eight demo destinations in the sidebar [33m351[2mms[22m[39m
+   [33m[2m✓[22m[39m App demo navigation[2m > [22mkeeps the selected company across Dashboard → analyst → Dashboard navigation [33m930[2mms[22m[39m
+ [32m✓[39m src/features/roadmap/RoadmapPage.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[90m 108[2mms[22m[39m
+ [32m✓[39m src/components/common/CandleChart.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[90m 81[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m13 passed[39m[22m[90m (14)[39m
+[2m      Tests [22m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m62 passed[39m[22m[90m (65)[39m
+[2m   Start at [22m 20:30:38
+[2m   Duration [22m 8.27s[2m (transform 1.53s, setup 4.36s, collect 12.01s, tests 7.80s, environment 30.95s, prepare 3.64s)[22m
+

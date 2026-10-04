@@ -10,7 +10,12 @@ from app.agents.portfolio.portfolio_agent import PortfolioAgent
 from app.agents.sentiment.sentiment_agent import SentimentAgent
 from app.core.exceptions import NotFoundError
 from app.core.logging import get_logger
-from app.data.universe.universe_config import get_sector_peers, get_universe_entry
+from app.data.universe.universe_config import (
+    build_dynamic_entry,
+    get_sector_peers,
+    get_universe_entry,
+    register_dynamic_entry,
+)
 from app.domain.models.agent_output import AgentId, AgentOutput
 from app.domain.models.macro import MacroOutput
 from app.domain.models.portfolio import PortfolioView
@@ -93,6 +98,28 @@ class AgentService:
                 pass  # provider hiccup: fall through to the registry lookup
         return get_universe_entry(symbol).symbol
 
+    def _resolve_entry_for_run(self, symbol: str):
+        """Resolve the entry context for an agent run.
+
+        The market service resolves renamed/demerged listings (ZOMATO ->
+        ETERNAL); when that resolution has not been registered as a universe
+        entry (e.g. a persistence failure was swallowed), the resolved
+        symbol is registered here so the run proceeds under the canonical
+        symbol instead of 404ing. Truly unknown symbols still raise
+        NotFoundError (honest 404). Registration only — scoring logic is
+        untouched.
+        """
+        canonical = self._canonical_symbol(symbol)
+        try:
+            return get_universe_entry(canonical)
+        except NotFoundError:
+            entry = build_dynamic_entry(symbol=canonical, name=canonical)
+            register_dynamic_entry(entry)
+            logger.info(
+                "Agent run registered resolved symbol %s (was unregistered)", canonical
+            )
+            return entry
+
     def run_agent(
         self, agent_id: str, symbol: str, *, persist: bool = True
     ) -> AgentOutput | MacroOutput | PortfolioView:
@@ -105,7 +132,7 @@ class AgentService:
         Agent synthesizes the latest stored analyst outputs without
         re-running any analyst.
         """
-        entry = get_universe_entry(self._canonical_symbol(symbol))  # validate symbol
+        entry = self._resolve_entry_for_run(symbol)  # validate + register
         agent_id = AGENT_ALIASES.get(agent_id.lower(), agent_id.lower())
         if agent_id == AgentId.FIRM_ANALYST.value:
             return self._firm_agent.run(entry.symbol, persist=persist)

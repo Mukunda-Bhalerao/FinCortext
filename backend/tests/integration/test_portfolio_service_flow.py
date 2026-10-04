@@ -200,7 +200,11 @@ def test_run_portfolio_does_not_rerun_analysts(stack):
     service, _, _ = stack
     _run_all_analysts(service, "TCS")
     before = service.list_outputs(None, "TCS", limit=100)
-    assert len(before) == 4
+    # The three company analysts persist to the shared agent_outputs table;
+    # the Macro Analyst persists to its separate macro_outputs contract
+    # (market-wide, entity_id=MACRO_INDIA — never a company row).
+    assert len(before) == 3
+    assert service.macro_repo.latest_output() is not None
     view = service.run_portfolio("TCS", persist=True)
     after = service.list_outputs(None, "TCS", limit=100)
     assert len(after) == len(before)

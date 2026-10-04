@@ -1,15 +1,20 @@
 """Fundamentals service: provider → normalize → validate → storage → provenance.
 
-Orchestration layer for provider-supplied fundamentals (Yahoo Finance annual
-statements + snapshot ratios). This is the FALLBACK/ENRICHMENT path — ingested
-official filings remain the primary source of truth, and every observation
-built here is labeled source_type=yfinance with an explicit source_name so the
+Orchestration layer for provider-supplied fundamentals (annual statements +
+snapshot ratios). This is the FALLBACK/ENRICHMENT path — ingested official
+filings remain the primary source of truth, and every observation built here
+is labeled with the provider's own name and a `provider` source type so the
 two are never confused downstream.
 
+No provider is wired in production after the Upstox consolidation: refreshes
+raise ProviderUnavailableError and the preparation flow degrades to stored
+observations (pre-consolidation imports relabeled `legacy_import`). Official
+filings are unaffected.
+
 Point-in-time honesty: annual statement values carry real fiscal period_end
-dates; snapshot ratios (P/E, ROE from the quote) have no statement period, so
-their available_at falls back to ingestion time. The refresh result states
-this limitation explicitly.
+dates; snapshot ratios (P/E, ROE) have no statement period, so their
+available_at falls back to ingestion time. The refresh result states this
+limitation explicitly.
 
 Refresh replaces the previous provider snapshot for the symbol (scoped delete
 by source type) instead of accumulating duplicates. Official filing
@@ -21,20 +26,17 @@ from __future__ import annotations
 import hashlib
 from datetime import date, timedelta
 
-from app.core.exceptions import ProviderError
+from app.core.exceptions import ProviderError, ProviderUnavailableError
 from app.core.logging import get_logger
 from app.data.universe.universe_config import get_universe, get_universe_entry
 from app.data.validation.fundamentals_validation import validate_metrics
 from app.domain.contracts.providers import FundamentalDataProvider
-from app.domain.models.base import DataStatus
+from app.domain.models.base import DataStatus, DataSourceType
 from app.domain.models.financial import ConsolidationBasis, FinancialObservation, StatementType
 from app.repositories.financial_repository import FinancialRepository
 from app.repositories.provenance_repository import ProvenanceRepository
 
 logger = get_logger("services.fundamentals")
-
-SOURCE_NAME = "yfinance fundamentals (annual statements)"
-SNAPSHOT_SOURCE_NAME = "yfinance fundamentals (snapshot ratios)"
 
 ANNUAL_METRICS = ("total_revenue", "net_income", "total_assets", "total_equity", "total_debt")
 SNAPSHOT_METRICS = ("pe_ratio", "roe")
@@ -44,11 +46,17 @@ SNAPSHOT_LIMITATION = (
     "available_at = ingestion time. Do not use them for historical evaluation."
 )
 
+NO_PROVIDER_MESSAGE = (
+    "No fundamentals provider is configured — provider refresh unavailable. "
+    "Ingested official filings remain the primary source; stored "
+    "pre-consolidation observations (legacy import) remain usable."
+)
+
 
 class FundamentalsService:
     def __init__(
         self,
-        provider: FundamentalDataProvider,
+        provider: FundamentalDataProvider | None,
         financial_repo: FinancialRepository,
         provenance_repo: ProvenanceRepository,
     ):
@@ -59,8 +67,14 @@ class FundamentalsService:
     # -- refresh ------------------------------------------------------------
 
     def refresh_symbol(self, symbol: str) -> dict:
-        """Fetch, validate, and store fundamentals for one universe symbol."""
+        """Fetch, validate, and store fundamentals for one universe symbol.
+
+        Raises ProviderUnavailableError when no provider is configured —
+        callers degrade honestly to stored observations.
+        """
         entry = get_universe_entry(symbol)
+        if self.provider is None:
+            raise ProviderUnavailableError(NO_PROVIDER_MESSAGE)
         bundle = self.provider.fetch_fundamentals(entry.symbol)
 
         content_hash = hashlib.sha256(
@@ -80,29 +94,29 @@ class FundamentalsService:
             for r in validated.rejected:
                 rejected.append({**r, "period_end": period_end.isoformat()})
             for metric, value in validated.valid.items():
-                statement = (
-                    StatementType.INCOME_STATEMENT
-                    if metric in ("total_revenue", "net_income")
-                    else StatementType.BALANCE_SHEET
-                )
-                observations.append(
-                    FinancialObservation(
-                        entity_id=entry.symbol,
-                        metric=metric,
-                        value=value,
-                        unit="INR",
-                        currency=bundle.get("currency", "INR"),
-                        period_start=period_end - timedelta(days=365),
-                        period_end=period_end,
-                        statement_type=statement,
-                        consolidation_basis=ConsolidationBasis.UNKNOWN,
-                        fiscal_year=str(period_end.year),
-                        source_type="yfinance",
-                        source_name=SOURCE_NAME,
-                        source_reference=bundle.get("ticker"),
-                        content_hash=content_hash,
+                    statement = (
+                        StatementType.INCOME_STATEMENT
+                        if metric in ("total_revenue", "net_income")
+                        else StatementType.BALANCE_SHEET
                     )
-                )
+                    observations.append(
+                        FinancialObservation(
+                            entity_id=entry.symbol,
+                            metric=metric,
+                            value=value,
+                            unit="INR",
+                            currency=bundle.get("currency", "INR"),
+                            period_start=period_end - timedelta(days=365),
+                            period_end=period_end,
+                            statement_type=statement,
+                            consolidation_basis=ConsolidationBasis.UNKNOWN,
+                            fiscal_year=str(period_end.year),
+                            source_type=DataSourceType.PROVIDER,
+                            source_name=f"{self.provider.name} (annual statements)",
+                            source_reference=bundle.get("ticker"),
+                            content_hash=content_hash,
+                        )
+                    )
 
         snapshot = bundle.get("snapshot", {}) or {}
         snap_validated = validate_metrics({m: snapshot.get(m) for m in SNAPSHOT_METRICS})
@@ -120,15 +134,17 @@ class FundamentalsService:
                     period_end=None,
                     statement_type=StatementType.OTHER,
                     consolidation_basis=ConsolidationBasis.UNKNOWN,
-                    source_type="yfinance",
-                    source_name=SNAPSHOT_SOURCE_NAME,
+                    source_type=DataSourceType.PROVIDER,
+                    source_name=f"{self.provider.name} (snapshot ratios)",
                     source_reference=bundle.get("ticker"),
                     content_hash=content_hash,
                 )
             )
 
         # Replace the previous provider snapshot (scoped by source type).
-        replaced = self.financial_repo.delete_observations(entry.symbol, "yfinance")
+        replaced = self.financial_repo.delete_observations(
+            entry.symbol, DataSourceType.PROVIDER.value
+        )
         saved = self.financial_repo.save_observations(observations) if observations else 0
         metrics = sorted({o.metric for o in observations})
 
@@ -136,7 +152,7 @@ class FundamentalsService:
             "fundamentals_refresh",
             entity_id=entry.symbol,
             source_type=self.provider.name,
-            source_name=SOURCE_NAME,
+            source_name=f"{self.provider.name} (annual statements)",
             rows_ingested=saved,
             rows_rejected=len(rejected),
             detail=f"metrics={metrics}; replaced={replaced}; warnings={len(warnings)}",
@@ -208,7 +224,7 @@ class FundamentalsService:
                 "available_at": obs.available_at.isoformat() if obs.available_at else None,
             }
         official = any(m["source_type"] == "official_filing" for m in metrics.values())
-        provider = any(m["source_type"] == "yfinance" for m in metrics.values())
+        provider = any(m["source_type"] in ("provider", "legacy_import") for m in metrics.values())
         return {
             "symbol": entry.symbol,
             "name": entry.name,

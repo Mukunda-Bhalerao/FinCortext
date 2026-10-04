@@ -1,7 +1,7 @@
 """Provider interfaces — the replaceable data-source contracts.
 
 Every external data source is accessed ONLY through these interfaces.
-Adapters (yfinance, NewsAPI, future licensed feeds) implement them and
+Adapters (Upstox, NewsAPI, future licensed feeds) implement them and
 translate provider payloads into canonical domain models at the boundary.
 Agents never see provider payloads.
 """

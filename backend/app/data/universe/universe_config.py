@@ -249,8 +249,9 @@ def build_dynamic_entry(
         symbol=sym,
         name=(name or sym).strip() or sym,
         exchange=(exchange or "NSE").strip().upper(),
-        # yfinance-compatible ticker so the yfinance fallback/research path
-        # keeps working for dynamic symbols; Upstox calls use instrument_key.
+        # Provider-style ticker so legacy key-repair paths (rows stored under
+        # provider tickers) keep working; not a data source — Upstox calls
+        # use instrument_key.
         ticker=f"{sym}.NS",
         sector=sector or "Unknown",
         industry=industry or "Unknown",

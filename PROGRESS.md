@@ -3,6 +3,12 @@
 This document is the **continuation contract** for any coding agent working on
 FinCortext. It is updated after every milestone.
 
+**NOTE (2026-10):** milestone entries below describe history as it happened.
+The market-data consolidation (see `docs/restructure-inventory.md`) later made
+Upstox the ONLY market provider and removed the pre-consolidation
+fundamentals/market provider adapters — earlier milestone text naming those
+adapters is historical record, not current architecture.
+
 ---
 
 ## COMPLETED
@@ -517,16 +523,20 @@ FinBERT-scored relevant articles — no Gemini, no paid API, no invented data.
 
 ## CURRENT STATE
 
-- Backend: 325 tests passing. Market pipeline, filing ingestion, provider
-fundamentals (labeled fallback), macro indicators (curated official +
-market gauges) with environment score, Firm Analyst, Industry Analyst, Macro
+- Backend: 319 tests passing. Market pipeline (Upstox-only), filing ingestion,
+macro indicators (curated official + Upstox gauge candles) with environment
+score, Firm Analyst, Industry Analyst, Macro
 Analyst, Portfolio synthesis, and News+Sentiment all working offline
 (fixtures/fakes; live providers network-optional). Sentiment relevance is
 a deterministic identity+financial-context screen with auditable
 stored/relevant/rejected counts (see Milestone 13).
-- Upstox Analytics is the primary market provider (`LIVE_MARKET_PROVIDER=upstox`);
-  yfinance remains as honest fallback. Central company preparation warms every
-  repository analysts read; dynamic equities resolve without static-universe edits.
+- Upstox is the ONLY market provider (quotes + historical candles + India VIX
+  gauge candles, verified live); there is no fallback provider — failures
+  degrade honestly to stored snapshots / explicit statuses. Pre-consolidation
+  imports remain usable as `legacy_import` rows. Central company preparation
+  warms every repository analysts read; dynamic equities resolve without
+  static-universe edits. No fundamentals provider is wired: refreshes report
+  UNAVAILABLE honestly and stored pre-consolidation observations remain usable.
 - Gemini web research enriches unknown metadata, suggests peers (Upstox-validated),
   and digests news gaps — evidence-only, confidence-gated, honestly degraded
   when unconfigured or quota-exhausted.
@@ -551,10 +561,10 @@ overall score).
 
 ## TEST STATUS
 
-- `cd backend && python -m pytest` — **325 passed** (incl. 18 SDK-mocked Gemini
+- `cd backend && python -m pytest` — **319 passed** (incl. 18 SDK-mocked Gemini
   provider tests with the BBL research task, research-backed preparation
   scenarios, sync skip/retry tests, DuckDB concurrency test, 19 Google News
-  RSS tests, 12 industry-classifier tests, 10 auto-alias tests, NHPC
+  RSS tests, 11 industry-classifier tests, 10 auto-alias tests, NHPC
   end-to-end prepare→industry+sentiment)
 - Frontend `npm test` — **61 passed** (sidebar nav incl. portfolio synthesis,
   macro page/summary/dashboard-strip, company search/switching, takeaway
@@ -570,7 +580,7 @@ overall score).
 
 ## KNOWN LIMITATIONS
 
-- Live yfinance/NewsAPI untested in CI (network-dependent; adapters covered
+- Live NewsAPI untested in CI (network-dependent; adapters covered
   by fakes/mocked HTTP).
 - `POST /api/market/refresh` is synchronous — 10 symbols take ~10-30s live.
 - PDF parsing is explicitly a limited fallback (documented in results).

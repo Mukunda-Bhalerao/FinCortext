@@ -244,12 +244,12 @@ class CompanyPreparationService:
         """Resolve sector/industry: structured data first, Gemini research fallback.
 
         Order for ANY symbol: configured universe entry → official NSE Nifty
-        500 list → yfinance instrument metadata → Gemini research (only if
-        wired) → honestly Unknown. Returns (entry, area). A dynamically
-        selected company must not remain "Unknown" when structured sources
-        can classify it — research is applied only when usable (sector+
-        industry present, confidence threshold met), and the Upstox company
-        name is kept canonical (research never renames).
+        500 list → Gemini research (only if wired) → honestly Unknown.
+        Returns (entry, area). A dynamically selected company must not remain
+        "Unknown" when structured sources can classify it — research is
+        applied only when usable (sector+industry present, confidence
+        threshold met), and the Upstox company name is kept canonical
+        (research never renames).
         """
         try:
             entry = get_universe_entry(symbol)
@@ -262,8 +262,8 @@ class CompanyPreparationService:
                 "sector": entry.sector,
                 "industry": entry.industry,
             }
-        # Structured classification (no Gemini dependency): NSE Nifty 500
-        # list first, then yfinance instrument metadata.
+        # Structured classification (no Gemini dependency): the official NSE
+        # Nifty 500 industry list.
         structured = self._classify_structured(entry)
         if structured is not None:
             return structured
@@ -321,7 +321,7 @@ class CompanyPreparationService:
         }
 
     def _classify_structured(self, entry):
-        """Apply NSE-CSV / yfinance classification to an Unknown entry.
+        """Apply the official NSE-CSV classification to an Unknown entry.
 
         Returns (updated_entry, area) on success, None to fall through to
         Gemini research. Structured sources need no quota and carry no

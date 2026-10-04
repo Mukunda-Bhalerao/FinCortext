@@ -11,9 +11,8 @@ Upstox API -> UpstoxMarketProvider -> MarketService/Repository -> DuckDB
 - Quotes are normalized with explicit ``None`` for genuinely missing fields
   (never 0 or fabricated values) so the frontend can render "N/A".
 - History normalizes V3 daily candles into canonical ``MarketPrice`` bars
-  with ``source_type=upstox``.
-- An optional yfinance fallback provider keeps research working when Upstox
-  fails; fallback bars are clearly marked ``source_type=yfinance``.
+  with ``source_type=upstox``. Upstox is the only market provider; failures
+  raise honestly (no fallback provider).
 - The access token is never logged, never included in errors, and never
   returned in payloads.
 """
@@ -23,7 +22,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
-from app.core.exceptions import ProviderError, ProviderUnavailableError
+from app.core.exceptions import ProviderError
 from app.core.logging import get_logger
 from app.data.providers.market.upstox_client import UpstoxHttpClient
 from app.domain.contracts.providers import MarketDataProvider
@@ -175,7 +174,6 @@ class UpstoxMarketProvider(MarketDataProvider):
         base_url: str = "https://api.upstox.com",
         timeout_seconds: int = 10,
         symbol_to_instrument: dict[str, str] | None = None,
-        fallback: MarketDataProvider | None = None,
         client: UpstoxHttpClient | None = None,
     ) -> None:
         self._client = client or UpstoxHttpClient(
@@ -187,7 +185,6 @@ class UpstoxMarketProvider(MarketDataProvider):
         }
         # instrument_key -> normalized search metadata.
         self._meta_cache: dict[str, dict] = {}
-        self._fallback = fallback
 
     @property
     def is_configured(self) -> bool:
@@ -327,33 +324,23 @@ class UpstoxMarketProvider(MarketDataProvider):
     def fetch_ohlcv(self, ticker: str, start: date, end: date) -> list[MarketPrice]:
         """Fetch daily OHLCV for a canonical symbol (or instrument key).
 
-        On Upstox failure the configured yfinance fallback is tried and its
-        bars (clearly marked yfinance) are returned; nothing is fabricated.
+        Failures raise ProviderError/ProviderUnavailableError honestly —
+        there is no fallback provider to substitute data.
         """
-        try:
-            if "|" in (ticker or ""):
-                # Direct key: canonical symbol unknown — resolve via quote meta
-                # when possible, else key the bars by the upper-cased hint.
-                key = ticker.strip()
-                hint = self._meta_cache.get(key, {}).get("symbol", "")
-                if not hint:
-                    try:
-                        q = self.fetch_quote_by_key(key)
-                        hint = q.get("symbol") or ""
-                        if hint:
-                            self._key_cache[hint] = key
-                    except Exception:
-                        hint = ""
-                canonical = (hint or key).upper()
-                return self.fetch_ohlcv_by_key(canonical, key, start, end)
-            canonical, key = self._resolve_key(ticker)
+        if "|" in (ticker or ""):
+            # Direct key: canonical symbol unknown — resolve via quote meta
+            # when possible, else key the bars by the upper-cased hint.
+            key = ticker.strip()
+            hint = self._meta_cache.get(key, {}).get("symbol", "")
+            if not hint:
+                try:
+                    q = self.fetch_quote_by_key(key)
+                    hint = q.get("symbol") or ""
+                    if hint:
+                        self._key_cache[hint] = key
+                except Exception:
+                    hint = ""
+            canonical = (hint or key).upper()
             return self.fetch_ohlcv_by_key(canonical, key, start, end)
-        except (ProviderError, ProviderUnavailableError) as exc:
-            if self._fallback is None:
-                raise
-            logger.warning(
-                "Upstox history failed for %s (%s); trying yfinance fallback",
-                ticker, type(exc).__name__,
-            )
-            # Fallback bars carry their own yfinance provenance.
-            return self._fallback.fetch_ohlcv(ticker, start, end)
+        canonical, key = self._resolve_key(ticker)
+        return self.fetch_ohlcv_by_key(canonical, key, start, end)

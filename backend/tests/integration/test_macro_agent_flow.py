@@ -70,7 +70,7 @@ def _seed_full(repo: MacroRepository):
         for i in range(70):
             repo.save_observations([
                 _obs(indicator_id, 100.0 + i * slopes[indicator_id],
-                     start + timedelta(days=i), source_name="yfinance market data",
+                     start + timedelta(days=i), source_name="legacy market data",
                      unit="x")
             ])
 

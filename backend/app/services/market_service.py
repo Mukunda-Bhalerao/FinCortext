@@ -3,11 +3,12 @@
 Orchestration layer used by API routes. Business logic lives here, not in
 route handlers.
 
-Upstox is the primary live provider when configured (LIVE_MARKET_PROVIDER=upstox):
-search resolves ANY valid NSE equity dynamically, quotes/history flow through
-the same validation/storage/provenance pipeline as yfinance, and analysts keep
-consuming the normalized repository layer unchanged. yfinance stays available
-as fallback/research provider; fallback bars are honestly marked yfinance.
+Upstox is the ONLY market provider (quotes + historical candles, verified
+live): search resolves ANY valid NSE equity dynamically, quotes/history flow
+through the same validation/storage/provenance pipeline, and analysts keep
+consuming the normalized repository layer unchanged. Failures degrade
+honestly to stored snapshots / explicit statuses — there is no fallback
+provider. Pre-consolidation imports remain usable as `legacy_import` rows.
 """
 
 from __future__ import annotations
@@ -226,8 +227,8 @@ class MarketService:
     def search_symbols(self, query: str, *, records: int = 20) -> dict:
         """Dynamic stock search: Upstox NSE equities when available.
 
-        Falls back to filtering the static universe when the provider has no
-        search capability (pure yfinance mode) so the endpoint never 500s.
+        Falls back to filtering the static universe when the wired provider
+        has no search capability (fakes/tests) so the endpoint never 500s.
         """
         q = (query or "").strip()
         if not q:
@@ -265,7 +266,7 @@ class MarketService:
                 ],
                 "source": "upstox",
             }
-        # yfinance-only: local static-universe substring filter.
+        # Provider without search capability: local static-universe filter.
         ql = q.lower()
         matches = [
             e for e in get_universe()
@@ -380,7 +381,7 @@ class MarketService:
                 except Exception:
                     pass
             # Persist the live snapshot so the provider timestamp survives in
-            # storage (newer-wins; yfinance can never overwrite Upstox).
+            # storage (newer-wins; legacy imports can never overwrite Upstox).
             try:
                 self.market_repo.upsert_quote(quote)
             except Exception as exc:
@@ -391,7 +392,8 @@ class MarketService:
             quote["live"] = True
             return quote
 
-        # yfinance-only fallback: derive an honest snapshot from stored bars.
+        # Provider without live-quote capability: derive an honest snapshot
+        # from stored bars.
         prices: list[MarketPrice] = self.market_repo.get_prices(entry.symbol)
         if not prices:
             return {
@@ -506,8 +508,8 @@ class MarketService:
         if validation.valid:
             written = self.market_repo.upsert_bars(validation.valid)
 
-        # Honest source: fallback bars carry yfinance provenance even when the
-        # configured provider is Upstox.
+        # Honest source: fallback bars carry their own provenance even when
+        # the configured provider is Upstox.
         actual_source = self.provider.name
         try:
             if validation.valid and getattr(validation.valid[0], "source_name", None):

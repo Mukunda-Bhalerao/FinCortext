@@ -142,11 +142,11 @@ class MarketRepository:
 
     @staticmethod
     def _quote_source_rank(source: str | None) -> int:
-        """Upstox (primary) outranks yfinance fallback; unknown lowest."""
+        """Upstox (primary) outranks legacy imports; unknown lowest."""
         s = (source or "").strip().lower()
         if s == "upstox":
             return 2
-        if s == "yfinance":
+        if s == "legacy_import":
             return 1
         return 0
 
@@ -167,7 +167,7 @@ class MarketRepository:
         """Store a quote snapshot; never let older data overwrite newer data.
 
         Rules (all comparisons on the provider timestamp, not wall clock):
-        - a higher-ranked source (Upstox > yfinance) always wins;
+        - a higher-ranked source (Upstox > legacy import) always wins;
         - within the same source rank, the newer timestamp wins;
         - a missing incoming timestamp never overwrites a stamped row.
         Returns True when the row was written.

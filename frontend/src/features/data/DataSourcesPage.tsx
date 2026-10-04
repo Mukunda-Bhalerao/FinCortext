@@ -33,12 +33,12 @@ export default function DataSourcesPage() {
 
       <div className="card-grid">
         <div className="card">
-          <h3>Market prices — yfinance</h3>
+          <h3>Market prices — Upstox</h3>
           <p>
             <StatusBadge status="LIVE" /> <span className="muted">on refresh (network required)</span>
           </p>
           <p className="muted">
-            NSE daily OHLCV for the 10-symbol universe via the
+            NSE daily OHLCV + full quotes for any searched equity via the
             <code> MarketDataProvider </code> contract. Stored in DuckDB;
             validated before storage.
           </p>

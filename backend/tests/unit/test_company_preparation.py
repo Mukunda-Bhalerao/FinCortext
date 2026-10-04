@@ -4,8 +4,7 @@ Covers: INFY search/select/prepare, quote+history storage, timestamp
 propagation to API responses, stale-date protection, Firm/Industry/
 Sentiment/Portfolio data flow, industry peer fallback + relevance,
 dynamic-universe stocks, duplicate-free re-preparation, honest missing-data
-handling, no fabricated values, yfinance independence, and Upstox provider
-selection via LIVE_MARKET_PROVIDER.
+handling, no fabricated values, and the Upstox-only market provider.
 """
 
 from __future__ import annotations
@@ -19,7 +18,6 @@ from fastapi.testclient import TestClient
 from app.core.exceptions import ProviderUnavailableError
 from app.data.providers.market.upstox_client import UpstoxHttpClient
 from app.data.providers.market.upstox_provider import UpstoxMarketProvider
-from app.data.providers.market.yfinance_provider import YFinanceMarketProvider
 from app.data.storage.duckdb_storage import DuckDBStorage
 from app.data.universe.universe_config import clear_dynamic_registry
 from app.domain.contracts.providers import FundamentalDataProvider, NewsProvider
@@ -32,6 +30,7 @@ from app.repositories.market_repository import MarketRepository
 from app.repositories.news_repository import NewsRepository
 from app.repositories.portfolio_repository import PortfolioRepository
 from app.repositories.provenance_repository import ProvenanceRepository
+from app.repositories.research_repository import ResearchRepository
 from app.repositories.universe_repository import UniverseRepository
 from app.services.agent_service import AgentService
 from app.services.company_preparation_service import CompanyPreparationService
@@ -252,11 +251,8 @@ def _make_prep_stack(tmp_path, db_name, *, research_service=None, news_provider=
     portfolio_repo = PortfolioRepository(storage)
     research_repo = ResearchRepository(storage)
 
-    from app.data.universe.universe_config import get_static_universe
-
-    yf = YFinanceMarketProvider({e.symbol: e.ticker for e in get_static_universe()})
     client = FakePrepUpstoxClient()
-    provider = UpstoxMarketProvider("fake-token", client=client, fallback=yf)
+    provider = UpstoxMarketProvider("fake-token", client=client)
     market_service = MarketService(
         provider, market_repo, provenance_repo,
         instrument_repo=instrument_repo, universe_repo=universe_repo,
@@ -421,11 +417,11 @@ def test_newer_upstox_quote_beats_stale_series_date(stack):
     # The Upstox quote timestamp survives alongside history (which refreshes
     # through today) — freshness comes from the quote, not the bar dates.
     assert series["quote_timestamp"] is not None
-    # An older yfinance snapshot must never overwrite the Upstox one,
+    # An older legacy-import snapshot must never overwrite the Upstox one,
     # regardless of wall-clock date (no fixed-date ordering assumptions).
     assert stack["market_repo"].upsert_quote({
         "symbol": "INFY", "timestamp": "2024-01-03",
-        "source": "yfinance", "last_price": 1.0,
+        "source": "legacy_import", "last_price": 1.0,
     }) is False
     assert stack["market_repo"].get_stored_quote("INFY")["timestamp"] == FAKE_TS
 
@@ -571,8 +567,6 @@ def test_repeat_preparation_no_duplicates(stack):
 
 
 def test_missing_provider_data_honest(tmp_path):
-    from app.data.universe.universe_config import get_static_universe
-
     storage = DuckDBStorage(tmp_path / "prep_fail.duckdb")
     storage.connect()
     try:
@@ -613,49 +607,55 @@ def test_missing_provider_data_honest(tmp_path):
         storage.close()
 
 
-# 18. yfinance independent -------------------------------------------------------------------------------------------
+# 18. Provider-without-search capability (no fallback provider) -------------------------------------------------------
 
 
-def test_yfinance_provider_still_works(tmp_path):
-    import pandas as pd
+class _HistoryOnlyProvider:
+    """Market provider with OHLCV only — no search, no quote capability.
 
-    provider = YFinanceMarketProvider({"TCS": "TCS.NS"})
-    idx = pd.to_datetime(["2024-01-02", "2024-01-03"])
-    df = pd.DataFrame(
-        {"Open": [100.0, 101.0], "High": [110.0, 111.0], "Low": [95.0, 96.0],
-         "Close": [105.0, 106.0], "Volume": [1000, 1100]},
-        index=idx,
-    )
-    bars = provider.normalize_frame(df, symbol="TCS", provider_ticker="TCS.NS")
-    assert len(bars) == 2
-    assert bars[0].source_name == "yfinance"
+    Mirrors a minimal provider implementation: search degrades to the
+    static-universe filter and quotes derive honestly from stored bars.
+    """
 
-    storage = DuckDBStorage(tmp_path / "yf.duckdb")
+    name = "history_only"
+
+    def fetch_ohlcv(self, ticker: str, start, end) -> list:
+        return []
+
+
+def test_provider_without_search_capability_degrades_honestly(tmp_path):
+    from app.domain.models.market import MarketPrice
+
+    bars = [
+        MarketPrice(
+            symbol="TCS", provider_ticker="TCS.NS", trade_date=date(2024, 1, 2),
+            open=100.0, high=110.0, low=95.0, close=106.0, volume=1000,
+        )
+    ]
+
+    storage = DuckDBStorage(tmp_path / "histonly.duckdb")
     storage.connect()
     try:
         market_repo = MarketRepository(storage)
-        svc = MarketService(provider, market_repo, ProvenanceRepository(storage))
-        # yfinance-only search degrades to the static universe filter.
+        svc = MarketService(_HistoryOnlyProvider(), market_repo, ProvenanceRepository(storage))
+        # Static-universe filter serves the search (no provider search).
         res = svc.search_symbols("INFY")
         assert res["count"] >= 1
         assert res["results"][0]["symbol"] == "INFY"
-        # yfinance-only quote derives honestly from stored bars.
+        assert res["source"] == "history_only"
+        # Quote derives honestly from stored bars.
         market_repo.upsert_bars(bars)
         quote = svc.get_quote("TCS")
-        assert quote["last_price"] == 106.0
-        assert quote["source"] == "yfinance"
+        assert quote["last_price"] == pytest.approx(106.0)
+        assert quote["source"] == "history_only"
     finally:
         storage.close()
 
 
-# 19. Upstox active via LIVE_MARKET_PROVIDER -------------------------------------------------------------------------------
+# 19. Upstox is the only market provider -------------------------------------------------------------------------------
 
 
-def test_upstox_active_provider_selection(monkeypatch):
-    from app.core.config import get_settings
-
-    monkeypatch.setenv("LIVE_MARKET_PROVIDER", "upstox")
-    assert get_settings().live_market_provider == "upstox"
+def test_upstox_is_the_only_market_provider():
     assert UpstoxMarketProvider("x", client=FakePrepUpstoxClient()).name == "upstox"
 
 # --- Research-backed scenarios (ADANIPOWER / BBL) ---------------------------------
@@ -723,19 +723,16 @@ class FakeResearchProvider:
 def rst_stack(tmp_path):
     """Preparation stack with fake Gemini research wired in.
 
-    The classifier uses the real committed CSV but a stubbed yfinance
-    fetcher (no network): CSV misses fall through to the fake research,
-    which is exactly the BBL path under test.
+    The classifier uses the real committed CSV only (no network): CSV misses
+    fall through to the fake research, which is exactly the BBL path under
+    test.
     """
     from app.data.universe.industry_classifier import IndustryClassifier
     from app.services.research_service import ResearchService
 
-    def _no_yfinance(symbol):
-        raise RuntimeError("network disabled in tests")
-
     s = _make_prep_stack(
         tmp_path, "prep_research.duckdb",
-        industry_classifier=IndustryClassifier(yfinance_fetcher=_no_yfinance),
+        industry_classifier=IndustryClassifier(),
     )
     provider = FakeResearchProvider(
         enrich={
@@ -768,14 +765,9 @@ def rst_stack(tmp_path):
     s["prep"].research_service = research_service
     s["research_provider"] = provider
     s["research_service"] = research_service
-    # Hermetic classifier: real committed CSV, stubbed yfinance (no network).
+    # Hermetic classifier: real committed CSV only (no network).
     # CSV misses (BBL) fall through to the fake research above.
-    from app.data.universe.industry_classifier import IndustryClassifier
-
-    def _no_yfinance(symbol):
-        raise RuntimeError("network disabled in tests")
-
-    s["prep"].industry_classifier = IndustryClassifier(yfinance_fetcher=_no_yfinance)
+    s["prep"].industry_classifier = IndustryClassifier()
     yield s
     s["storage"].close()
 
@@ -932,12 +924,7 @@ def test_unconfigured_research_degrades(stack):
 
     # Hermetic classifier whose structured sources know nothing: forces the
     # honest Unknown path without touching the network.
-    def _no_yfinance(symbol):
-        raise RuntimeError("network disabled in tests")
-
-    stack["prep"].industry_classifier = IndustryClassifier(
-        csv_path="/nonexistent.csv", yfinance_fetcher=_no_yfinance
-    )
+    stack["prep"].industry_classifier = IndustryClassifier(csv_path="/nonexistent.csv")
 
     class _Unconfigured:
         name = "unconfigured"

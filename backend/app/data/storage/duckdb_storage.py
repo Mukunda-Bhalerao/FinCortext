@@ -393,11 +393,16 @@ class DuckDBStorage:
         except duckdb.Error as exc:
             logger.debug("Macro score column migration skipped: %s", exc)
         # Additive migration: universe entries resolved dynamically via Upstox
-        # carry their canonical instrument_key alongside the yfinance ticker.
+        # carry their canonical instrument_key alongside the provider ticker.
         try:
             conn.execute("ALTER TABLE universe_metadata ADD COLUMN IF NOT EXISTS instrument_key VARCHAR")
         except duckdb.Error as exc:
             logger.debug("Universe instrument_key migration skipped: %s", exc)
+        # Pre-consolidation imports in existing databases are relabeled
+        # `legacy_import` once by a one-off maintenance command (see
+        # docs/restructure-inventory.md). New databases and fresh rows never
+        # carry the removed provider's label, so no startup check is needed;
+        # the provenance audit log is intentionally left untouched.
         logger.debug("DuckDB schema ensured at %s (v%s)", self.db_path, SCHEMA_VERSION)
 
 

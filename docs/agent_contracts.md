@@ -55,7 +55,7 @@ Implemented in `signal_from_score()`; identical for every agent.
 1. **Deterministic only.** Same inputs → same output. No randomness, no LLM
    generation of conclusions.
 2. **Source-agnostic.** Agents read canonical data via repositories; they never
-   call yfinance/NewsAPI/other providers directly.
+   call Upstox/NewsAPI/other providers directly.
 3. **Honest missing data.** Unavailable metrics are never fabricated. Missing
    factors reduce the evidence base and lower confidence; limitations are listed.
 4. **Confidence is earned.** Confidence reflects data completeness, recency,

@@ -166,7 +166,7 @@ def _snapshot_obs(metric, value):
         metric=metric,
         value=value,
         unit="ratio",
-        source_name="yfinance fundamentals (snapshot ratios)",
+        source_name="provider fundamentals (snapshot ratios)",
         period_end=None,
     )
 

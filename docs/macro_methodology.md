@@ -23,12 +23,13 @@ must never be blended with company analyst scores into an investment rating.
 ## Pipeline
 
 ```
-official releases (RBI/MoSPI, curated CSVs) + market gauges (yfinance)
-    → MacroDataProvider adapters (curated_official, yfinance_macro)
-    → validation (finite values, real non-future periods, de-duplicated)
-    → MacroService (per-indicator isolation, provenance) → DuckDB
-    → MacroAgent: 7 deterministic factors → majority-vote overall signal
-    → MacroOutput → API → frontend
+official releases (RBI/MoSPI, curated CSVs) + market gauges (Upstox index
+    candles — India VIX; USD/INR, Brent, US 10Y unavailable)
+    ↓ MacroDataProvider adapters (curated_official, upstox_gauges)
+    ↓ validation (finite values, real non-future periods, de-duplicated)
+    ↓ MacroService (per-indicator isolation, provenance) → DuckDB
+    ↓ MacroAgent: 7 deterministic factors → majority-vote overall signal
+    ↓ MacroOutput → API → frontend
 ```
 
 Agents never touch HTTP: all retrieval happens in providers/services.
@@ -42,7 +43,7 @@ Agents never touch HTTP: all retrieval happens in providers/services.
 | 3 | Interest Rates | Repo-rate decisions (RBI, curated) | Last move ≤ −0.25pp POSITIVE (easing); ≥ +0.25pp NEGATIVE; else NEUTRAL. Stance reported, never scored. |
 | 4 | Liquidity & Credit | none configured | Always UNAVAILABLE — no proxy is invented. |
 | 5 | Fiscal & Monetary Policy | Repo decisions, trailing 12M | Net 12M ≤ −0.50pp POSITIVE tilt; ≥ +0.50pp NEGATIVE; else NEUTRAL. Fiscal has no feed → always an explicit limitation. Facts (dated decisions) and interpretation (tilt sentence) are labeled separately. |
-| 6 | Global Markets | USD/INR, Brent, US 10Y, India VIX (yfinance) | Each gauge votes +1/0/−1 by ~3M direction beyond a materiality floor (FX 1.5%, crude 5%, US10Y 25 bps absolute, VIX 15%); up-moves are adverse for all four. Factor = majority vote. |
+| 6 | Global Markets | India VIX (Upstox index candles); USD/INR, Brent, US 10Y unavailable | Each gauge votes +1/0/−1 by ~3M direction beyond a materiality floor (FX 1.5%, crude 5%, US10Y 25 bps absolute, VIX 15%); up-moves are adverse for all four. Factor = majority vote. USD/INR, Brent and US 10Y have no NSE listing on Upstox: they are skipped (never guessed) and reduce factor confidence when absent. |
 | 7 | Macro Events | Dated repo decisions + latest CPI/GDP prints | Informational by design: always NEUTRAL. Upcoming events have no calendar source and are not listed. |
 
 All thresholds live in `methodology.py` with rationale; changing them is a

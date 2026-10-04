@@ -1,148 +1,127 @@
-"""Unit tests: YFinanceFundamentalsProvider normalization (no network).
+"""Unit tests: the fundamentals provider seam (no network).
 
-yfinance is replaced with a stub module serving fixed pandas frames, so the
-mapping from provider labels → canonical metrics is tested deterministically.
+No provider is wired in production after the Upstox consolidation — these
+tests pin the honest degradation (refresh unavailable) and the labeling of
+provider-sourced snapshots (provider name + `provider` source type, filings
+untouched, scoped replace without duplicate accumulation).
 """
 
 from datetime import date
 
-import pandas as pd
 import pytest
 
-from app.core.exceptions import ProviderError
-from app.data.providers.fundamentals.yfinance_fundamentals import (
-    YFinanceFundamentalsProvider,
-)
+from app.core.exceptions import ProviderUnavailableError
+from app.data.storage.duckdb_storage import DuckDBStorage
+from app.domain.contracts.providers import FundamentalDataProvider
+from app.domain.models.base import DataSourceType
+from app.domain.models.financial import FinancialObservation
+from app.repositories.financial_repository import FinancialRepository
+from app.repositories.provenance_repository import ProvenanceRepository
+from app.services.fundamentals_service import FundamentalsService
 
 
-def _frame(rows: dict[str, list], dates: list[str]) -> pd.DataFrame:
-    cols = [pd.Timestamp(d) for d in dates]
-    return pd.DataFrame({c: [rows[r][i] for r in rows] for i, c in enumerate(cols)}, index=list(rows))
+class FakeFundamentalsProvider(FundamentalDataProvider):
+    name = "fake_fundamentals"
+
+    def __init__(self):
+        self.requested: list[str] = []
+
+    def fetch_fundamentals(self, ticker: str) -> dict:
+        self.requested.append(ticker)
+        return {
+            "symbol": ticker.upper(),
+            "ticker": f"{ticker.upper()}.NS",
+            "currency": "INR",
+            "annual": [
+                {
+                    "period_end": date(2025, 3, 31),
+                    "total_revenue": 1000.0,
+                    "net_income": 150.0,
+                    "total_assets": 2000.0,
+                    "total_equity": 800.0,
+                    "total_debt": 200.0,
+                }
+            ],
+            "snapshot": {"pe_ratio": 22.5, "roe": 0.19},
+            "warnings": [],
+        }
 
 
-INCOME_ROWS = {
-    "Total Revenue": [1000.0, 900.0],
-    "Net Income": [150.0, 120.0],
-    "Unmapped Weird Line": [1.0, 2.0],
-}
-BALANCE_ROWS = {
-    "Total Assets": [2000.0, 1900.0],
-    "Stockholders Equity": [800.0, 750.0],
-    "Total Debt": [200.0, 180.0],
-}
-DATES = ["2025-03-31", "2024-03-31"]
+def test_no_provider_configured_reports_unavailable(tmp_path):
+    storage = DuckDBStorage(tmp_path / "fund_none.duckdb")
+    storage.connect()
+    try:
+        service = FundamentalsService(
+            None, FinancialRepository(storage), ProvenanceRepository(storage)
+        )
+        with pytest.raises(ProviderUnavailableError):
+            service.refresh_symbol("TCS")
+        # Nothing was written; coverage stays honestly empty.
+        cov = service.get_coverage("TCS")
+        assert cov["status"] == "UNAVAILABLE"
+        assert cov["metrics"] == {}
+        assert cov["has_provider"] is False
+    finally:
+        storage.close()
 
 
-class _StubTicker:
-    def __init__(self, income=None, balance=None, info=None, fail=False):
-        self._income = income
-        self._balance = balance
-        self._info = info or {}
-        self._fail = fail
-
-    @property
-    def financials(self):
-        if self._fail:
-            raise RuntimeError("yahoo exploded")
-        return self._income
-
-    @property
-    def balance_sheet(self):
-        if self._fail:
-            raise RuntimeError("yahoo exploded")
-        return self._balance
-
-    @property
-    def info(self):
-        return dict(self._info)
+def test_provider_snapshot_labeled_with_provider_name(tmp_path):
+    storage = DuckDBStorage(tmp_path / "fund_label.duckdb")
+    storage.connect()
+    try:
+        financial_repo = FinancialRepository(storage)
+        provider = FakeFundamentalsProvider()
+        service = FundamentalsService(provider, financial_repo, ProvenanceRepository(storage))
+        result = service.refresh_symbol("TCS")
+        assert result["status"] == "LIVE"
+        obs = financial_repo.get_observations("TCS", metric="total_revenue", latest_period=False)
+        assert len(obs) == 1
+        assert obs[0].source_type == DataSourceType.PROVIDER
+        assert "fake_fundamentals" in obs[0].source_name
+    finally:
+        storage.close()
 
 
-@pytest.fixture()
-def stub_yfinance(monkeypatch):
-    """Install a stub `yfinance` module returning canned frames."""
-    import sys
-    import types
-
-    state = {"ticker": _StubTicker(_frame(INCOME_ROWS, DATES), _frame(BALANCE_ROWS, DATES), {"trailingPE": 22.5, "returnOnEquity": 0.19, "financialCurrency": "INR"})}
-
-    module = types.ModuleType("yfinance")
-
-    class Ticker:
-        def __init__(self, symbol):
-            state["seen"] = symbol
-            stub = state["ticker"]
-            self._stub = stub
-
-        @property
-        def financials(self):
-            return self._stub.financials
-
-        @property
-        def balance_sheet(self):
-            return self._stub.balance_sheet
-
-        @property
-        def info(self):
-            return self._stub.info
-
-    module.Ticker = Ticker
-    monkeypatch.setitem(sys.modules, "yfinance", module)
-    return state
+def test_refresh_replaces_provider_snapshot_without_touching_filings(tmp_path):
+    storage = DuckDBStorage(tmp_path / "fund_replace.duckdb")
+    storage.connect()
+    try:
+        financial_repo = FinancialRepository(storage)
+        service = FundamentalsService(
+            FakeFundamentalsProvider(), financial_repo, ProvenanceRepository(storage)
+        )
+        service.refresh_symbol("TCS")
+        financial_repo.save_observations([
+            FinancialObservation(
+                entity_id="TCS", metric="total_revenue", value=999.0, unit="INR",
+                source_type="official_filing", source_name="Annual Report FY2025",
+                period_end=date(2025, 3, 31),
+            )
+        ])
+        before = len(financial_repo.get_observations("TCS", latest_period=False))
+        result = service.refresh_symbol("TCS")
+        after = len(financial_repo.get_observations("TCS", latest_period=False))
+        assert after == before
+        assert result["observations_replaced"] > 0
+        filing_rows = [
+            o for o in financial_repo.get_observations("TCS", latest_period=False)
+            if o.source_type.value == "official_filing"
+        ]
+        assert len(filing_rows) == 1 and filing_rows[0].value == 999.0
+    finally:
+        storage.close()
 
 
-def _provider():
-    return YFinanceFundamentalsProvider({"TCS": "TCS.NS"})
+def test_unknown_symbol_rejected(tmp_path):
+    storage = DuckDBStorage(tmp_path / "fund_unknown.duckdb")
+    storage.connect()
+    try:
+        service = FundamentalsService(
+            FakeFundamentalsProvider(), FinancialRepository(storage), ProvenanceRepository(storage)
+        )
+        from app.core.exceptions import NotFoundError
 
-
-def test_normalizes_annual_statements_to_canonical_metrics(stub_yfinance):
-    bundle = _provider().fetch_fundamentals("TCS")
-    assert bundle["symbol"] == "TCS"
-    assert bundle["ticker"] == "TCS.NS"
-    assert bundle["currency"] == "INR"
-    assert len(bundle["annual"]) == 2
-    newest = bundle["annual"][0]
-    assert newest["period_end"] == date(2025, 3, 31)
-    assert newest["total_revenue"] == 1000.0
-    assert newest["net_income"] == 150.0
-    assert newest["total_assets"] == 2000.0
-    assert newest["total_equity"] == 800.0
-    assert newest["total_debt"] == 200.0
-    assert bundle["annual"][1]["total_revenue"] == 900.0
-    # Snapshot ratios with fetch-date stamp.
-    assert bundle["snapshot"]["pe_ratio"] == 22.5
-    assert bundle["snapshot"]["roe"] == 0.19
-    assert bundle["snapshot"]["as_of"] == date.today().isoformat()
-
-
-def test_internal_symbol_resolves_to_provider_ticker(stub_yfinance):
-    _provider().fetch_fundamentals("tcs")  # lowercase works like the market provider
-    assert stub_yfinance["seen"] == "TCS.NS"
-
-
-def test_missing_labels_reported_never_guessed(stub_yfinance):
-    bundle = _provider().fetch_fundamentals("TCS")
-    # Provider rows we do not map are surfaced as warnings, not dropped silently.
-    assert any("Unmapped income label" in w for w in bundle["warnings"])
-    # No label in the bundle maps to e.g. operating_profit — absence is explicit.
-    assert all("operating_profit" not in row for row in bundle["annual"])
-
-
-def test_empty_statements_raise_provider_error(stub_yfinance, monkeypatch):
-    import sys
-
-    stub = stub_yfinance["ticker"]
-    object.__setattr__(stub, "_income", pd.DataFrame())
-    object.__setattr__(stub, "_balance", pd.DataFrame())
-    with pytest.raises(ProviderError):
-        _provider().fetch_fundamentals("TCS")
-
-
-def test_provider_failure_wrapped(stub_yfinance):
-    object.__setattr__(stub_yfinance["ticker"], "_fail", True)
-    with pytest.raises(ProviderError):
-        _provider().fetch_fundamentals("TCS")
-
-
-def test_unknown_symbol_rejected():
-    with pytest.raises(Exception):
-        _provider().fetch_fundamentals("NOPE")
+        with pytest.raises(NotFoundError):
+            service.refresh_symbol("NOPE")
+    finally:
+        storage.close()

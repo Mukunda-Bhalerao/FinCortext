@@ -71,7 +71,7 @@ rows_ingested, rows_rejected, detail, ingested_at.
 ### `market_quotes` — live quote snapshots (one row per symbol, upsert)
 symbol (PK), instrument_key, trading_symbol, exchange, segment, source,
 timestamp (provider timestamp, never wall clock), OHLC + volume + 52-week
-fields, day change, updated_at. Newer-wins; Upstox outranks yfinance.
+fields, day change, updated_at. Newer-wins; Upstox outranks legacy imports.
 
 ### `upstox_instruments` — instrument registry (dynamic equity metadata cache)
 instrument_key (PK), symbol, trading_symbol, name, exchange, segment, isin,

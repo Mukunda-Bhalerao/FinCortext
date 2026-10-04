@@ -49,7 +49,8 @@ Build a working, testable foundation for explainable investment intelligence:
 - Canonical domain models + standardized `AgentOutput` contract (`OK` / `DEGRADED` / `UNAVAILABLE`).
 - DuckDB analytical storage with provenance log and point-in-time metadata.
 - Versioned 10-symbol NSE large-cap universe with sector/industry metadata.
-- Market data pipeline: yfinance adapter → validation → normalization → DuckDB → API.
+- Market data pipeline: Upstox adapter (search V2 / full quotes V3 / historical
+  candles V3) → validation → normalization → DuckDB → API.
 - Official filing ingestion: CSV / XBRL / XML parsers + limited PDF fallback, content-hash dedup.
 - **Firm Analyst** — fundamental/valuation/momentum scoring.
 - **Industry Analyst** — peer-group and sector-relative scoring, with automatic market-data preparation.
@@ -99,7 +100,7 @@ Build a working, testable foundation for explainable investment intelligence:
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full description. In brief:
 
 ```
-Data Sources (yfinance | NewsAPI | official filings | curated macro | fixtures)
+Data Sources (Upstox | NewsAPI | official filings | curated macro | fixtures)
         ↓  provider adapters (replaceable interfaces)
 Data Pipeline (ingestion → validation → normalization → storage)
         ↓
@@ -136,7 +137,7 @@ backend/app/
 │   │              DataStatus / DataSourceType enums
 │   └── contracts/ provider interfaces + AgentOutput contract
 ├── data/
-│   ├── providers/    market/ (yfinance), fundamentals/ (fallback), news/ (NewsAPI)
+│   ├── providers/    market/ (Upstox), fundamentals/ (unwired seam), news/ (NewsAPI)
 │   ├── ingestion/    filings (CSV/XBRL/XML/PDF-limited)
 │   ├── validation/   per-type sanity checks; rejections reported with reasons
 │   ├── storage/      DuckDB connection + schema
@@ -186,9 +187,9 @@ recorded into the session cache (and the outputs-history cache) the moment they 
 
 | Source | Adapter | Notes |
 |---|---|---|
-| Market prices | `UpstoxMarketProvider` (Upstox, primary when `LIVE_MARKET_PROVIDER=upstox`) + `YFinanceMarketProvider` (fallback) | Upstox instrument search / full quotes V3 / historical candles V3; NSE-equity filter; `instrument_key` canonical. Canonical storage key is always the internal symbol (`TCS`), never the provider ticker (`TCS.NS`). yfinance fallback bars are honestly marked `yfinance` and can never overwrite newer Upstox data. |
+| Market prices | `UpstoxMarketProvider` (Upstox — the only market provider) | Upstox instrument search / full quotes V3 / historical candles V3; NSE-equity filter; `instrument_key` canonical. Canonical storage key is always the internal symbol (`TCS`), never the provider ticker (`TCS.NS`). Failures degrade honestly to stored snapshots / explicit statuses — there is no fallback provider. Pre-consolidation imports remain usable as `legacy_import` rows. |
 | News | `NewsAPINewsProvider` (NewsAPI) | Key **only** from `NEWS_API_KEY`; missing key → graceful `UNAVAILABLE`, never a crash. 401/403 → unavailable, 429 → rate-limit error. Company-name query variants tried during preparation. |
-| Fundamentals | Ingested official filings (primary truth) + provider annual statements (fallback) | `YFinanceFundamentalsProvider` implements the `FundamentalDataProvider` seam: annual income/balance rows with real fiscal periods plus snapshot P/E + ROE. Stored as `source_type=yfinance`, never as official filings. |
+| Fundamentals | Ingested official filings (primary truth); provider seam unwired | The `FundamentalDataProvider` seam exists but no provider is wired after the Upstox consolidation: refreshes report UNAVAILABLE honestly, stored pre-consolidation observations (relabeled `legacy_import`) remain usable as fallback for the Firm Agent. |
 | Web research | `GeminiResearchProvider` (official `google-genai` SDK, Search grounding) | Research/enrichment **only**: company sector/industry classification, peer candidates, news digests. Never market data, never scores. Key **only** from `GEMINI_API_KEY` (SDK client arg only, never logged); missing key → `UNAVAILABLE`. Failures carry distinct sanitized diagnostics (invalid key / retired model naming `GEMINI_MODEL` / rate limit / endpoint / timeout). Evidence stored in `research_reports`, never as articles or prices. |
 | Future | Licensed feeds, RSS/GDELT, industry reports | Seams reserved at the provider boundary. |
 
@@ -258,7 +259,10 @@ signal = majority vote; confidence = coverage × recency × consistency. A 0–1
 Score linearly rescales the same available-factor vote (`50 + 50·net/n`, unavailable areas
 excluded), so it always agrees with the signal — and like the signal it describes the environment
 only. Data: curated RBI/MoSPI
-history (versioned CSVs with per-row provenance) + market gauges via yfinance. Liquidity has no
+history (versioned CSVs with per-row provenance) + market gauges via Upstox
+(India VIX index candles). USD/INR, Brent and the US 10Y yield have no NSE
+listing on Upstox and report UNAVAILABLE honestly (stored pre-consolidation
+history remains usable). Liquidity has no
 reliable series and reports UNAVAILABLE rather than a proxy. Output is the dedicated
 `MacroOutput` contract (`entity_id=MACRO_INDIA`, with environment score) — never a stock signal.
 Methodology: [docs/macro_methodology.md](docs/macro_methodology.md).
@@ -382,8 +386,7 @@ the backend provides none, so the UI invents none.
 |---|---|---|
 | `NEWS_PROVIDER` | `google_rss` | Primary news source: `google_rss` (free, keyless) or `newsapi`; the other configured source merges as secondary |
 | `NEWS_API_KEY` | (empty) | NewsAPI key; absent → NewsAPI skipped (RSS still serves), everything else works |
-| `LIVE_MARKET_PROVIDER` | `yfinance` | `upstox` selects Upstox as the primary market provider (yfinance stays as fallback) |
-| `UPSTOX_ACCESS_TOKEN` | (empty) | Upstox key; absent → Upstox `UNAVAILABLE`, yfinance serves |
+| `UPSTOX_ACCESS_TOKEN` | (empty) | Upstox key; absent → Upstox `UNAVAILABLE`, stored snapshots serve |
 | `GEMINI_API_KEY` | (empty) | Gemini key; absent → web research `UNAVAILABLE`, everything else works |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model id (must support generation for the key; `GET /api/research/verify` checks; switch without code changes) |
 | `GEMINI_TIMEOUT_SECONDS` | `30` | Gemini request timeout |
@@ -442,11 +445,12 @@ Markers: `unit` (fast, isolated), `integration` (cross-module), `system` (end-to
 
 ## 31. Current test status
 
-- Backend: **325 passed** (`python -m pytest`) — incl. Upstox provider, central
-  preparation (incl. Gemini-enriched ADANIPOWER/BBL scenarios, mocked), 18
+- Backend: **319 passed** (`python -m pytest`) — Upstox provider (Upstox-only
+  consolidation, no fallback provider), central preparation (incl.
+  Gemini-enriched ADANIPOWER/BBL scenarios, mocked), 18
   SDK-mocked Gemini provider tests (incl. the BBL research task), startup-sync
   skip/retry tests, DuckDB concurrent-write regression tests, 19 Google News
-  RSS tests, 12 industry-classifier tests, 10 auto-alias relevance tests, and
+  RSS tests, 11 industry-classifier tests, 10 auto-alias relevance tests, and
   an NHPC end-to-end prepare→industry+sentiment test (outside the original 10).
 - Frontend: **61 passed** (`npm test`) — sidebar navigation (incl. Portfolio Synthesis),
   macro page/summary-strip with environment score, company search/switching, dashboard honesty
@@ -460,7 +464,7 @@ Markers: `unit` (fast, isolated), `integration` (cross-module), `system` (end-to
 
 ## 32. Current limitations
 
-- Live yfinance/NewsAPI untested in CI (network-dependent; adapters covered by fakes/mocked HTTP).
+- Live NewsAPI untested in CI (network-dependent; adapters covered by fakes/mocked HTTP).
 - `POST /api/market/refresh` is synchronous — a full-universe refresh takes ~10–30s live.
 - PDF filing parsing is a basic extraction fallback, not a reliable parser for arbitrary annual reports.
 - Firm momentum needs ≥ 2 price points; single-period filings leave revenue growth unavailable.
@@ -477,10 +481,11 @@ Markers: `unit` (fast, isolated), `integration` (cross-module), `system` (end-to
   peers + news; the UI says "Company data ready" only when market/fundamentals/
   company-info are READY, otherwise it names exactly what is ready vs unavailable.
 - FinBERT downloads on first sentiment run (~440 MB); until then sentiment reports `UNAVAILABLE`.
-- Provider fundamentals supplement official filings (labeled `source_type=yfinance`,
-  never official): annual statements carry real fiscal periods; snapshot P/E + ROE carry
-  no statement period (`available_at` = ingestion time) and must not be used for historical
-  evaluation. No website scraping — Yahoo Finance API via yfinance; no Screener.in.
+- No provider fundamentals are wired (refreshes report UNAVAILABLE honestly);
+  stored pre-consolidation observations (`legacy_import`) remain usable as the
+  Firm Agent fallback: annual statements carry real fiscal periods; snapshot
+  P/E + ROE carry no statement period (`available_at` = ingestion time) and
+  must not be used for historical evaluation. No website scraping.
 - Sentiment relevance screening is deterministic and lexical (identity +
   financial context, documented trade-offs for short brand tokens); NewsAPI free tier
   caps history (~30 days).

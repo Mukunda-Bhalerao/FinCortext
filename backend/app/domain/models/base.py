@@ -14,9 +14,15 @@ def utcnow() -> datetime:
 
 
 class DataSourceType(str, Enum):
-    """Where a piece of data originally came from."""
+    """Where a piece of data originally came from.
 
-    YFINANCE = "yfinance"
+    `LEGACY_IMPORT` marks data imported from a market/fundamentals provider
+    that was removed during the Upstox consolidation (real, pre-consolidation
+    values — kept usable, never re-fetched, never relabeled as live data).
+    """
+
+    LEGACY_IMPORT = "legacy_import"
+    PROVIDER = "provider"
     UPSTOX = "upstox"
     NEWS_API = "news_api"
     GOOGLE_NEWS_RSS = "google_news_rss"

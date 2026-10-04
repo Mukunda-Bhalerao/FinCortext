@@ -11,10 +11,7 @@ pandas>=2.0,<3
 numpy>=1.26,<3
 
 # --- Market data -------------------------------------------------------
-yfinance>=0.2.40
-
-# --- News --------------------------------------------------------------
-requests>=2.31,<3
+requests>=2.31,<3                # Upstox HTTP client
 
 # --- Financial sentiment (local model, no paid API) ---------------------
 transformers>=4.40,<5

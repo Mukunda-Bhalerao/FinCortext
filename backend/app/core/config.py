@@ -100,11 +100,7 @@ class Settings:
     market_history_days: int = field(
         default_factory=lambda: _env_int("FINCORTEXT_MARKET_HISTORY_DAYS", 730)
     )
-    # Primary live market provider: "yfinance" (default) or "upstox".
-    # yfinance stays available as fallback/research provider.
-    live_market_provider: str = field(
-        default_factory=lambda: os.getenv("LIVE_MARKET_PROVIDER", "yfinance").strip().lower() or "yfinance"
-    )
+    # Upstox is the only market provider (quotes + historical candles).
 
     # --- Upstox --------------------------------------------------------
     # Token is read from UPSTOX_ACCESS_TOKEN only; never logged or exposed.
@@ -174,7 +170,6 @@ class Settings:
             "cors_origins": self.cors_origins,
             "log_level": self.log_level,
             "market_history_days": self.market_history_days,
-            "live_market_provider": self.live_market_provider,
             "upstox_configured": self.has_upstox_token,
             "gemini_configured": self.has_gemini_key,
             "gemini_model": self.gemini_model,

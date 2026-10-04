@@ -4,8 +4,8 @@
 
 1. **Official filings are the primary source of truth for fundamentals.**
    Ingested CSV/XBRL/XML documents (legitimately obtained) take precedence.
-2. **yfinance is a development/fallback/enrichment source** for market data and
-   optional fundamental enrichment. The Firm Agent never depends on it directly.
+2. **Upstox is the only market-data source** (search, quotes, historical
+   candles, gauge candles). The Firm Agent never depends on a provider directly.
 3. **No prohibited scraping.** No automated collection against NSE or other
    sources where automated access is prohibited or unsupported.
 4. **Fail clearly, never fabricate.** Unavailable sources produce explicit
@@ -13,11 +13,16 @@
 
 ## Implemented sources
 
-### Market data — yfinance (`MarketDataProvider` adapter)
-- Adapter: `backend/app/data/providers/market/yfinance_provider.py`
-- NSE tickers via universe config (`RELIANCE` → `RELIANCE.NS`)
-- Daily OHLCV, configurable date ranges, normalized to canonical `MarketPrice`
-- All failures raise `ProviderError` (never silent gaps)
+### Market data — Upstox (`MarketDataProvider` adapter)
+- Adapter: `backend/app/data/providers/market/upstox_provider.py` +
+  `backend/app/data/providers/market/upstox_client.py`
+- Instrument search V2 (`/v2/instruments/search`, NSE-EQ filter), Full Market
+  Quotes V3 (`/v3/market-quote/quotes`), Historical Candle V3
+  (`/v3/historical-candle/{key}/days/1/{to}/{from}`)
+- Any valid NSE equity resolves dynamically (`instrument_key` canonical);
+  daily OHLCV, configurable date ranges, normalized to canonical `MarketPrice`
+- All failures raise `ProviderError`/`ProviderUnavailableError` (never silent
+  gaps); no fallback provider exists
 - Replaceable: implement `MarketDataProvider` with any licensed feed
 
 ### Official filings — file ingestion (primary for fundamentals)
@@ -34,26 +39,26 @@
 - Duplicate detection via SHA-256 content hash.
 - Raw files archived under `data/raw/filings/`.
 
-### Provider fundamentals — yfinance annual statements (fallback/enrichment)
-- Adapter: `backend/app/data/providers/fundamentals/yfinance_fundamentals.py`
-  (`FundamentalDataProvider`); orchestration: `FundamentalsService`
+### Provider fundamentals — seam unwired (fallback/enrichment)
+- Contract: `FundamentalDataProvider` (`app/domain/contracts/providers.py`);
+  orchestration: `FundamentalsService`
   (`POST /api/fundamentals/refresh[/{symbol}]`, `GET /api/fundamentals/{symbol}`).
-- Annual income-statement + balance-sheet rows (up to 4 fiscal years) mapped
-  to canonical metrics (`total_revenue`, `net_income`, `total_assets`,
-  `total_equity`, `total_debt`); trailing P/E and TTM ROE from the quote
-  snapshot. Unmapped labels and rejected values are reported, never guessed.
-- **Source honesty:** stored with `source_type=yfinance`
-  (`source_name="yfinance fundamentals …"`), never as official filings. Firm
-  Agent reads the shared repository generically and does not depend on this
-  provider; official filings stay primary wherever present.
+- **No provider is wired in production** after the Upstox consolidation:
+  refreshes raise `ProviderUnavailableError` and the preparation flow degrades
+  to stored observations honestly.
+- Stored pre-consolidation observations (relabeled `legacy_import`) remain
+  usable: annual income-statement + balance-sheet rows mapped to canonical
+  metrics (`total_revenue`, `net_income`, `total_assets`, `total_equity`,
+  `total_debt`); snapshot P/E + ROE ratios. The Firm Agent reads the shared
+  repository generically and does not depend on any provider; official
+  filings stay primary wherever present.
 - **Point-in-time honesty:** annual values carry real fiscal `period_end`
   dates; snapshot ratios carry no statement period, so their `available_at`
   falls back to ingestion time (stated as a limitation on every refresh).
-  Refresh replaces the previous provider snapshot per symbol (scoped delete);
+  When a provider IS wired (tests/future), refresh replaces the previous
+  provider snapshot per symbol (scoped delete by `provider` source type);
   official filing observations are never touched.
-- No website scraping involved — Yahoo Finance API via the yfinance client,
-  the same provider family already used for market data. No Screener.in, no
-  fabricated values.
+- No website scraping involved anywhere. No fabricated values.
 
 ### News — Google News RSS, NewsAPI optional (`NewsProvider` adapters)
 - Primary adapter: `backend/app/data/providers/news/googlenews_rss.py`
@@ -89,7 +94,7 @@ travels with the data.
 
 - Licensed fundamentals (Bloomberg/Refinitiv/official exchanges where permitted)
 - RSS/GDELT news, industry report documents
-- Macro series (for the future Macro Analyst)
+- Macro series for gauges Upstox cannot serve (FX spot, global commodities/rates)
 
 Each will be added as a new adapter implementing the existing provider
 interfaces — no agent changes required.

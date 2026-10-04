@@ -29,7 +29,7 @@ The agent **never** calls external providers and **never** fabricates data.
 
 1. Start from the universe entry for the target symbol. For dynamically
    searched stocks, the entry is classified first (`IndustryClassifier`:
-   static universe → official NSE Nifty 500 list → yfinance metadata →
+   static universe → official NSE Nifty 500 list →
    Gemini research last resort → honest "Unknown").
 2. Peers = universe entries sharing the same `sector`
    (falling back to `industry` grouping when the sector has fewer than

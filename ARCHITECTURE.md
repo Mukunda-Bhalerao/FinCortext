@@ -4,7 +4,7 @@
 
 1. **Source-agnostic agents.** Analyst agents consume canonical FinCortext domain
    data through repositories/services — never external providers or websites.
-2. **Replaceable providers.** Every external data source (yfinance, NewsAPI,
+2. **Replaceable providers.** Every external data source (Upstox, NewsAPI,
    future licensed feeds) sits behind a narrow provider interface.
 3. **Deterministic, explainable intelligence.** Agent scores are computed by
    documented, testable formulas — no random numbers, no LLM-invented conclusions.
@@ -24,7 +24,7 @@ backend/app/
 │   ├── models/    canonical Pydantic domain models
 │   └── contracts/ provider interfaces + AgentOutput contract
 ├── data/
-│   ├── providers/    adapters: market/ (yfinance), fundamentals/, news/ (NewsAPI)
+│   ├── providers/    adapters: market/ (Upstox), fundamentals/ (unwired seam), news/ (NewsAPI)
 │   ├── ingestion/    file import: filings (CSV/XBRL/XML/PDF-limited)
 │   ├── validation/   schema + sanity validation per data type
 │   ├── normalization/ raw → canonical mapping
@@ -48,7 +48,7 @@ Business logic lives in services/agents/repositories.
 
 ```
 ┌──────────────────────────── DATA SOURCES ───────────────────────────┐
-│ yfinance (market + fundamentals)   NewsAPI (news)                    │
+│ Upstox (market + gauges)           NewsAPI (news)                     │
 │ Official filings (CSV/XBRL/PDF) · curated macro (RBI/MoSPI releases) │
 │ Future: licensed fundamentals, RSS/GDELT, industry reports           │
 └──────────────────────────────┬──────────────────────────────────────┘
@@ -80,9 +80,11 @@ Conceptual interfaces (see `app/domain/contracts/providers.py`):
 - `MarketDataProvider` — `fetch_ohlcv(ticker, start, end) -> list[MarketPrice]`
 - `FundamentalDataProvider` — fallback enrichment only; ingested
   official filings are the primary source of truth for fundamentals.
-  Implemented by `YFinanceFundamentalsProvider` (annual statements + snapshot
-  ratios, stored as `source_type=yfinance`, refresh replaces the previous
-  provider snapshot per symbol via `FundamentalsService`).
+  No provider is wired in production after the Upstox consolidation:
+  refreshes report UNAVAILABLE honestly and stored pre-consolidation
+  observations (relabeled `legacy_import`) remain usable. The seam stays
+  at the provider boundary for future licensed feeds; `FundamentalsService`
+  labels any wired provider's snapshot per symbol (scoped replace).
 - `NewsProvider` — `fetch_articles(query, from, to) -> list[NewsArticle]`
 - `ResearchProvider` — grounded web research ONLY (`research_company`,
   `suggest_peers`, `research_news`). Never market data, never scores.
@@ -100,8 +102,9 @@ shapes) into canonical domain models **at the boundary**. Agents never see
 provider payloads.
 
 **Responsibility split (load-bearing):** Upstox → market truth (prices, OHLCV,
-instrument resolution, peer market data). Structured providers (filings,
-yfinance, NewsAPI) → financial/fundamental/news truth. FinBERT → news
+instrument resolution, peer market data) and market gauges (India VIX index
+candles). Structured providers (filings,
+NewsAPI) → financial/fundamental/news truth. FinBERT → news
 sentiment. Gemini + Search grounding → research/enrichment (classification,
 peer discovery, context, evidence). Deterministic code → all calculations,
 scores, risk, constraints, optimization, backtesting. Gemini never prices,
@@ -172,8 +175,9 @@ modules keep working. Model load/inference failures → `ModelUnavailableError`
 ```
 Curated official CSVs (data/macro/, RBI/MoSPI releases, per-row provenance)
         ↓ CuratedMacroProvider (schema-checked, deterministic observation ids)
-Market gauges (USD/INR, Brent, US 10Y, India VIX)
-        ↓ YFinanceMacroProvider (existing yfinance client, no new deps)
+Market gauges (India VIX index candles; USD/INR, Brent, US 10Y unavailable —
+        no NSE listing on Upstox, reported honestly)
+        ↓ UpstoxGaugeProvider (existing Upstox client, no new deps)
 MacroService (per-indicator isolation, provenance, explicit statuses)
         ↓ DuckDB macro_observations (point-in-time: period vs published_at)
 MacroAgent (7 deterministic factors → majority-vote environment signal + 0–100 environment score)

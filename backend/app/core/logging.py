@@ -66,7 +66,6 @@ def configure_logging(level: str = "INFO") -> None:
 
     # Reduce noise from chatty third-party loggers.
     logging.getLogger("urllib3").setLevel(logging.WARNING)
-    logging.getLogger("yfinance").setLevel(logging.WARNING)
     logging.getLogger("peewee").setLevel(logging.ERROR)
 
     _CONFIGURED = True

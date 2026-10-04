@@ -99,7 +99,7 @@ class ResearchService:
     ) -> str | None:
         """Persist a structured (non-Gemini) classification as evidence.
 
-        Used for NSE-CSV / yfinance-info classifications so the applied
+        Used for official NSE-CSV classifications so the applied
         sector/industry is auditable with its source + confidence, exactly
         like Gemini company profiles. Never raises (evidence must not break
         preparation); returns the report_id or None.

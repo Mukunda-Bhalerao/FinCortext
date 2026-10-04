@@ -9,16 +9,12 @@ from __future__ import annotations
 from functools import lru_cache
 
 from app.agents.sentiment.model import get_sentiment_model
-from app.data.providers.fundamentals.yfinance_fundamentals import (
-    YFinanceFundamentalsProvider,
-)
 from app.data.providers.macro.curated_provider import CuratedMacroProvider
-from app.data.providers.macro.yfinance_macro_provider import YFinanceMacroProvider
-from app.data.providers.market.yfinance_provider import YFinanceMarketProvider
+from app.data.providers.macro.upstox_gauges import UpstoxGaugeProvider
 from app.data.providers.news.newsapi_provider import NewsAPINewsProvider
 from app.data.providers.research.gemini_research import GeminiResearchProvider
 from app.data.storage.duckdb_storage import DuckDBStorage
-from app.data.universe.universe_config import get_static_universe, get_universe, register_dynamic_entry
+from app.data.universe.universe_config import get_universe, register_dynamic_entry
 from app.core.config import settings
 from app.repositories.agent_output_repository import AgentOutputRepository
 from app.repositories.financial_repository import FinancialRepository
@@ -58,43 +54,36 @@ class Container:
         # Providers (replaceable adapters). The news provider reads its key
         # exclusively from configuration; without NEWS_API_KEY it reports
         # itself unconfigured and the news service degrades gracefully.
-        # yfinance is ALWAYS constructed (fallback/research provider, never removed).
-        symbol_to_ticker = {e.symbol: e.ticker for e in get_static_universe()}
-        yfinance_provider = YFinanceMarketProvider(symbol_to_ticker)
-        live_name = (settings.live_market_provider or "yfinance").strip().lower()
-        if live_name == "upstox":
-            from app.data.providers.market.upstox_provider import UpstoxMarketProvider
+        # Upstox is the ONLY market provider (quotes + historical candles,
+        # verified live); no fallback provider exists — failures degrade
+        # honestly to stored snapshots / explicit statuses.
+        symbol_to_ticker = {e.symbol: e.ticker for e in get_universe()}
+        from app.data.providers.market.upstox_provider import UpstoxMarketProvider
 
-            # Pre-seed known instrument keys from the persisted registry so
-            # restarts resolve without re-searching.
-            seed_keys: dict[str, str] = {}
-            try:
-                for row in self.instrument_repo.list_all():
-                    sym = str(row.get("symbol") or "").upper()
-                    key = str(row.get("instrument_key") or "")
-                    if sym and key:
-                        seed_keys[sym] = key
-            except Exception:
-                seed_keys = {}
-            try:
-                for e in get_static_universe():
-                    k = getattr(e, "instrument_key", None)
-                    if k:
-                        seed_keys[e.symbol] = k
-            except Exception:
-                pass
-            self.market_provider = UpstoxMarketProvider(
-                settings.upstox_access_token,
-                base_url=settings.upstox_base_url,
-                timeout_seconds=settings.upstox_timeout_seconds,
-                symbol_to_instrument=seed_keys,
-                # yfinance fallback: honest yfinance-marked bars when Upstox fails.
-                fallback=yfinance_provider,
-            )
-            self.yfinance_provider = yfinance_provider
-        else:
-            self.market_provider = yfinance_provider
-            self.yfinance_provider = yfinance_provider
+        # Pre-seed known instrument keys from the persisted registry so
+        # restarts resolve without re-searching.
+        seed_keys: dict[str, str] = {}
+        try:
+            for row in self.instrument_repo.list_all():
+                sym = str(row.get("symbol") or "").upper()
+                key = str(row.get("instrument_key") or "")
+                if sym and key:
+                    seed_keys[sym] = key
+        except Exception:
+            seed_keys = {}
+        try:
+            for e in get_universe():
+                k = getattr(e, "instrument_key", None)
+                if k:
+                    seed_keys[e.symbol] = k
+        except Exception:
+            pass
+        self.market_provider = UpstoxMarketProvider(
+            settings.upstox_access_token,
+            base_url=settings.upstox_base_url,
+            timeout_seconds=settings.upstox_timeout_seconds,
+            symbol_to_instrument=seed_keys,
+        )
         # News: Google News RSS is the free keyless default; NewsAPI stays as
         # an optional secondary merge source (and as primary when selected).
         # NEWS_PROVIDER=google_rss|newsapi (default google_rss).
@@ -112,8 +101,11 @@ class Container:
             )
         # Provider fundamentals (fallback/enrichment): the Firm Agent reads
         # the shared financial repository generically and never depends on
-        # this provider specifically — official filings stay primary.
-        self.fundamentals_provider = YFinanceFundamentalsProvider(symbol_to_ticker)
+        # this provider specifically — official filings stay primary. No
+        # fundamentals provider is wired after the Upstox consolidation:
+        # refreshes report UNAVAILABLE honestly and stored pre-consolidation
+        # observations (relabeled legacy_import) remain usable.
+        self.fundamentals_provider = None
 
         # Services
         self.market_service = MarketService(
@@ -149,7 +141,14 @@ class Container:
             self.research_provider, self.research_repo, self.provenance_repo
         )
         self.macro_service = MacroService(
-            [CuratedMacroProvider(), YFinanceMacroProvider()],
+            [
+                CuratedMacroProvider(),
+                UpstoxGaugeProvider(
+                    settings.upstox_access_token,
+                    base_url=settings.upstox_base_url,
+                    timeout_seconds=settings.upstox_timeout_seconds,
+                ),
+            ],
             self.macro_repo,
             self.provenance_repo,
         )

@@ -68,7 +68,7 @@ export default function MarketDataPage() {
       <h2>Market Data</h2>
       <p className="muted page-description">
         Stored daily OHLCV with explicit data status. Refreshing calls the
-        yfinance provider live (network required); otherwise you see cached
+        Upstox provider live (network required); otherwise you see cached
         data or an explicit UNAVAILABLE state.
       </p>
 

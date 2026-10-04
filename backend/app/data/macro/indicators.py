@@ -9,8 +9,10 @@ release calendars (CPI ~monthly, GDP quarterly, MPC bimonthly).
 from __future__ import annotations
 
 # indicator_id → metadata. `source` is "curated" (versioned CSV under
-# data/macro/, transcribed from official releases with per-row provenance)
-# or "yfinance" (market-derived daily closes via the existing client).
+# data/macro/, transcribed from official releases with per-row provenance),
+# "upstox" (market-derived daily index candles via Upstox Historical Candle V3),
+# or "unavailable" (no reachable provider serves the series; reported honestly,
+# never proxied or fabricated).
 MACRO_INDICATORS: dict[str, dict] = {
     "gdp_real_yoy": {
         "label": "Real GDP growth (YoY)",
@@ -39,29 +41,41 @@ MACRO_INDICATORS: dict[str, dict] = {
     "usd_inr": {
         "label": "USD/INR exchange rate",
         "unit": "INR per USD",
-        "source": "yfinance",
-        "ticker": "INR=X",
+        "source": "unavailable",
+        "note": (
+            "No reachable provider serves this series (Upstox instruments are "
+            "NSE-listed; the USD/INR spot rate is not among them). Stored "
+            "pre-consolidation history remains usable; no new data is fetched."
+        ),
         "freshness_days": 14,
     },
     "brent_crude": {
         "label": "Brent crude oil",
         "unit": "USD/bbl",
-        "source": "yfinance",
-        "ticker": "BZ=F",
+        "source": "unavailable",
+        "note": (
+            "No reachable provider serves this series (Brent trades on ICE, "
+            "not NSE). Stored pre-consolidation history remains usable; no "
+            "new data is fetched."
+        ),
         "freshness_days": 14,
     },
     "us10y": {
         "label": "US 10-year Treasury yield",
         "unit": "%",
-        "source": "yfinance",
-        "ticker": "^TNX",
+        "source": "unavailable",
+        "note": (
+            "No reachable provider serves this series (US Treasuries are not "
+            "NSE-listed). Stored pre-consolidation history remains usable; no "
+            "new data is fetched."
+        ),
         "freshness_days": 14,
     },
     "india_vix": {
         "label": "India VIX (volatility gauge)",
         "unit": "index points",
-        "source": "yfinance",
-        "ticker": "^INDIAVIX",
+        "source": "upstox",
+        "instrument_key": "NSE_INDEX|India VIX",
         "freshness_days": 14,
     },
 }

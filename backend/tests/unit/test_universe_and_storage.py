@@ -319,8 +319,8 @@ def test_universe_mirror_and_provenance(storage):
     event_id = prepo.record(
         "market_refresh",
         entity_id="RELIANCE",
-        source_type="yfinance",
-        source_name="yfinance",
+        source_type="legacy_import",
+        source_name="legacy_import",
         rows_ingested=250,
     )
     assert event_id

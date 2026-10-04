@@ -72,8 +72,8 @@ def test_refresh_and_read_pipeline(service):
 def test_refresh_stores_bars_under_internal_symbol(tmp_path):
     """Regression: refresh must store bars under the canonical INTERNAL symbol.
 
-    The real yfinance adapter keys bars by the ticker string it receives, so
-    the service must request the internal symbol (the provider resolves the
+    A provider that keys bars by the ticker string it receives forces the
+    service to request the internal symbol (the provider resolves the
     provider ticker via the universe mapping). Storing rows under 'TCS.NS'
     while every read path queries 'TCS' produced '501 stored' from the
     refresh yet 0 rows / UNAVAILABLE on read.

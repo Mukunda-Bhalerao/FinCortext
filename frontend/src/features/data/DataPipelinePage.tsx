@@ -3,7 +3,7 @@ export default function DataPipelinePage() {
   const stages = [
     {
       name: '1 · Ingestion',
-      detail: 'Provider adapters (yfinance, NewsAPI) and official filing uploads enter through replaceable contracts.',
+      detail: 'Provider adapters (Upstox, NewsAPI) and official filing uploads enter through replaceable contracts.',
     },
     {
       name: '2 · Validation',

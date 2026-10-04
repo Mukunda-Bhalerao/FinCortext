@@ -22,8 +22,8 @@ class MarketPrice(BaseModel):
     close: float
     volume: float = Field(ge=0)
     currency: str = "INR"
-    source_type: DataSourceType = DataSourceType.YFINANCE
-    source_name: str = "yfinance"
+    source_type: DataSourceType = DataSourceType.UPSTOX
+    source_name: str = "upstox"
     ingested_at: datetime = Field(default_factory=utcnow)
 
     @field_validator("open", "high", "low", "close")

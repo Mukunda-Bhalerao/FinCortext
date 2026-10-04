@@ -1,9 +1,9 @@
 """Unit tests: IndustryClassifier resolution order (no network, no Gemini).
 
 Covers: static-universe priority, Nifty 500 CSV hit (symbol + ISIN),
-yfinance fallback with injected fetcher (incl. caching + failure skip),
-unknown symbols, peer selection (excludes self, EQ-only, cap), and missing
-CSV file degradation.
+unknown symbols return None honestly (the Gemini research path remains the
+enrichment source outside the CSV), peer selection (excludes self, EQ-only,
+cap), and missing CSV file degradation.
 """
 
 import pytest
@@ -11,7 +11,6 @@ import pytest
 from app.data.universe.industry_classifier import (
     CSV_CONFIDENCE,
     IndustryClassifier,
-    YFINANCE_CONFIDENCE,
 )
 
 CSV_TEXT = """Company Name,Industry,Symbol,Series,ISIN Code
@@ -70,50 +69,20 @@ def test_csv_hit_case_insensitive(classifier):
     assert classifier.classify("adanipower").industry == "Power"
 
 
-def test_yfinance_fallback_for_non_nifty_symbol():
-    calls: list[str] = []
-
-    def fake_fetch(symbol):
-        calls.append(symbol)
-        return {"longName": "Bharat Bijlee Ltd.", "sector": "Industrials", "industry": "Capital Goods"}
-
-    classifier = IndustryClassifier(csv_path="/nonexistent.csv", yfinance_fetcher=fake_fetch)
-    result = classifier.classify("BBL")
-    assert result is not None
-    assert result.sector == "Industrials"
-    assert result.industry == "Capital Goods"
-    assert result.source == "yfinance_info"
-    assert result.confidence == YFINANCE_CONFIDENCE
-    # Second call served from the in-memory cache (no refetch).
-    assert classifier.classify("BBL") is not None
-    assert calls == ["BBL"]
-
-
-def test_yfinance_failure_skips_honestly():
-    def boom(symbol):
-        raise RuntimeError("network down")
-
-    classifier = IndustryClassifier(csv_path="/nonexistent.csv", yfinance_fetcher=boom)
-    assert classifier.classify("BBL") is None
-
-
-def test_unknown_symbol_returns_none(classifier):
-    def empty(symbol):
-        return {}
-
-    classifier._yfinance_fetcher = empty
+def test_unknown_symbol_returns_none_honestly(classifier):
+    """No structured source knows the symbol: None (callers try the next
+    enrichment source — Gemini research — then honest UNAVAILABLE)."""
     assert classifier.classify("ZZZNOTREAL") is None
     assert classifier.classify("") is None
+    # BBL IS in the CSV (classified by symbol; only peer selection filters
+    # the BE series) — a CSV hit classifies regardless of series.
+    assert classifier.classify("BBL").industry == "Capital Goods"
 
 
-def test_missing_csv_degrades_to_yfinance(tmp_path):
-    classifier = IndustryClassifier(
-        csv_path=tmp_path / "missing.csv",
-        yfinance_fetcher=lambda symbol: {"sector": "S", "industry": "I"},
-    )
+def test_missing_csv_returns_none_honestly(tmp_path):
+    classifier = IndustryClassifier(csv_path=tmp_path / "missing.csv")
     assert classifier.row_count() == 0
-    result = classifier.classify("ANYTHING")
-    assert result is not None and result.source == "yfinance_info"
+    assert classifier.classify("ANYTHING") is None
 
 
 # -- peers -------------------------------------------------------------------------
@@ -139,8 +108,6 @@ def test_peers_be_series_excluded(classifier):
 
 def test_committed_csv_loads():
     """The committed NSE file parses with the expected shape."""
-    from app.data.universe.industry_classifier import IndustryClassifier
-
     clf = IndustryClassifier()
     assert clf.row_count() >= 400
     adani = clf.classify("ADANIPOWER")

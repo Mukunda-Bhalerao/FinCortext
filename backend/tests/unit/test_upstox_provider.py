@@ -3,7 +3,7 @@
 Covers: search TCS / RELIANCE, instrument resolution, quote fetch,
 historical candles, normalization, dynamic stocks outside the static
 universe, null-preservation into API responses, auth failure, unknown
-symbols, and yfinance independence.
+symbols, and Upstox-only consolidation (no fallback provider).
 """
 
 from datetime import date
@@ -17,7 +17,6 @@ from app.data.providers.market.upstox_provider import (
     normalize_search_item,
     UpstoxMarketProvider,
 )
-from app.data.providers.market.yfinance_provider import YFinanceMarketProvider
 from app.data.storage.duckdb_storage import DuckDBStorage
 from app.data.universe.universe_config import clear_dynamic_registry, get_universe_entry
 from app.repositories.instrument_repository import InstrumentRepository
@@ -470,21 +469,3 @@ def test_unknown_symbol_resolve_is_not_found(tmp_path):
             svc.resolve_symbol("NOPEXYZ")
     finally:
         storage.close()
-
-
-# 11. yfinance still works -------------------------------------------------------------------------------
-
-
-def test_yfinance_provider_still_works_independently():
-    import pandas as pd
-
-    provider = YFinanceMarketProvider({"TCS": "TCS.NS"})
-    idx = pd.to_datetime(["2024-01-02", "2024-01-03"])
-    df = pd.DataFrame(
-        {"Open": [100.0, 101.0], "High": [110.0, 111.0], "Low": [95.0, 96.0], "Close": [105.0, 106.0], "Volume": [1000, 1100]},
-        index=idx,
-    )
-    bars = provider.normalize_frame(df, symbol="TCS", provider_ticker="TCS.NS")
-    assert len(bars) == 2
-    assert bars[0].symbol == "TCS"
-    assert bars[0].close == pytest.approx(105.0)
