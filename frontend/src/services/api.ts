@@ -22,6 +22,7 @@ import type {
   RefreshResult,
   ResearchListResponse,
   ResearchStatusResponse,
+  StockContext,
   UniverseResponse,
   UpstoxSearchResponse,
 } from '../types/api';
@@ -67,6 +68,19 @@ export const api = {
   health: () => request<HealthInfo>('/health'),
 
   universe: () => request<UniverseResponse>('/api/universe'),
+
+  /** Central Stock Context: one cached assembly per selected symbol. */
+  stock: {
+    context: (symbol: string, instrumentKey?: string | null) =>
+      request<StockContext>(
+        `/api/stock/${encodeURIComponent(symbol)}/context${instrumentKey ? `?instrument_key=${encodeURIComponent(instrumentKey)}` : ''}`,
+      ),
+    invalidate: (symbol: string) =>
+      request<{ symbol: string; invalidated: boolean }>(
+        `/api/stock/${encodeURIComponent(symbol)}/context`,
+        { method: 'DELETE' },
+      ),
+  },
 
   market: {
     status: () => request<MarketStatusResponse>('/api/market/status'),
@@ -164,6 +178,12 @@ export const api = {
     coverage: (symbol: string) =>
       request<FundamentalsCoverageResponse>(
         `/api/fundamentals/${encodeURIComponent(symbol)}`,
+      ),
+    /** Labeled web-research enrichment (cached + rate-limited backend-side). */
+    enrich: (symbol: string) =>
+      request<Record<string, unknown>>(
+        `/api/fundamentals/enrich/${encodeURIComponent(symbol)}`,
+        { method: 'POST' },
       ),
   },
 

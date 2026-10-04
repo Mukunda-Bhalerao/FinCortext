@@ -109,6 +109,115 @@ export interface MarketQuote {
   day_change_pct: number | null;
   /** True when this snapshot came from a live provider fetch (not storage). */
   live?: boolean | null;
+  /** Live-only market depth (5 levels per side) — never carried by a
+   *  stored snapshot (ephemeral; stale depth must not present as current). */
+  depth_buy?: QuoteDepthLevel[] | null;
+  depth_sell?: QuoteDepthLevel[] | null;
+  total_buy_quantity?: number | null;
+  total_sell_quantity?: number | null;
+  upper_circuit_limit?: number | null;
+  lower_circuit_limit?: number | null;
+  last_trade_time?: string | number | null;
+}
+
+/** One level of the live order book (price/quantity/orders; null = absent). */
+export interface QuoteDepthLevel {
+  price: number | null;
+  quantity: number | null;
+  orders: number | null;
+}
+
+/** Central Stock Context: one cached assembly per selected symbol. Every
+ *  section carries an explicit status; unavailable fields are marked —
+ *  never fabricated. */
+export interface StockIdentity {
+  symbol: string;
+  name: string | null;
+  trading_symbol?: string | null;
+  instrument_key: string | null;
+  exchange: string | null;
+  segment?: string | null;
+  isin?: string | null;
+  exchange_token?: string | null;
+  instrument_type?: string | null;
+  tick_size?: number | null;
+  lot_size?: number | null;
+  sector: string | null;
+  industry: string | null;
+  dynamic?: boolean;
+  status: DataStatusValue;
+  error?: string;
+}
+
+export interface StockFiftyTwoWeek {
+  high: number | null;
+  low: number | null;
+  available: boolean;
+  source: string | null;
+}
+
+export interface StockHistory {
+  symbol?: string;
+  status: DataStatusValue;
+  count: number;
+  latest_trade_date?: string | null;
+  prices: MarketPricePoint[];
+  available: boolean;
+  source?: string;
+  quote_timestamp?: string | null;
+  quote_source?: string | null;
+  quote_last_price?: number | null;
+  preparation?: unknown[];
+  error?: string;
+}
+
+export interface StockProfile {
+  name: string | null;
+  sector: string | null;
+  industry: string | null;
+  business_description: string | null;
+  source: string | null;
+  confidence: number | null;
+  sources: ResearchSource[];
+  status: DataStatusValue;
+}
+
+export interface StockFundamentals {
+  symbol?: string;
+  name?: string;
+  status: DataStatusValue;
+  metric_count: number;
+  has_official?: boolean;
+  has_provider?: boolean;
+  metrics: Record<string, FundamentalsMetricCoverage>;
+  available: boolean;
+  note?: string | null;
+  error?: string;
+}
+
+export interface StockNews {
+  status: DataStatusValue;
+  count: number;
+  articles: NewsArticleSummary[];
+  available: boolean;
+  note?: string | null;
+  error?: string;
+}
+
+export interface StockContext {
+  symbol: string;
+  name: string;
+  generated_at: string;
+  identity: StockIdentity;
+  quote: MarketQuote & { available?: boolean; error?: string };
+  fifty_two_week: StockFiftyTwoWeek;
+  history: StockHistory;
+  profile: StockProfile;
+  fundamentals: StockFundamentals;
+  news: StockNews;
+  /** Fields a full platform expects that Upstox does not provide for NSE
+   *  equities — surfaced explicitly, never fabricated. */
+  unavailable_from_upstox: string[];
 }
 
 /** One preparation area inside a company-preparation response. */

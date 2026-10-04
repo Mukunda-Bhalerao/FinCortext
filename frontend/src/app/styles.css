@@ -274,6 +274,7 @@ button.macro-strip:hover { border-color: var(--accent); }
 .badge-status-live { background: rgba(46, 204, 143, 0.15); color: var(--positive); }
 .badge-status-cached { background: var(--accent-soft); color: var(--accent); }
 .badge-status-imported_official { background: rgba(123, 92, 255, 0.18); color: #b39dff; }
+.badge-status-web_research { background: rgba(245, 176, 76, 0.15); color: var(--warning); }
 .badge-status-sample { background: rgba(245, 176, 76, 0.15); color: var(--warning); }
 .badge-status-unavailable { background: rgba(143, 160, 184, 0.15); color: var(--neutral); }
 .badge-status-degraded { background: rgba(245, 176, 76, 0.15); color: var(--warning); }
@@ -616,4 +617,30 @@ a.news-title:hover { color: var(--accent); }
 .portfolio-details h4 { margin: 12px 0 4px; font-size: 0.85rem; color: var(--text-muted); }
 @media (max-width: 720px) {
   .perspective-grid { grid-template-columns: 1fr; }
+}
+
+/* --- Stock pages (Market Data / Fundamentals / News / Insights) --------- */
+.news-list-live { list-style: none; margin: 8px 0 0; padding: 0; }
+.news-item-live { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.news-item-live:last-child { border-bottom: none; }
+.news-item-title { color: var(--text); font-weight: 600; text-decoration: none; font-size: 0.92rem; }
+.news-item-title:hover { color: var(--accent); }
+.news-item-desc { margin: 4px 0 2px; font-size: 0.85rem; }
+.news-item-meta { margin: 2px 0 0; font-size: 0.78rem; }
+.summary-grid-live { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 10px 0; }
+.summary-card-live { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.summary-card-missing { border-style: dashed; opacity: 0.8; }
+.summary-card-label { font-size: 0.8rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.summary-card-score { font-size: 1.6rem; font-weight: 800; margin: 6px 0 2px; font-variant-numeric: tabular-nums; }
+.summary-card-signal { font-size: 0.9rem; font-weight: 700; }
+.summary-card-meta { font-size: 0.78rem; margin-top: 4px; }
+.signal-buy .summary-card-score, .signal-strong_buy .summary-card-score { color: var(--positive); }
+.signal-sell .summary-card-score, .signal-strong_sell .summary-card-score { color: var(--negative); }
+.signal-unavailable .summary-card-score { color: var(--neutral); }
+.insights-actions { display: flex; flex-direction: column; gap: 8px; align-self: center; }
+.depth-grid-live { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
+.depth-table-live th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+@media (max-width: 720px) {
+  .depth-grid-live { grid-template-columns: 1fr; }
+  .insights-actions { flex-direction: row; flex-wrap: wrap; }
 }

@@ -1,28 +1,32 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+﻿import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import App from './App';
 
 describe('App demo navigation', () => {
-  it('shows the eight demo destinations in the sidebar', () => {
+  it('shows the investment-platform destinations in the sidebar', () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <App />
       </MemoryRouter>,
     );
     const nav = screen.getByRole('navigation', { name: 'Main navigation' });
-    expect(nav).toHaveTextContent('Dashboard');
-    expect(nav).toHaveTextContent('Company Analysis');
-    expect(nav).toHaveTextContent('Firm Analyst');
-    expect(nav).toHaveTextContent('Industry Analyst');
-    expect(nav).toHaveTextContent('Macro Analyst');
-    expect(nav).toHaveTextContent('Sentiment Analyst');
-    expect(nav).toHaveTextContent('Intelligence Summary');
-    expect(nav).toHaveTextContent('Portfolio Synthesis');
+    expect(nav).toHaveTextContent('Stock Overview');
+    expect(nav).toHaveTextContent('Market Data');
+    expect(nav).toHaveTextContent('Fundamentals');
+    expect(nav).toHaveTextContent('News');
+    expect(nav).toHaveTextContent('Insights');
+    expect(nav).toHaveTextContent('Portfolio Intelligence');
 
-    // No data/backend sections in the demo UI — routes stay reachable by URL.
+    // The four analysts run behind the scenes â€” they are not nav sections.
+    expect(nav).not.toHaveTextContent('Firm Analyst');
+    expect(nav).not.toHaveTextContent('Industry Analyst');
+    expect(nav).not.toHaveTextContent('Macro Analyst');
+    expect(nav).not.toHaveTextContent('Sentiment Analyst');
+    expect(nav).not.toHaveTextContent('Intelligence Summary');
+
+    // No data/backend sections in the demo UI â€” routes stay reachable by URL.
     expect(nav).not.toHaveTextContent('Data Sources');
     expect(nav).not.toHaveTextContent('Data Pipeline');
-    expect(nav).not.toHaveTextContent('Market Data');
     expect(nav).not.toHaveTextContent('Filing Import');
     expect(nav).not.toHaveTextContent('Data Quality');
     expect(nav).not.toHaveTextContent('Risk & Constraints');
@@ -60,8 +64,8 @@ describe('App demo navigation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
     expect(sidebar!.classList.contains('collapsed')).toBe(true);
     expect(localStorage.getItem('fincortext:sidebar-collapsed')).toBe('1');
-    // Destinations stay reachable — icons keep their links and tooltips.
-    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute(
+    // Destinations stay reachable â€” icons keep their links and tooltips.
+    expect(screen.getByRole('link', { name: 'Stock Overview' })).toHaveAttribute(
       'href',
       expect.stringContaining('/'),
     );
@@ -102,7 +106,7 @@ describe('App demo navigation', () => {
     expect(screen.getByRole('heading', { name: 'Portfolio Synthesis' })).toBeInTheDocument();
   });
 
-  it('keeps the selected company across Dashboard → analyst → Dashboard navigation', async () => {
+  it('keeps the selected company across Dashboard â†’ analyst â†’ Dashboard navigation', async () => {
     const universeResp = {
       universe_version: '1.0.0',
       count: 3,
@@ -145,7 +149,7 @@ describe('App demo navigation', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    // Dashboard → each demo page → Dashboard must keep the company correct.
+    // Dashboard â†’ each demo page â†’ Dashboard must keep the company correct.
     const legs: Array<{ link: string; heading: string }> = [
       { link: 'Company Analysis', heading: 'Company Analysis' },
       { link: 'Firm Analyst', heading: 'Firm Analyst' },
@@ -175,10 +179,10 @@ describe('App demo navigation', () => {
             screen.getByRole('heading', { name: leg.heading }),
           ).toBeInTheDocument();
         });
-        // Analyst page kept the company — no reset to TCS.
+        // Analyst page kept the company â€” no reset to TCS.
         expect(screen.getByRole('combobox')).toHaveValue('RELIANCE');
 
-        fireEvent.click(screen.getByRole('link', { name: 'Dashboard' }));
+        fireEvent.click(screen.getByRole('link', { name: 'Stock Overview' }));
         await waitFor(() => {
           expect(screen.getByRole('combobox')).toHaveValue('RELIANCE');
         });

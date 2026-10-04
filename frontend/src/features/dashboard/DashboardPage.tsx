@@ -33,7 +33,6 @@ const ANALYSTS = [
 const TABS = [
   { label: 'Overview', target: 'dash-overview' },
   { label: 'Price Chart', target: 'dash-price' },
-  { label: 'Intelligence', target: 'dash-intelligence' },
   { label: 'News', target: 'dash-news' },
   { label: 'Peers', target: 'dash-peers' },
 ] as const;
@@ -362,7 +361,7 @@ export default function DashboardPage() {
             <dd>{priceLoading ? '…' : fmtPriceNA(quote?.year_low)}</dd>
           </div>
         </dl>
-        <button className="btn btn-primary btn-analyze" onClick={() => go('/company')}>
+        <button className="btn btn-primary btn-analyze" onClick={() => go('/stock/insights')}>
           ▶ Analyze Company
         </button>
       </header>
@@ -433,6 +432,43 @@ export default function DashboardPage() {
         )}
       </section>
 
+      {/* Latest news — real stored articles, linked to the full News page */}
+      <section id="dash-news" className="card fade-in" aria-label="Latest news" style={{ animationDelay: '0.11s' }}>
+        <div className="dash-heading">
+          <h3>Latest News</h3>
+          {news && news.count > 0 && (
+            <button className="btn" onClick={() => go('/stock/news')}>
+              All news →
+            </button>
+          )}
+        </div>
+        {!news || news.count === 0 ? (
+          <div className="dash-empty">
+            <p className="muted">
+              {news === undefined
+                ? 'Loading news…'
+                : `No stored news for ${displayName} yet — nothing is shown until real articles are collected.`}
+            </p>
+          </div>
+        ) : (
+          <ul className="news-list-live">
+            {(news.articles ?? []).slice(0, 3).map((a) => (
+              <li key={a.article_id} className="news-item-live">
+                <a href={a.source_url ?? '#'} target="_blank" rel="noreferrer" className="news-item-title">
+                  {a.title}
+                </a>
+                <p className="muted news-item-meta">
+                  {a.source ?? 'source unavailable'}
+                  {a.published_at
+                    ? ` · ${new Date(a.published_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
+                    : ''}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       {/* Market context — full width below the chart, real sector peers only */}
       <section id="dash-peers" className="card fade-in" aria-label="Market context" style={{ animationDelay: '0.08s' }}>
         <div className="dash-heading">
@@ -476,8 +512,8 @@ export default function DashboardPage() {
             </>
           )}
         </div>
-        <button className="btn" onClick={() => go('/intelligence/summary')}>
-          View Full Summary →
+        <button className="btn" onClick={() => go('/portfolio')}>
+          View Portfolio Intelligence →
         </button>
       </section>
 

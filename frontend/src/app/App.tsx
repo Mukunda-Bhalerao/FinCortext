@@ -6,6 +6,10 @@ import CompanySelector from '../components/common/CompanySelector';
 import StatusBadge from '../components/common/StatusBadge';
 import { describeFreshness } from '../features/company/useMarketQuote';
 import DashboardPage from '../features/dashboard/DashboardPage';
+import MarketDataSection from '../features/stock/MarketDataSection';
+import FundamentalsPage from '../features/stock/FundamentalsPage';
+import NewsPage from '../features/stock/NewsPage';
+import InsightsPage from '../features/stock/InsightsPage';
 import CompanyAnalysisPage from '../features/company/CompanyAnalysisPage';
 import DataSourcesPage from '../features/data/DataSourcesPage';
 import DataPipelinePage from '../features/data/DataPipelinePage';
@@ -35,12 +39,16 @@ const iconProps = {
   'aria-hidden': true,
 } as const;
 
-/** Product navigation — the six demo destinations. Internal data tooling
- *  stays reachable by URL but out of the demo UI. */
+/** Product navigation — the investment-platform destinations: Search (topbar)
+ *  → Stock Overview → Market Data → Fundamentals → News → Insights →
+ *  Portfolio Intelligence. The four analysts run behind the scenes; their
+ *  stored outputs feed these sections. Old analyst routes stay mounted but
+ *  unlinked (same pattern as superseded pages) so they remain reachable
+ *  while the new sections are proven. */
 const NAV_ITEMS: NavItem[] = [
   {
     to: '/',
-    label: 'Dashboard',
+    label: 'Stock Overview',
     end: true,
     icon: (
       <svg {...iconProps}>
@@ -52,8 +60,17 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    to: '/company',
-    label: 'Company Analysis',
+    to: '/stock/market',
+    label: 'Market Data',
+    icon: (
+      <svg {...iconProps}>
+        <path d="M2.5 13.5v-6l3.5 2 3.5-4 4 5.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      </svg>
+    ),
+  },
+  {
+    to: '/stock/fundamentals',
+    label: 'Fundamentals',
     icon: (
       <svg {...iconProps}>
         <rect x="2.5" y="5" width="11" height="9" rx="1" fill="none" stroke="currentColor" strokeWidth="1.4" />
@@ -62,36 +79,8 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    to: '/intelligence/firm',
-    label: 'Firm Analyst',
-    icon: (
-      <svg {...iconProps}>
-        <path d="M2.5 13.5V8l3.5-4 3.5 4v5.5M9.5 13.5V9.5l4-2.5v6.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
-      </svg>
-    ),
-  },
-  {
-    to: '/intelligence/industry',
-    label: 'Industry Analyst',
-    icon: (
-      <svg {...iconProps}>
-        <circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
-        <path d="M8 2.5v11M2.5 8h11" stroke="currentColor" strokeWidth="1.1" />
-      </svg>
-    ),
-  },
-  {
-    to: '/intelligence/macro',
-    label: 'Macro Analyst',
-    icon: (
-      <svg {...iconProps}>
-        <path d="M2 13.5 6.5 9l3 3L14 6.5M9.5 6.5H14V11" fill="none" stroke="currentColor" strokeWidth="1.4" />
-      </svg>
-    ),
-  },
-  {
-    to: '/intelligence/sentiment',
-    label: 'Sentiment Analyst',
+    to: '/stock/news',
+    label: 'News',
     icon: (
       <svg {...iconProps}>
         <path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2v-7z" fill="none" stroke="currentColor" strokeWidth="1.4" />
@@ -99,20 +88,21 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    to: '/intelligence/summary',
-    label: 'Intelligence Summary',
+    to: '/stock/insights',
+    label: 'Insights',
     icon: (
       <svg {...iconProps}>
-        <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h7" stroke="currentColor" strokeWidth="1.4" />
+        <circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
+        <circle cx="8" cy="8" r="1.8" fill="currentColor" stroke="none" />
       </svg>
     ),
   },
   {
     to: '/portfolio',
-    label: 'Portfolio Synthesis',
+    label: 'Portfolio Intelligence',
     icon: (
       <svg {...iconProps}>
-        <path d="M2.5 13.5v-6l3.5 2 3.5-4 4 5.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
+        <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h7" stroke="currentColor" strokeWidth="1.4" />
       </svg>
     ),
   },
@@ -223,8 +213,8 @@ function Shell() {
           ))}
         </nav>
         <div className="side-foot">
-          <span className="side-flow">Data → Intelligence → Decision</span>
-          <span className="muted">FinCortext research</span>
+          <span className="side-flow">Search → Analyze → Decide</span>
+          <span className="muted">FinCortext platform</span>
         </div>
       </aside>
       <div className="shell-main">
@@ -237,7 +227,17 @@ function Shell() {
         </header>
         <main className="app-main">
           <Routes>
+            {/* Investment-platform model: Search (topbar) → Stock Overview →
+                Market Data → Fundamentals → News → Insights → Portfolio */}
             <Route path="/" element={<DashboardPage />} />
+            <Route path="/stock/market" element={<MarketDataSection />} />
+            <Route path="/stock/fundamentals" element={<FundamentalsPage />} />
+            <Route path="/stock/news" element={<NewsPage />} />
+            <Route path="/stock/insights" element={<InsightsPage />} />
+
+            {/* Superseded analyst-era pages — mounted but unlinked (same
+                pattern as the data tooling) so they stay reachable while the
+                new sections are proven. */}
             <Route path="/company" element={<CompanyAnalysisPage />} />
 
             {/* Data tooling — internal routes, intentionally unlinked */}
@@ -248,16 +248,14 @@ function Shell() {
             <Route path="/data/quality" element={<DataQualityPage />} />
             <Route path="/data" element={<Navigate to="/data/sources" replace />} />
 
-            {/* Intelligence */}
             <Route path="/intelligence/firm" element={<FirmAnalystPage />} />
             <Route path="/intelligence/industry" element={<IndustryAnalystPage />} />
             <Route path="/intelligence/macro" element={<MacroAnalystPage />} />
             <Route path="/intelligence/sentiment" element={<SentimentAnalystPage />} />
             <Route path="/intelligence/summary" element={<IntelligenceSummaryPage />} />
-            {/* Roadmap — future-module skeletons only, no functionality */}
             <Route path="/roadmap" element={<RoadmapPage />} />
 
-            {/* Portfolio — synthesis is implemented; risk/optimization stay future */}
+            {/* Portfolio Intelligence — synthesis is implemented; risk/optimization stay future */}
             <Route path="/portfolio" element={<PortfolioSynthesisPage />} />
             <Route
               path="/portfolio/risk"

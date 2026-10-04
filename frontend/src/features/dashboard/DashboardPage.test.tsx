@@ -233,8 +233,9 @@ describe('DashboardPage terminal', () => {
     expect(screen.getByText('Volume')).toBeInTheDocument();
     expect(screen.getByText('▶ Analyze Company')).toBeInTheDocument();
 
-    // Section tabs and chart ranges.
-    for (const tab of ['Overview', 'Price Chart', 'Intelligence', 'News', 'Peers']) {
+    // Section tabs and chart ranges (terminal layout: Overview, Price Chart,
+    // News, Peers — the full analyst views live on their own pages).
+    for (const tab of ['Overview', 'Price Chart', 'News', 'Peers']) {
       expect(screen.getByText(tab, { selector: '.tab-btn' })).toBeInTheDocument();
     }
     expect(screen.getByText('Price Performance')).toBeInTheDocument();
@@ -245,28 +246,14 @@ describe('DashboardPage terminal', () => {
       expect(screen.getByText(/₹1,739\.00/)).toBeInTheDocument();
     });
 
-    // Compact stored intelligence — pointers, not full calculations.
-    expect(screen.getByText('FinCortext Intelligence')).toBeInTheDocument();
-    expect(screen.getByText('Firm Analyst', { selector: '.intel-label' })).toBeInTheDocument();
-    expect(screen.getByText('DEGRADED')).toBeInTheDocument();
-
     // Key takeaway derived from the stored outputs.
     expect(screen.getByText('Key Takeaway')).toBeInTheDocument();
     expect(screen.getByText(/All three analyst views are stored/)).toBeInTheDocument();
 
-    // Macro strip: market-wide stored view with score + environment vocabulary.
-    await waitFor(() => {
-      expect(screen.getByText('Macro Environment')).toBeInTheDocument();
-    });
-    expect(screen.getByText('NEUTRAL')).toBeInTheDocument();
-    expect(screen.getByText('50/100')).toBeInTheDocument();
-    expect(screen.getByText(/through 2026-07-31/)).toBeInTheDocument();
-    // Concise dashboard links to the detailed synthesis — no full outputs here.
-    expect(screen.getByText(/Open Portfolio Synthesis/)).toBeInTheDocument();
-    expect(screen.queryByText(/Contributing factors/)).not.toBeInTheDocument();
-
-    // Real stored news.
+    // Latest news — real stored articles on the dashboard.
     expect(screen.getByText('TCS reports steady quarter')).toBeInTheDocument();
+    // Links to the Portfolio Intelligence page (the synthesis lives there).
+    expect(screen.getByText(/View Portfolio Intelligence/)).toBeInTheDocument();
 
     // Nothing invented: no indices, no market cap, no blended score.
     expect(screen.queryByText(/nifty/i)).not.toBeInTheDocument();
@@ -288,14 +275,12 @@ describe('DashboardPage terminal', () => {
     // Single-member sector: peer table holds only RELIANCE, no fabricated peers.
     expect(screen.queryByText('INFY', { selector: '.peer-link' })).not.toBeInTheDocument();
 
-    // Industry view stored as UNAVAILABLE — shown as-is with its status.
-    expect(
-      screen.getByText('UNAVAILABLE', { selector: '.badge-status-unavailable' }),
-    ).toBeInTheDocument();
-
-    // Takeaway reports partial coverage instead of hiding it.
+    // Takeaway reports partial coverage and the unavailable industry view
+    // honestly instead of hiding it (the UNAVAILABLE industry view renders
+    // in the takeaway text; nothing is fabricated to fill the gap).
     expect(screen.getByText(/2 lean positive/)).toBeInTheDocument();
     expect(screen.getByText(/Coverage is partial/)).toBeInTheDocument();
+    expect(screen.getByText(/Industry Analyst: unavailable/)).toBeInTheDocument();
   });
 
   it('switching companies in the search reloads the terminal with that company', async () => {
