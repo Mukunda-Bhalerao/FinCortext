@@ -101,12 +101,37 @@ def _num(value: Any) -> float | None:
     return num
 
 
+def _depth_levels(raw_levels: Any) -> list[dict] | None:
+    """Normalize the 5-level buy/sell depth arrays; None when absent/empty.
+
+    Each level carries explicit None for missing price/quantity (never 0
+    unless Upstox itself reports 0, e.g. an empty side of the book).
+    """
+    if not isinstance(raw_levels, list):
+        return None
+    out: list[dict] = []
+    for level in raw_levels:
+        if not isinstance(level, dict):
+            continue
+        out.append(
+            {
+                "price": _num(level.get("price")),
+                "quantity": _num(level.get("quantity")),
+                "orders": _num(level.get("orders")),
+            }
+        )
+    return out or None
+
+
 def normalize_quote(raw: dict, *, instrument_key: str, fallback_symbol: str = "") -> dict:
     """Normalize one raw V3 full-quote object.
 
     Field names are snake_case and stable — the frontend mirrors them exactly
     so valid Upstox values never become null through a rename. Missing values
-    stay ``None`` (never 0).
+    stay ``None`` (never 0). Market depth (5-level buy/sell), circuit limits,
+    total buy/sell quantities and last-trade time are carried when Upstox
+    provides them (verified live; depth is ephemeral — it is never persisted
+    to the stored snapshot).
     """
     ohlc = raw.get("ohlc") if isinstance(raw.get("ohlc"), dict) else {}
     last_price = _num(raw.get("last_price"))
@@ -127,6 +152,7 @@ def normalize_quote(raw: dict, *, instrument_key: str, fallback_symbol: str = ""
     if last_price is not None and prev_close is not None and prev_close:
         day_change = last_price - prev_close
         day_change_pct = (day_change / prev_close) * 100.0
+    depth = raw.get("depth") if isinstance(raw.get("depth"), dict) else None
     return {
         "symbol": symbol,
         "instrument_key": str(raw.get("instrument_token") or instrument_key or "").strip(),
@@ -135,6 +161,7 @@ def normalize_quote(raw: dict, *, instrument_key: str, fallback_symbol: str = ""
         "segment": "EQ",
         "source": "upstox",
         "timestamp": raw.get("timestamp"),
+        "last_trade_time": raw.get("last_trade_time"),
         "last_price": last_price,
         "prev_close": prev_close,
         "open": open_p,
@@ -147,6 +174,12 @@ def normalize_quote(raw: dict, *, instrument_key: str, fallback_symbol: str = ""
         "year_low": year_low,
         "day_change": day_change,
         "day_change_pct": day_change_pct,
+        "depth_buy": _depth_levels(depth.get("buy")) if depth else None,
+        "depth_sell": _depth_levels(depth.get("sell")) if depth else None,
+        "total_buy_quantity": _num(raw.get("total_buy_quantity")),
+        "total_sell_quantity": _num(raw.get("total_sell_quantity")),
+        "upper_circuit_limit": _num(raw.get("upper_circuit_limit")),
+        "lower_circuit_limit": _num(raw.get("lower_circuit_limit")),
     }
 
 

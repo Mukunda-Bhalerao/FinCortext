@@ -34,6 +34,7 @@ from app.services.macro_service import MacroService
 from app.services.market_service import MarketService
 from app.services.news_service import NewsService
 from app.services.research_service import ResearchService
+from app.services.stock_context_service import StockContextService
 
 
 class Container:
@@ -164,6 +165,19 @@ class Container:
             news_repo=self.news_repo,
             instrument_repo=self.instrument_repo,
             universe_repo=self.universe_repo,
+            research_service=self.research_service,
+        )
+        # Central Stock Context: one cached assembly per selected symbol
+        # (identity + live quote incl. depth + history + 52w + profile +
+        # fundamentals + news) built from verified Upstox fields plus
+        # existing provider data where Upstox does not cover a need.
+        self.stock_context_service = StockContextService(
+            market_service=self.market_service,
+            fundamentals_service=self.fundamentals_service,
+            news_service=self.news_service,
+            market_repo=self.market_repo,
+            financial_repo=self.financial_repo,
+            news_repo=self.news_repo,
             research_service=self.research_service,
         )
         # Lazy-loading local FinBERT wrapper — never loads at startup.
