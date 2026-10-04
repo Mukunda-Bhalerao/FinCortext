@@ -99,8 +99,8 @@ describe('MacroAnalystPage', () => {
     expect(screen.queryByText(/BUY/i)).not.toBeInTheDocument();
     // Numeric environment score, signal, status and confidence are all shown.
     expect(screen.getByText(/Macro Environment Score: 50 \/ 100/)).toBeInTheDocument();
-    expect(screen.getByText(/Signal: NEUTRAL/)).toBeInTheDocument();
-    expect(screen.getByText(/Confidence: 62%/)).toBeInTheDocument();
+    expect(screen.getByText('NEUTRAL')).toBeInTheDocument();
+    expect(screen.getByText(/confidence 62%/)).toBeInTheDocument();
     // No cryptic three-letter dial.
     expect(screen.queryByText('NEU', { selector: '.score-value' })).not.toBeInTheDocument();
     // Factor with value, direction, as-of date, evidence and source.

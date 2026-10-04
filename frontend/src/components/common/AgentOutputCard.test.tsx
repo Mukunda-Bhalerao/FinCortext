@@ -67,7 +67,7 @@ describe('AgentOutputCard', () => {
 
   it('renders evidence and limitations sections', () => {
     render(<AgentOutputCard output={baseOutput} />);
-    expect(screen.getByText('financial_observation')).toBeInTheDocument();
+    expect(screen.getByText('financial data')).toBeInTheDocument();
     expect(
       screen.getByText(/Missing pe_ratio — valuation factor unavailable\./),
     ).toBeInTheDocument();

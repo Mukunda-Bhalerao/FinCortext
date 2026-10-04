@@ -1,0 +1,6 @@
+INFO:     Started server process [11660]
+INFO:     Waiting for application startup.
+2026-10-05 01:27:11 | INFO     | fincortext.main | FinCortext backend starting (version 0.1.0)
+2026-10-05 01:27:11 | INFO     | fincortext.main | Configuration: {'db_path': 'D:\\KODERRRR\\FinCortext\\data\\processed\\fincortext.duckdb', 'news_api_configured': True, 'news_provider': 'google_rss', 'cors_origins': ['http://localhost:5173', 'http://127.0.0.1:5173'], 'log_level': 'INFO', 'market_history_days': 730, 'upstox_configured': True, 'gemini_configured': True, 'gemini_model': 'gemini-3-flash-preview', 'sentiment_model_id': 'ProsusAI/finbert', 'allow_sample_data': False}
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)

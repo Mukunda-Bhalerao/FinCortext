@@ -151,13 +151,11 @@ describe('App demo navigation', () => {
 
     // Dashboard â†’ each demo page â†’ Dashboard must keep the company correct.
     const legs: Array<{ link: string; heading: string }> = [
-      { link: 'Company Analysis', heading: 'Company Analysis' },
-      { link: 'Firm Analyst', heading: 'Firm Analyst' },
-      { link: 'Industry Analyst', heading: 'Industry Analyst' },
-      { link: 'Macro Analyst', heading: 'Macro Analyst' },
-      { link: 'Sentiment Analyst', heading: 'Sentiment Analyst' },
-      { link: 'Intelligence Summary', heading: 'Combined Intelligence Summary' },
-      { link: 'Portfolio Synthesis', heading: 'Portfolio Synthesis' },
+      { link: 'Market Data', heading: 'Market Data' },
+      { link: 'Fundamentals', heading: 'Fundamentals' },
+      { link: 'News', heading: 'News' },
+      { link: 'Insights', heading: 'Insights' },
+      { link: 'Portfolio Intelligence', heading: 'Portfolio Synthesis' },
     ];
 
     try {

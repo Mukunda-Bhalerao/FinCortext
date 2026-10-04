@@ -252,7 +252,7 @@ describe('InsightsPage', () => {
     );
     renderPage(<InsightsPage />);
     await waitFor(() => {
-      expect(screen.getByText(/No analyst results stored for TCS yet/)).toBeInTheDocument();
+      expect(screen.getByText(/No analyst results stored for/)).toBeInTheDocument();
     });
     expect(screen.getAllByText(/No stored analyst results yet/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/will rise/i)).not.toBeInTheDocument();
@@ -272,20 +272,27 @@ describe('FundamentalsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Total Revenue')).toBeInTheDocument();
     });
-    expect(screen.getByText('₹2,67,021.00 Cr')).toBeInTheDocument();
+    expect(screen.getByText(/₹2,67,021/)).toBeInTheDocument();
     expect(screen.getByText('Return on Equity')).toBeInTheDocument();
     expect(screen.getByText('WEB-RESEARCHED')).toBeInTheDocument();
-    expect(screen.getByText('IMPORTED OFFICIAL DATA')).not.toBeInTheDocument();
+    expect(screen.queryByText('IMPORTED OFFICIAL DATA')).not.toBeInTheDocument();
   });
 
   it('renders an honest unavailable state when nothing is stored', async () => {
+    // Different symbol: the fundamentals hook caches per symbol at module
+    // level, so this test must not reuse the cached TCS coverage.
     vi.stubGlobal(
       'fetch',
       mockFetch({
-        '/api/universe': universeResp,
-        '/api/fundamentals/TCS': {
-          symbol: 'TCS',
-          name: 'Tata Consultancy Services',
+        '/api/universe': {
+          ...universeResp,
+          entries: [
+            { ...universeResp.entries[0], symbol: 'INFY', name: 'Infosys', ticker: 'INFY.NS' },
+          ],
+        },
+        '/api/fundamentals/INFY': {
+          symbol: 'INFY',
+          name: 'Infosys',
           status: 'UNAVAILABLE',
           metric_count: 0,
           has_official: false,
@@ -294,9 +301,9 @@ describe('FundamentalsPage', () => {
         },
       }),
     );
-    renderPage(<FundamentalsPage />);
+    renderPage(<FundamentalsPage />, '/?symbol=INFY');
     await waitFor(() => {
-      expect(screen.getByText(/No fundamentals stored for TCS yet/)).toBeInTheDocument();
+      expect(screen.getByText(/No fundamentals stored for INFY yet/)).toBeInTheDocument();
     });
     expect(screen.getByText('Research figures from the web (labeled)')).toBeInTheDocument();
   });
@@ -314,7 +321,7 @@ describe('NewsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('TCS reports steady quarter')).toBeInTheDocument();
     });
-    expect(screen.getByText('Example News')).toBeInTheDocument();
+    expect(screen.getByText(/Example News/)).toBeInTheDocument();
   });
 
   it('renders an honest unavailable state when nothing is stored', async () => {

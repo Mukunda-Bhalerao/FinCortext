@@ -1,0 +1,1010 @@
+
+> fincortext-frontend@0.1.0 test
+> vitest run --run src/features/stock/StockPages.test.tsx
+
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mD:/KODERRRR/FinCortext/frontend[39m
+
+ [31m❯[39m src/features/stock/StockPages.test.tsx [2m([22m[2m8 tests[22m[2m | [22m[31m4 failed[39m[2m)[22m[33m 2263[2mms[22m[39m
+[31m   [31m×[31m InsightsPage[2m > [22mshows an honest empty state with no fabricated insights[33m 1023[2mms[22m[31m[39m
+[31m     → Unable to find an element with the text: /No analyst results stored for TCS yet/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[31m
+  [36m<div>[31m
+    [36m<section[31m
+      [33mclass[31m=[32m"page"[31m
+    [36m>[31m
+      [36m<h2>[31m
+        [0mInsights[0m
+      [36m</h2>[31m
+      [36m<header[31m
+        [33mclass[31m=[32m"card dash-head fade-in"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-identity"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"term-symbol"[31m
+          [36m>[31m
+            [0mTCS[0m
+          [36m</div>[31m
+          [36m<div>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"term-name"[31m
+            [36m>[31m
+              [0mTata Consultancy Services[0m
+            [36m</div>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"term-chips"[31m
+            [36m>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip"[31m
+              [36m>[31m
+                [0mRisks · Opportunities · Signals[0m
+              [36m</span>[31m
+            [36m</div>[31m
+          [36m</div>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-pricecol"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"muted"[31m
+          [36m>[31m
+            [0mStored intelligence views[0m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"term-price"[31m
+            [33mstyle[31m=[32m"font-size: 1.4rem;"[31m
+          [36m>[31m
+            [0m0 of 3[0m
+          [36m</div>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"insights-actions"[31m
+        [36m>[31m
+          [36m<button[31m
+            [33mclass[31m=[32m"btn"[31m
+          [36m>[31m
+            [0m▶ Firm[0m
+          [36m</button>[31m
+          [36m<button[31m
+            [33mclass[31m=[32m"btn"[31m
+          [36m>[31m
+            [0m▶ Industry[0m
+          [36m</button>[31m
+          [36m<button[31m
+            [33mclass[31m=[32m"btn"[31m
+          [36m>[31m
+            [0m▶ Sentiment[0m
+          [36m</button>[31m
+        [36m</div>[31m
+      [36m</header>[31m
+      [36m<div[31m
+        [33mclass[31m=[32m"card fade-in"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.04s;"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-heading"[31m
+        [36m>[31m
+          [36m<h3>[31m
+            [0mSignals[0m
+          [36m</h3>[31m
+        [36m</div>[31m
+        [36m<p[31m
+          [33mclass[31m=[32m"muted dash-section-note"[31m
+        [36m>[31m
+          [0mEach signal is a stored analyst result with its factors, evidence and limitations attached — confidence reflects data coverage.[0m
+        [36m</p>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-empty"[31m
+        [36m>[31m
+          [36m<p[31m
+            [33mclass[31m=[32m"muted"[31m
+          [36m>[31m
+            [0mNo analyst results stored for [0m
+            [0mTata Consultancy Services[0m
+            [0m yet. Run an analyst above — every signal shown here comes from a real stored run.[0m
+          [36m</p>[31m
+        [36m</div>[31m
+        [36m<p[31m
+          [33mclass[31m=[32m"muted dash-section-note"[31m
+        [36m>[31m
+          [0mFull evidence and limitations for each view:[0m
+          [0m [0m
+          [36m<a[31m
+            [33mhref[31m=[32m"/intelligence/firm?symbol=TCS"[31m
+          [36m>[31m
+            [0mFirm[0m
+          [36m</a>[31m
+          [0m · [0m
+          [36m<a[31m
+            [33mhref[31m=[32m"/intelligence/industry?symbol=TCS"[31m
+          [36m>[31m
+            [0mIndustry[0m
+          [36m</a>[31m
+          [0m · [0m
+          [36m<a[31m
+            [33mhref[31m=[32m"/intelligence/sentiment?symbol=TCS"[31m
+          [36m>[31m
+            [0mSentiment[0m
+          [36m</a>[31m
+          [0m · [0m
+          [36m<a[31m
+            [33mhref[31m=[32m"/portfolio?symbol=TCS"[31m
+          [36m>[31m
+            [0mPortfolio Intelligence[0m
+          [36m</a>[31m
+        [36m</p>[31m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mclass[31m=[32m"card fade-in"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.08s;"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-heading"[31m
+        [36m>[31m
+          [36m<h3>[31m
+            [0mOpportunities[0m
+          [36m</h3>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-empty"[31m
+        [36m>[31m
+          [36m<p[31m
+            [33mclass[31m=[32m"muted"[31m
+          [36m>[31m
+            [0mNo stored analyst results yet — run an analyst to generate evidence.[0m
+          [36m</p>[31m
+        [36m</div>[31m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mclass[31m=[32m"card fade-in"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.12s;"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-heading"[31m
+        [36m>[31m
+          [36m<h3>[31m
+            [0mRisks & Limitations[0m
+          [36m</h3>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-empty"[31m
+        [36m>[31m
+          [36m<p[31m
+            [33mclass[31m=[32m"muted"[31m
+          [36m>[31m
+            [0mNo stored analyst results yet — run an analyst to generate evidence.[0m
+          [36m</p>[31m
+        [36m</div>[31m
+      [36m</div>[31m
+    [36m</section>[31m
+  [36m</div>[31m
+[36m</body>[31m
+
+Ignored nodes: comments, script, style
+[36m<html>[31m
+  [36m<head />[31m
+  [36m<body>[31m
+    [36m<div>[31m
+      [36m<section[31m
+        [33mclass[31m=[32m"page"[31m
+      [36m>[31m
+        [36m<h2>[31m
+          [0mInsights[0m
+        [36m</h2>[31m
+        [36m<header[31m
+          [33mclass[31m=[32m"card dash-head fade-in"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"dash-identity"[31m
+          [36m>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"term-symbol"[31m
+            [36m>[31m
+              [0mTCS[0m
+            [36m</div>[31m
+            [36m<div>[31m
+              [36m<div[31m
+                [33mclass[31m=[32m"term-name"[31m
+              [36m>[31m
+                [0mTata Consultancy Services[0m
+              [36m</div>[31m
+              [36m<div[31m
+                [33mclass[31m=[32m"term-chips"[31m
+              [36m>[31m
+                [36m<span[31m
+                  [33mclass[31m=[32m"chip"[31m
+                [36m>[31m
+                  [0mRisks · Opportunities · Signals[0m
+                [36m</span>[31m
+              [36m</div>[31m
+            [36m</div>[31m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"dash-pricecol"[31m
+          [36m>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mStored intelligence views[0m
+            [36m</div>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"term-price"[31m
+              [33mstyle[31m=[32m"font-size: 1.4rem;"[31m
+            [36m>[31m
+              [0m0 of 3[0m
+            [36m</div>[31m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"insights-actions"[31m
+          [36m>[31m
+            [36m<button[31m
+              [33mclass[31m=[32m"btn"[31m
+            [36m>[31m
+              [0m▶ Firm[0m
+            [36m</button>[31m
+            [36m<button[31m
+              [33mclass[31m=[32m"btn"[31m
+            [36m>[31m
+              [0m▶ Industry[0m
+            [36m</button>[31m
+            [36m<button[31m
+              [33mclass[31m=[32m"btn"[31m
+            [36m>[31m
+              [0m▶ Sentiment[0m
+            [36m</button>[31m
+          [36m</div>[31m
+        [36m</header>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"card fade-in"[31m
+          [33mstyle[31m=[32m"animation-delay: 0.04s;"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"dash-heading"[31m
+          [36m>[31m
+            [36m<h3>[31m
+              [0mSignals[0m
+            [36m</h3>[31m
+          [36m</div>[31m
+          [36m<p[31m
+            [33mclass[31m=[32m"muted dash-section-note"[31m
+          [36m>[31m
+            [0mEach signal is a stored analyst result with its factors, evidence and limitations attached — confidence reflects data coverage.[0m
+          [36m</p>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"dash-empty"[31m
+          [36m>[31m
+            [36m<p[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mNo analyst results stored for [0m
+              [0mTata Consultancy Services[0m
+              [0m yet. Run an analyst above — every signal shown here comes from a real stored run.[0m
+            [36m</p>[31m
+          [36m</div>[31m
+          [36m<p[31m
+            [33mclass[31m=[32m"muted dash-section-note"[31m
+          [36m>[31m
+            [0mFull evidence and limitations for each view:[0m
+            [0m [0m
+            [36m<a[31m
+              [33mhref[31m=[32m"/intelligence/firm?symbol=TCS"[31m
+            [36m>[31m
+              [0mFirm[0m
+            [36m</a>[31m
+            [0m · [0m
+            [36m<a[31m
+              [33mhref[31m=[32m"/intelligence/industry?symbol=TCS"[31m
+            [36m>[31m
+              [0mIndustry[0m
+            [36m</a>[31m
+            [0m · [0m
+            [36m<a[31m
+              [33mhref[31m=[32m"/intelligence/sentiment?symbol=TCS"[31m
+            [36m>[31m
+              [0mSentiment[0m
+            [36m</a>[31m
+            [0m · [0m
+            [36m<a[31m
+              [33mhref[31m=[32m"/portfolio?symbol=TCS"[31m
+            [36m>[31m
+              [0mPortfolio Intelligence[0m
+            [36m</a>[31m
+          [36m</p>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"card fade-in"[31m
+          [33mstyle[31m=[32m"animation-delay: 0.08s;"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"dash-heading"[31m
+          [36m>[31m
+            [36m<h3>[31m
+              [0mOpportunities[0m
+            [36m</h3>[31m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"dash-empty"[31m
+          [36m>[31m
+            [36m<p[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mNo stored analyst results yet — run an analyst to generate evidence.[0m
+            [36m</p>[31m
+          [36m</div>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"card fade-in"[31m
+          [33mstyle[31m=[32m"animation-delay: 0.12s;"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"dash-heading"[31m
+          [36m>[31m
+            [36m<h3>[31m
+              [0mRisks & Limitations[0m
+            [36m</h3>[31m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"dash-empty"[31m
+          [36m>[31m
+            [36m<p[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mNo stored analyst results yet — run an analyst to generate evidence.[0m
+            [36m</p>[31m
+          [36m</div>[31m
+        [36m</div>[31m
+      [36m</section>[31m
+    [36m</div>[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+[31m   [31m×[31m FundamentalsPage[2m > [22mrenders metrics with per-metric source labels[90m 28[2mms[22m[31m[39m
+[31m     → Unable to find an element with the text: ₹2,67,021.00 Cr. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[31m
+  [36m<div>[31m
+    [36m<section[31m
+      [33mclass[31m=[32m"page"[31m
+    [36m>[31m
+      [36m<h2>[31m
+        [0mFundamentals[0m
+      [36m</h2>[31m
+      [36m<header[31m
+        [33mclass[31m=[32m"card dash-head fade-in"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-identity"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"term-symbol"[31m
+          [36m>[31m
+            [0mTCS[0m
+          [36m</div>[31m
+          [36m<div>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"term-name"[31m
+            [36m>[31m
+              [0mTata Consultancy Services[0m
+            [36m</div>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"term-chips"[31m
+            [36m>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip chip-sector"[31m
+              [36m>[31m
+                [0mInformation Technology[0m
+              [36m</span>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip"[31m
+              [36m>[31m
+                [0mIT Services & Consulting[0m
+              [36m</span>[31m
+            [36m</div>[31m
+          [36m</div>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-pricecol"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"muted"[31m
+          [36m>[31m
+            [0mStored fundamentals[0m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"term-price"[31m
+            [33mstyle[31m=[32m"font-size: 1.4rem;"[31m
+          [36m>[31m
+            [0m2 metrics[0m
+          [36m</div>[31m
+          [36m<span[31m
+            [33mclass[31m=[32m"badge badge-status-cached"[31m
+          [36m>[31m
+            [0mCACHED[0m
+          [36m</span>[31m
+        [36m</div>[31m
+      [36m</header>[31m
+      [36m<div[31m
+        [33mclass[31m=[32m"card fade-in"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.04s;"[31m
+      [36m>[31m
+        [36m<h3>[31m
+          [0mFundamental Figures[0m
+        [36m</h3>[31m
+        [36m<table[31m
+          [33mclass[31m=[32m"data-table"[31m
+        [36m>[31m
+          [36m<thead>[31m
+            [36m<tr>[31m
+              [36m<th>[31m
+                [0mMetric[0m
+              [36m</th>[31m
+              [36m<th>[31m
+                [0mValue[0m
+              [36m</th>[31m
+              [36m<th>[31m
+                [0mPeriod[0m
+              [36m</th>[31m
+              [36m<th>[31m
+                [0mSource[0m
+              [36m</th>[31m
+            [36m</tr>[31m
+          [36m</thead>[31m
+          [36m<tbody>[31m
+            [36m<tr>[31m
+              [36m<td>[31m
+                [0mReturn on Equity[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [0m0.51[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [0mno statement period[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [36m<span[31m
+                  [33mclass[31m=[32m"badge badge-status-web_research"[31m
+                [36m>[31m
+                  [0mWEB-RESEARCHED[0m
+                [36m</span>[31m
+              [36m</td>[31m
+            [36m</tr>[31m
+            [36m<tr>[31m
+              [36m<td>[31m
+                [0mTotal Revenue[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [0m₹2,67,021 Cr[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [0m2026-03-31[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [36m<span[31m
+                  [33mclass[31m=[32m"badge badge-status-cached"[31m
+                [36m>[31m
+                  [0mCACHED[0m
+                [36m</span>[31m
+              [36m</td>[31m
+            [36m</tr>[31m
+          [36m</tbody>[31m
+        [36m</table>[31m
+        [36m<p[31m
+          [33mclass[31m=[32m"muted dash-section-note"[31m
+        [36m>[31m
+          [0mNo official filings ingested for [0m
+          [0mTCS[0m
+          [0m yet — figures above come from [0m
+          [0mstored provider/pre-consolidation statements[0m
+          [0m. Ingested filings are always the primary source.[0m
+        [36m</p>[31m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mclass[31m=[32m"card fade-in"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.08s;"[31m
+      [36m>[31m
+        [36m<h3>[31m
+          [0mWhere these figures come from[0m
+        [36m</h3>[31m
+        [36m<ul[31m
+          [33mclass[31m=[32m"stat-list"[31m
+        [36m>[31m
+          [36m<li>[31m
+            [36m<strong>[31m
+              [0mOfficial filings[0m
+            [36m</strong>[31m
+            [0m — ingested annual reports (IMPORTED_OFFICIAL); the primary source of truth.[0m
+          [36m</li>[31m
+          [36m<li>[31m
+            [36m<strong>[31m
+              [0mStored provider statements[0m
+            [36m</strong>[31m
+            [0m — pre-consolidation imports, kept usable and labeled per metric.[0m
+          [36m</li>[31m
+          [36m<li>[31m
+            [36m<strong>[31m
+              [0mWeb-researched figures[0m
+            [36m</strong>[31m
+            [0m — clearly labeled, sourced, and rate-limited; treat with lower confidence than official filings.[0m
+          [36m</li>[31m
+          [36m<li>[31m
+            [0mMissing figures are reported as missing — never estimated, never fabricated.[0m
+          [36m</li>[31m
+        [36m</ul>[31m
+      [36m</div>[31m
+    [36m</section>[31m
+  [36m</div>[31m
+[36m</body>[31m[39m
+[31m   [31m×[31m FundamentalsPage[2m > [22mrenders an honest unavailable state when nothing is stored[33m 1020[2mms[22m[31m[39m
+[31m     → Unable to find an element with the text: /No fundamentals stored for TCS yet/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[31m
+  [36m<div>[31m
+    [36m<section[31m
+      [33mclass[31m=[32m"page"[31m
+    [36m>[31m
+      [36m<h2>[31m
+        [0mFundamentals[0m
+      [36m</h2>[31m
+      [36m<header[31m
+        [33mclass[31m=[32m"card dash-head fade-in"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-identity"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"term-symbol"[31m
+          [36m>[31m
+            [0mTCS[0m
+          [36m</div>[31m
+          [36m<div>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"term-name"[31m
+            [36m>[31m
+              [0mTata Consultancy Services[0m
+            [36m</div>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"term-chips"[31m
+            [36m>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip chip-sector"[31m
+              [36m>[31m
+                [0mInformation Technology[0m
+              [36m</span>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip"[31m
+              [36m>[31m
+                [0mIT Services & Consulting[0m
+              [36m</span>[31m
+            [36m</div>[31m
+          [36m</div>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-pricecol"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"muted"[31m
+          [36m>[31m
+            [0mStored fundamentals[0m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"term-price"[31m
+            [33mstyle[31m=[32m"font-size: 1.4rem;"[31m
+          [36m>[31m
+            [0m2 metrics[0m
+          [36m</div>[31m
+          [36m<span[31m
+            [33mclass[31m=[32m"badge badge-status-cached"[31m
+          [36m>[31m
+            [0mCACHED[0m
+          [36m</span>[31m
+        [36m</div>[31m
+      [36m</header>[31m
+      [36m<div[31m
+        [33mclass[31m=[32m"card fade-in"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.04s;"[31m
+      [36m>[31m
+        [36m<h3>[31m
+          [0mFundamental Figures[0m
+        [36m</h3>[31m
+        [36m<table[31m
+          [33mclass[31m=[32m"data-table"[31m
+        [36m>[31m
+          [36m<thead>[31m
+            [36m<tr>[31m
+              [36m<th>[31m
+                [0mMetric[0m
+              [36m</th>[31m
+              [36m<th>[31m
+                [0mValue[0m
+              [36m</th>[31m
+              [36m<th>[31m
+                [0mPeriod[0m
+              [36m</th>[31m
+              [36m<th>[31m
+                [0mSource[0m
+              [36m</th>[31m
+            [36m</tr>[31m
+          [36m</thead>[31m
+          [36m<tbody>[31m
+            [36m<tr>[31m
+              [36m<td>[31m
+                [0mReturn on Equity[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [0m0.51[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [0mno statement period[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [36m<span[31m
+                  [33mclass[31m=[32m"badge badge-status-web_research"[31m
+                [36m>[31m
+                  [0mWEB-RESEARCHED[0m
+                [36m</span>[31m
+              [36m</td>[31m
+            [36m</tr>[31m
+            [36m<tr>[31m
+              [36m<td>[31m
+                [0mTotal Revenue[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [0m₹2,67,021 Cr[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [0m2026-03-31[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [36m<span[31m
+                  [33mclass[31m=[32m"badge badge-status-cached"[31m
+                [36m>[31m
+                  [0mCACHED[0m
+                [36m</span>[31m
+              [36m</td>[31m
+            [36m</tr>[31m
+          [36m</tbody>[31m
+        [36m</table>[31m
+        [36m<p[31m
+          [33mclass[31m=[32m"muted dash-section-note"[31m
+        [36m>[31m
+          [0mNo official filings ingested for [0m
+          [0mTCS[0m
+          [0m yet — figures above come from [0m
+          [0mstored provider/pre-consolidation statements[0m
+          [0m. Ingested filings are always the primary source.[0m
+        [36m</p>[31m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mclass[31m=[32m"card fade-in"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.08s;"[31m
+      [36m>[31m
+        [36m<h3>[31m
+          [0mWhere these figures come from[0m
+        [36m</h3>[31m
+        [36m<ul[31m
+          [33mclass[31m=[32m"stat-list"[31m
+        [36m>[31m
+          [36m<li>[31m
+            [36m<strong>[31m
+              [0mOfficial filings[0m
+            [36m</strong>[31m
+            [0m — ingested annual reports (IMPORTED_OFFICIAL); the primary source of truth.[0m
+          [36m</li>[31m
+          [36m<li>[31m
+            [36m<strong>[31m
+              [0mStored provider statements[0m
+            [36m</strong>[31m
+            [0m — pre-consolidation imports, kept usable and labeled per metric.[0m
+          [36m</li>[31m
+          [36m<li>[31m
+            [36m<strong>[31m
+              [0mWeb-researched figures[0m
+            [36m</strong>[31m
+            [0m — clearly labeled, sourced, and rate-limited; treat with lower confidence than official filings.[0m
+          [36m</li>[31m
+          [36m<li>[31m
+            [0mMissing figures are reported as missing — never estimated, never fabricated.[0m
+          [36m</li>[31m
+        [36m</ul>[31m
+      [36m</div>[31m
+    [36m</section>[31m
+  [36m</div>[31m
+[36m</body>[31m
+
+Ignored nodes: comments, script, style
+[36m<html>[31m
+  [36m<head />[31m
+  [36m<body>[31m
+    [36m<div>[31m
+      [36m<section[31m
+        [33mclass[31m=[32m"page"[31m
+      [36m>[31m
+        [36m<h2>[31m
+          [0mFundamentals[0m
+        [36m</h2>[31m
+        [36m<header[31m
+          [33mclass[31m=[32m"card dash-head fade-in"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"dash-identity"[31m
+          [36m>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"term-symbol"[31m
+            [36m>[31m
+              [0mTCS[0m
+            [36m</div>[31m
+            [36m<div>[31m
+              [36m<div[31m
+                [33mclass[31m=[32m"term-name"[31m
+              [36m>[31m
+                [0mTata Consultancy Services[0m
+              [36m</div>[31m
+              [36m<div[31m
+                [33mclass[31m=[32m"term-chips"[31m
+              [36m>[31m
+                [36m<span[31m
+                  [33mclass[31m=[32m"chip chip-sector"[31m
+                [36m>[31m
+                  [0mInformation Technology[0m
+                [36m</span>[31m
+                [36m<span[31m
+                  [33mclass[31m=[32m"chip"[31m
+                [36m>[31m
+                  [0mIT Services & Consulting[0m
+                [36m</span>[31m
+              [36m</div>[31m
+            [36m</div>[31m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"dash-pricecol"[31m
+          [36m>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"muted"[31m
+            [36m>[31m
+              [0mStored fundamentals[0m
+            [36m</div>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"term-price"[31m
+              [33mstyle[31m=[32m"font-size: 1.4rem;"[31m
+            [36m>[31m
+              [0m2 metrics[0m
+            [36m</div>[31m
+            [36m<span[31m
+              [33mclass[31m=[32m"badge badge-status-cached"[31m
+            [36m>[31m
+              [0mCACHED[0m
+            [36m</span>[31m
+          [36m</div>[31m
+        [36m</header>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"card fade-in"[31m
+          [33mstyle[31m=[32m"animation-delay: 0.04s;"[31m
+        [36m>[31m
+          [36m<h3>[31m
+            [0mFundamental Figures[0m
+          [36m</h3>[31m
+          [36m<table[31m
+            [33mclass[31m=[32m"data-table"[31m
+          [36m>[31m
+            [36m<thead>[31m
+              [36m<tr>[31m
+                [36m<th>[31m
+                  [0mMetric[0m
+                [36m</th>[31m
+                [36m<th>[31m
+                  [0mValue[0m
+                [36m</th>[31m
+                [36m<th>[31m
+                  [0mPeriod[0m
+                [36m</th>[31m
+                [36m<th>[31m
+                  [0mSource[0m
+                [36m</th>[31m
+              [36m</tr>[31m
+            [36m</thead>[31m
+            [36m<tbody>[31m
+              [36m<tr>[31m
+                [36m<td>[31m
+                  [0mReturn on Equity[0m
+                [36m</td>[31m
+                [36m<td>[31m
+                  [0m0.51[0m
+                [36m</td>[31m
+                [36m<td>[31m
+                  [0mno statement period[0m
+                [36m</td>[31m
+                [36m<td>[31m
+                  [36m<span[31m
+                    [33mclass[31m=[32m"badge badge-status-web_research"[31m
+                  [36m>[31m
+                    [0mWEB-RESEARCHED[0m
+                  [36m</span>[31m
+                [36m</td>[31m
+              [36m</tr>[31m
+              [36m<tr>[31m
+                [36m<td>[31m
+                  [0mTotal Revenue[0m
+                [36m</td>[31m
+                [36m<td>[31m
+                  [0m₹2,67,021 Cr[0m
+                [36m</td>[31m
+                [36m<td>[31m
+                  [0m2026-03-31[0m
+                [36m</td>[31m
+                [36m<td>[31m
+                  [36m<span[31m
+                    [33mclass[31m=[32m"badge badge-status-cached"[31m
+                  [36m>[31m
+                    [0mCACHED[0m
+                  [36m</span>[31m
+                [36m</td>[31m
+              [36m</tr>[31m
+            [36m</tbody>[31m
+          [36m</table>[31m
+          [36m<p[31m
+            [33mclass[31m=[32m"muted dash-section-note"[31m
+          [36m>[31m
+            [0mNo official filings ingested for [0m
+            [0mTCS[0m
+            [0m yet — figures above come from [0m
+            [0mstored provider/pre-consolidation statements[0m
+            [0m. Ingested filings are always the primary source.[0m
+          [36m</p>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"card fade-in"[31m
+          [33mstyle[31m=[32m"animation-delay: 0.08s;"[31m
+        [36m>[31m
+          [36m<h3>[31m
+            [0mWhere these figures come from[0m
+          [36m</h3>[31m
+          [36m<ul[31m
+            [33mclass[31m=[32m"stat-list"[31m
+          [36m>[31m
+            [36m<li>[31m
+              [36m<strong>[31m
+                [0mOfficial filings[0m
+              [36m</strong>[31m
+              [0m — ingested annual reports (IMPORTED_OFFICIAL); the primary source of truth.[0m
+            [36m</li>[31m
+            [36m<li>[31m
+              [36m<strong>[31m
+                [0mStored provider statements[0m
+              [36m</strong>[31m
+              [0m — pre-consolidation imports, kept usable and labeled per metric.[0m
+            [36m</li>[31m
+            [36m<li>[31m
+              [36m<strong>[31m
+                [0mWeb-researched figures[0m
+              [36m</strong>[31m
+              [0m — clearly labeled, sourced, and rate-limited; treat with lower confidence than official filings.[0m
+            [36m</li>[31m
+            [36m<li>[31m
+              [0mMissing figures are reported as missing — never estimated, never fabricated.[0m
+            [36m</li>[31m
+          [36m</ul>[31m
+        [36m</div>[31m
+      [36m</section>[31m
+    [36m</div>[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+[31m   [31m×[31m NewsPage[2m > [22mrenders stored articles with sources and dates[90m 18[2mms[22m[31m[39m
+[31m     → Unable to find an element with the text: Example News. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[31m
+  [36m<div>[31m
+    [36m<section[31m
+      [33mclass[31m=[32m"page"[31m
+    [36m>[31m
+      [36m<h2>[31m
+        [0mNews[0m
+      [36m</h2>[31m
+      [36m<header[31m
+        [33mclass[31m=[32m"card dash-head fade-in"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-identity"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"term-symbol"[31m
+          [36m>[31m
+            [0mTCS[0m
+          [36m</div>[31m
+          [36m<div>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"term-name"[31m
+            [36m>[31m
+              [0mTata Consultancy Services[0m
+            [36m</div>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"term-chips"[31m
+            [36m>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip"[31m
+              [36m>[31m
+                [0mRecent financial news[0m
+              [36m</span>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip"[31m
+              [36m>[31m
+                [0mStored news only[0m
+              [36m</span>[31m
+            [36m</div>[31m
+          [36m</div>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-pricecol"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"muted"[31m
+          [36m>[31m
+            [0mStored articles[0m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"term-price"[31m
+            [33mstyle[31m=[32m"font-size: 1.4rem;"[31m
+          [36m>[31m
+            [0m1[0m
+          [36m</div>[31m
+          [36m<span[31m
+            [33mclass[31m=[32m"badge badge-status-cached"[31m
+          [36m>[31m
+            [0mCACHED[0m
+          [36m</span>[31m
+        [36m</div>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"btn btn-primary btn-analyze"[31m
+        [36m>[31m
+          [0m↻ Fetch News[0m
+        [36m</button>[31m
+      [36m</header>[31m
+      [36m<div[31m
+        [33mclass[31m=[32m"card fade-in"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.04s;"[31m
+      [36m>[31m
+        [36m<h3>[31m
+          [0mStored News[0m
+        [36m</h3>[31m
+        [36m<ul[31m
+          [33mclass[31m=[32m"news-list-live"[31m
+        [36m>[31m
+          [36m<li[31m
+            [33mclass[31m=[32m"news-item-live"[31m
+          [36m>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"news-item-head"[31m
+            [36m>[31m
+              [36m<a[31m
+                [33mclass[31m=[32m"news-item-title"[31m
+                [33mhref[31m=[32m"#"[31m
+                [33mrel[31m=[32m"noreferrer"[31m
+                [33mtarget[31m=[32m"_blank"[31m
+              [36m>[31m
+                [0mTCS reports steady quarter[0m
+              [36m</a>[31m
+            [36m</div>[31m
+            [36m<p[31m
+              [33mclass[31m=[32m"muted news-item-meta"[31m
+            [36m>[31m
+              [0mExample News[0m
+              [0m · [0m
+              [0m29 Aug 2026[0m
+            [36m</p>[31m
+          [36m</li>[31m
+        [36m</ul>[31m
+      [36m</div>[31m
+    [36m</section>[31m
+  [36m</div>[31m
+[36m</body>[31m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m4 failed[39m[22m[2m | [22m[1m[32m4 passed[39m[22m[90m (8)[39m
+[2m   Start at [22m 01:05:58
+[2m   Duration [22m 4.78s[2m (transform 196ms, setup 127ms, collect 923ms, tests 2.26s, environment 837ms, prepare 159ms)[22m
+

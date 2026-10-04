@@ -1,0 +1,769 @@
+
+> fincortext-frontend@0.1.0 test
+> vitest run --run src/features/stock/StockPages.test.tsx src/app/App.test.tsx
+
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mD:/KODERRRR/FinCortext/frontend[39m
+
+ [31m❯[39m src/features/stock/StockPages.test.tsx [2m([22m[2m8 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[90m 292[2mms[22m[39m
+[31m   [31m×[31m FundamentalsPage[2m > [22mrenders metrics with per-metric source labels[90m 38[2mms[22m[31m[39m
+[31m     → Unable to find an element with the text: IMPORTED OFFICIAL DATA. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[31m
+  [36m<div>[31m
+    [36m<section[31m
+      [33mclass[31m=[32m"page"[31m
+    [36m>[31m
+      [36m<h2>[31m
+        [0mFundamentals[0m
+      [36m</h2>[31m
+      [36m<header[31m
+        [33mclass[31m=[32m"card dash-head fade-in"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-identity"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"term-symbol"[31m
+          [36m>[31m
+            [0mTCS[0m
+          [36m</div>[31m
+          [36m<div>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"term-name"[31m
+            [36m>[31m
+              [0mTata Consultancy Services[0m
+            [36m</div>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"term-chips"[31m
+            [36m>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip chip-sector"[31m
+              [36m>[31m
+                [0mInformation Technology[0m
+              [36m</span>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"chip"[31m
+              [36m>[31m
+                [0mIT Services & Consulting[0m
+              [36m</span>[31m
+            [36m</div>[31m
+          [36m</div>[31m
+        [36m</div>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"dash-pricecol"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"muted"[31m
+          [36m>[31m
+            [0mStored fundamentals[0m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"term-price"[31m
+            [33mstyle[31m=[32m"font-size: 1.4rem;"[31m
+          [36m>[31m
+            [0m2 metrics[0m
+          [36m</div>[31m
+          [36m<span[31m
+            [33mclass[31m=[32m"badge badge-status-cached"[31m
+          [36m>[31m
+            [0mCACHED[0m
+          [36m</span>[31m
+        [36m</div>[31m
+      [36m</header>[31m
+      [36m<div[31m
+        [33mclass[31m=[32m"card fade-in"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.04s;"[31m
+      [36m>[31m
+        [36m<h3>[31m
+          [0mFundamental Figures[0m
+        [36m</h3>[31m
+        [36m<table[31m
+          [33mclass[31m=[32m"data-table"[31m
+        [36m>[31m
+          [36m<thead>[31m
+            [36m<tr>[31m
+              [36m<th>[31m
+                [0mMetric[0m
+              [36m</th>[31m
+              [36m<th>[31m
+                [0mValue[0m
+              [36m</th>[31m
+              [36m<th>[31m
+                [0mPeriod[0m
+              [36m</th>[31m
+              [36m<th>[31m
+                [0mSource[0m
+              [36m</th>[31m
+            [36m</tr>[31m
+          [36m</thead>[31m
+          [36m<tbody>[31m
+            [36m<tr>[31m
+              [36m<td>[31m
+                [0mReturn on Equity[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [0m0.51[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [0mno statement period[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [36m<span[31m
+                  [33mclass[31m=[32m"badge badge-status-web_research"[31m
+                [36m>[31m
+                  [0mWEB-RESEARCHED[0m
+                [36m</span>[31m
+              [36m</td>[31m
+            [36m</tr>[31m
+            [36m<tr>[31m
+              [36m<td>[31m
+                [0mTotal Revenue[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [0m₹2,67,021 Cr[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [0m2026-03-31[0m
+              [36m</td>[31m
+              [36m<td>[31m
+                [36m<span[31m
+                  [33mclass[31m=[32m"badge badge-status-cached"[31m
+                [36m>[31m
+                  [0mCACHED[0m
+                [36m</span>[31m
+              [36m</td>[31m
+            [36m</tr>[31m
+          [36m</tbody>[31m
+        [36m</table>[31m
+        [36m<p[31m
+          [33mclass[31m=[32m"muted dash-section-note"[31m
+        [36m>[31m
+          [0mNo official filings ingested for [0m
+          [0mTCS[0m
+          [0m yet — figures above come from [0m
+          [0mstored provider/pre-consolidation statements[0m
+          [0m. Ingested filings are always the primary source.[0m
+        [36m</p>[31m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mclass[31m=[32m"card fade-in"[31m
+        [33mstyle[31m=[32m"animation-delay: 0.08s;"[31m
+      [36m>[31m
+        [36m<h3>[31m
+          [0mWhere these figures come from[0m
+        [36m</h3>[31m
+        [36m<ul[31m
+          [33mclass[31m=[32m"stat-list"[31m
+        [36m>[31m
+          [36m<li>[31m
+            [36m<strong>[31m
+              [0mOfficial filings[0m
+            [36m</strong>[31m
+            [0m — ingested annual reports (IMPORTED_OFFICIAL); the primary source of truth.[0m
+          [36m</li>[31m
+          [36m<li>[31m
+            [36m<strong>[31m
+              [0mStored provider statements[0m
+            [36m</strong>[31m
+            [0m — pre-consolidation imports, kept usable and labeled per metric.[0m
+          [36m</li>[31m
+          [36m<li>[31m
+            [36m<strong>[31m
+              [0mWeb-researched figures[0m
+            [36m</strong>[31m
+            [0m — clearly labeled, sourced, and rate-limited; treat with lower confidence than official filings.[0m
+          [36m</li>[31m
+          [36m<li>[31m
+            [0mMissing figures are reported as missing — never estimated, never fabricated.[0m
+          [36m</li>[31m
+        [36m</ul>[31m
+      [36m</div>[31m
+    [36m</section>[31m
+  [36m</div>[31m
+[36m</body>[31m[39m
+ [31m❯[39m src/app/App.test.tsx [2m([22m[2m7 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 691[2mms[22m[39m
+[31m   [31m×[31m App demo navigation[2m > [22mkeeps the selected company across Dashboard â†’ analyst â†’ Dashboard navigation[33m 331[2mms[22m[31m[39m
+[31m     → Unable to find an accessible element with the role "link" and name "Company Analysis"
+
+Here are the accessible roles:
+
+  complementary:
+
+  Name "":
+  [36m<aside[31m
+    [33mclass[31m=[32m"sidebar"[31m
+  [36m/>[31m
+
+  --------------------------------------------------
+  img:
+
+  Name "FinCortext logo":
+  [36m<img[31m
+    [33malt[31m=[32m"FinCortext logo"[31m
+    [33mclass[31m=[32m"brand-logo"[31m
+    [33msrc[31m=[32m"/src/utils/FinCortextLogo.png"[31m
+  [36m/>[31m
+
+  --------------------------------------------------
+  heading:
+
+  Name "FinCortext":
+  [36m<h1 />[31m
+
+  Name "Price Performance":
+  [36m<h3 />[31m
+
+  Name "Latest News":
+  [36m<h3 />[31m
+
+  Name "Market Context":
+  [36m<h3 />[31m
+
+  Name "Key Takeaway":
+  [36m<h3 />[31m
+
+  --------------------------------------------------
+  button:
+
+  Name "Collapse sidebar":
+  [36m<button[31m
+    [33maria-expanded[31m=[32m"true"[31m
+    [33maria-label[31m=[32m"Collapse sidebar"[31m
+    [33mclass[31m=[32m"side-collapse-btn"[31m
+    [33mtitle[31m=[32m"Collapse sidebar"[31m
+    [33mtype[31m=[32m"button"[31m
+  [36m/>[31m
+
+  Name "▶ Analyze Company":
+  [36m<button[31m
+    [33mclass[31m=[32m"btn btn-primary btn-analyze"[31m
+  [36m/>[31m
+
+  Name "Overview":
+  [36m<button[31m
+    [33mclass[31m=[32m"tab-btn"[31m
+  [36m/>[31m
+
+  Name "Price Chart":
+  [36m<button[31m
+    [33mclass[31m=[32m"tab-btn"[31m
+  [36m/>[31m
+
+  Name "News":
+  [36m<button[31m
+    [33mclass[31m=[32m"tab-btn"[31m
+  [36m/>[31m
+
+  Name "Peers":
+  [36m<button[31m
+    [33mclass[31m=[32m"tab-btn"[31m
+  [36m/>[31m
+
+  Name "RELIANCE":
+  [36m<button[31m
+    [33mclass[31m=[32m"peer-link"[31m
+    [33mdisabled[31m=[32m""[31m
+    [33mtitle[31m=[32m"This company"[31m
+  [36m/>[31m
+
+  Name "View Portfolio Intelligence →":
+  [36m<button[31m
+    [33mclass[31m=[32m"btn"[31m
+  [36m/>[31m
+
+  --------------------------------------------------
+  navigation:
+
+  Name "Main navigation":
+  [36m<nav[31m
+    [33maria-label[31m=[32m"Main navigation"[31m
+    [33mclass[31m=[32m"side-nav"[31m
+  [36m/>[31m
+
+  Name "Dashboard sections":
+  [36m<nav[31m
+    [33maria-label[31m=[32m"Dashboard sections"[31m
+    [33mclass[31m=[32m"dash-tabs fade-in"[31m
+    [33mstyle[31m=[32m"animation-delay: 0.04s;"[31m
+  [36m/>[31m
+
+  --------------------------------------------------
+  link:
+
+  Name "Stock Overview":
+  [36m<a[31m
+    [33maria-current[31m=[32m"page"[31m
+    [33mclass[31m=[32m"nav-link active"[31m
+    [33mhref[31m=[32m"/?symbol=RELIANCE"[31m
+    [33mtitle[31m=[32m"Stock Overview"[31m
+  [36m/>[31m
+
+  Name "Market Data":
+  [36m<a[31m
+    [33mclass[31m=[32m"nav-link"[31m
+    [33mhref[31m=[32m"/stock/market?symbol=RELIANCE"[31m
+    [33mtitle[31m=[32m"Market Data"[31m
+  [36m/>[31m
+
+  Name "Fundamentals":
+  [36m<a[31m
+    [33mclass[31m=[32m"nav-link"[31m
+    [33mhref[31m=[32m"/stock/fundamentals?symbol=RELIANCE"[31m
+    [33mtitle[31m=[32m"Fundamentals"[31m
+  [36m/>[31m
+
+  Name "News":
+  [36m<a[31m
+    [33mclass[31m=[32m"nav-link"[31m
+    [33mhref[31m=[32m"/stock/news?symbol=RELIANCE"[31m
+    [33mtitle[31m=[32m"News"[31m
+  [36m/>[31m
+
+  Name "Insights":
+  [36m<a[31m
+    [33mclass[31m=[32m"nav-link"[31m
+    [33mhref[31m=[32m"/stock/insights?symbol=RELIANCE"[31m
+    [33mtitle[31m=[32m"Insights"[31m
+  [36m/>[31m
+
+  Name "Portfolio Intelligence":
+  [36m<a[31m
+    [33mclass[31m=[32m"nav-link"[31m
+    [33mhref[31m=[32m"/portfolio?symbol=RELIANCE"[31m
+    [33mtitle[31m=[32m"Portfolio Intelligence"[31m
+  [36m/>[31m
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  [36m<header[31m
+    [33mclass[31m=[32m"topbar"[31m
+  [36m/>[31m
+
+  Name "":
+  [36m<header[31m
+    [33mclass[31m=[32m"card dash-head fade-in"[31m
+    [33mid[31m=[32m"dash-overview"[31m
+  [36m/>[31m
+
+  --------------------------------------------------
+  combobox:
+
+  Name "Company":
+  [36m<input[31m
+    [33maria-autocomplete[31m=[32m"list"[31m
+    [33maria-controls[31m=[32m":r7:"[31m
+    [33maria-expanded[31m=[32m"false"[31m
+    [33mclass[31m=[32m"search-input"[31m
+    [33mid[31m=[32m"company-search"[31m
+    [33mplaceholder[31m=[32m"Search company (e.g. TCS, RELIANCE, INFY…)"[31m
+    [33mrole[31m=[32m"combobox"[31m
+    [33mvalue[31m=[32m"RELIANCE"[31m
+  [36m/>[31m
+
+  --------------------------------------------------
+  main:
+
+  Name "":
+  [36m<main[31m
+    [33mclass[31m=[32m"app-main"[31m
+  [36m/>[31m
+
+  --------------------------------------------------
+  term:
+
+  Name "":
+  [36m<dt[31m
+    [33mclass[31m=[32m"muted"[31m
+  [36m/>[31m
+
+  Name "":
+  [36m<dt[31m
+    [33mclass[31m=[32m"muted"[31m
+  [36m/>[31m
+
+  Name "":
+  [36m<dt[31m
+    [33mclass[31m=[32m"muted"[31m
+  [36m/>[31m
+
+  Name "":
+  [36m<dt[31m
+    [33mclass[31m=[32m"muted"[31m
+  [36m/>[31m
+
+  Name "":
+  [36m<dt[31m
+    [33mclass[31m=[32m"muted"[31m
+  [36m/>[31m
+
+  --------------------------------------------------
+  definition:
+
+  Name "":
+  [36m<dd />[31m
+
+  Name "":
+  [36m<dd />[31m
+
+  Name "":
+  [36m<dd />[31m
+
+  Name "":
+  [36m<dd />[31m
+
+  Name "":
+  [36m<dd />[31m
+
+  --------------------------------------------------
+  region:
+
+  Name "Price performance":
+  [36m<section[31m
+    [33maria-label[31m=[32m"Price performance"[31m
+    [33mclass[31m=[32m"card chart-card fade-in"[31m
+    [33mid[31m=[32m"dash-price"[31m
+    [33mstyle[31m=[32m"animation-delay: 0.06s;"[31m
+  [36m/>[31m
+
+  Name "Latest news":
+  [36m<section[31m
+    [33maria-label[31m=[32m"Latest news"[31m
+    [33mclass[31m=[32m"card fade-in"[31m
+    [33mid[31m=[32m"dash-news"[31m
+    [33mstyle[31m=[32m"animation-delay: 0.11s;"[31m
+  [36m/>[31m
+
+  Name "Market context":
+  [36m<section[31m
+    [33maria-label[31m=[32m"Market context"[31m
+    [33mclass[31m=[32m"card fade-in"[31m
+    [33mid[31m=[32m"dash-peers"[31m
+    [33mstyle[31m=[32m"animation-delay: 0.08s;"[31m
+  [36m/>[31m
+
+  Name "Key takeaway":
+  [36m<section[31m
+    [33maria-label[31m=[32m"Key takeaway"[31m
+    [33mclass[31m=[32m"card takeaway fade-in"[31m
+    [33mstyle[31m=[32m"animation-delay: 0.14s;"[31m
+  [36m/>[31m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p />[31m
+
+  Name "":
+  [36m<p[31m
+    [33mclass[31m=[32m"muted"[31m
+  [36m/>[31m
+
+  Name "":
+  [36m<p[31m
+    [33mclass[31m=[32m"muted"[31m
+  [36m/>[31m
+
+  Name "":
+  [36m<p[31m
+    [33mclass[31m=[32m"muted dash-section-note"[31m
+  [36m/>[31m
+
+  Name "":
+  [36m<p />[31m
+
+  Name "":
+  [36m<p[31m
+    [33mclass[31m=[32m"muted evidence-strip"[31m
+  [36m/>[31m
+
+  --------------------------------------------------
+  table:
+
+  Name "":
+  [36m<table[31m
+    [33mclass[31m=[32m"data-table peer-table"[31m
+  [36m/>[31m
+
+  --------------------------------------------------
+  rowgroup:
+
+  Name "":
+  [36m<thead />[31m
+
+  Name "":
+  [36m<tbody />[31m
+
+  --------------------------------------------------
+  row:
+
+  Name "Peer Price Day change Stored days Status":
+  [36m<tr />[31m
+
+  Name "RELIANCE Reliance Industries — — — —":
+  [36m<tr[31m
+    [33mclass[31m=[32m"peer-self"[31m
+  [36m/>[31m
+
+  --------------------------------------------------
+  columnheader:
+
+  Name "Peer":
+  [36m<th />[31m
+
+  Name "Price":
+  [36m<th[31m
+    [33mclass[31m=[32m"num"[31m
+  [36m/>[31m
+
+  Name "Day change":
+  [36m<th[31m
+    [33mclass[31m=[32m"num"[31m
+  [36m/>[31m
+
+  Name "Stored days":
+  [36m<th[31m
+    [33mclass[31m=[32m"num"[31m
+  [36m/>[31m
+
+  Name "Status":
+  [36m<th />[31m
+
+  --------------------------------------------------
+  cell:
+
+  Name "RELIANCE Reliance Industries":
+  [36m<td />[31m
+
+  Name "—":
+  [36m<td[31m
+    [33mclass[31m=[32m"num"[31m
+  [36m/>[31m
+
+  Name "—":
+  [36m<td[31m
+    [33mclass[31m=[32m"num delta-flat"[31m
+  [36m/>[31m
+
+  Name "—":
+  [36m<td[31m
+    [33mclass[31m=[32m"num"[31m
+  [36m/>[31m
+
+  Name "—":
+  [36m<td />[31m
+
+  --------------------------------------------------
+  strong:
+
+  Name "":
+  [36m<strong />[31m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[31m
+    [33mclass[31m=[32m"takeaway-lines"[31m
+  [36m/>[31m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li[31m
+    [33mclass[31m=[32m"muted"[31m
+  [36m/>[31m
+
+  --------------------------------------------------
+  contentinfo:
+
+  Name "":
+  [36m<footer[31m
+    [33mclass[31m=[32m"app-footer"[31m
+  [36m/>[31m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[31m
+  [36m<div>[31m
+    [36m<div[31m
+      [33mclass[31m=[32m"app-shell"[31m
+    [36m>[31m
+      [36m<aside[31m
+        [33mclass[31m=[32m"sidebar"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"brand"[31m
+        [36m>[31m
+          [36m<img[31m
+            [33malt[31m=[32m"FinCortext logo"[31m
+            [33mclass[31m=[32m"brand-logo"[31m
+            [33msrc[31m=[32m"/src/utils/FinCortextLogo.png"[31m
+          [36m/>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"brand-text"[31m
+          [36m>[31m
+            [36m<h1>[31m
+              [0mFinCortext[0m
+            [36m</h1>[31m
+            [36m<span[31m
+              [33mclass[31m=[32m"brand-tagline"[31m
+            [36m>[31m
+              [0mInvestment Intelligence[0m
+            [36m</span>[31m
+          [36m</div>[31m
+          [36m<button[31m
+            [33maria-expanded[31m=[32m"true"[31m
+            [33maria-label[31m=[32m"Collapse sidebar"[31m
+            [33mclass[31m=[32m"side-collapse-btn"[31m
+            [33mtitle[31m=[32m"Collapse sidebar"[31m
+            [33mtype[31m=[32m"button"[31m
+          [36m>[31m
+            [36m<svg[31m
+              [33maria-hidden[31m=[32m"true"[31m
+              [33mheight[31m=[32m"14"[31m
+              [33mviewBox[31m=[32m"0 0 16 16"[31m
+              [33mwidth[31m=[32m"14"[31m
+            [36m>[31m
+              [36m<path[31m
+                [33md[31m=[32m"M10 3.5 5.5 8 10 12.5"[31m
+                [33mfill[31m=[32m"none"[31m
+                [33mstroke[31m=[32m"currentColor"[31m
+                [33mstroke-width[31m=[32m"1.6"[31m
+              [36m/>[31m
+            [36m</svg>[31m
+          [36m</button>[31m
+        [36m</div>[31m
+        [36m<nav[31m
+          [33maria-label[31m=[32m"Main navigation"[31m
+          [33mclass[31m=[32m"side-nav"[31m
+        [36m>[31m
+          [36m<a[31m
+            [33maria-current[31m=[32m"page"[31m
+            [33mclass[31m=[32m"nav-link active"[31m
+            [33mhref[31m=[32m"/?symbol=RELIANCE"[31m
+            [33mtitle[31m=[32m"Stock Overview"[31m
+          [36m>[31m
+            [36m<span[31m
+              [33mclass[31m=[32m"nav-icon"[31m
+            [36m>[31m
+              [36m<svg[31m
+                [33maria-hidden[31m=[32m"true"[31m
+                [33mheight[31m=[32m"15"[31m
+                [33mviewBox[31m=[32m"0 0 16 16"[31m
+                [33mwidth[31m=[32m"15"[31m
+              [36m>[31m
+                [36m<rect[31m
+                  [33mfill[31m=[32m"none"[31m
+                  [33mheight[31m=[32m"5"[31m
+                  [33mrx[31m=[32m"1"[31m
+                  [33mstroke[31m=[32m"currentColor"[31m
+                  [33mstroke-width[31m=[32m"1.4"[31m
+                  [33mwidth[31m=[32m"5"[31m
+                  [33mx[31m=[32m"1.5"[31m
+                  [33my[31m=[32m"1.5"[31m
+                [36m/>[31m
+                [36m<rect[31m
+                  [33mfill[31m=[32m"none"[31m
+                  [33mheight[31m=[32m"5"[31m
+                  [33mrx[31m=[32m"1"[31m
+                  [33mstroke[31m=[32m"currentColor"[31m
+                  [33mstroke-width[31m=[32m"1.4"[31m
+                  [33mwidth[31m=[32m"5"[31m
+                  [33mx[31m=[32m"9.5"[31m
+                  [33my[31m=[32m"1.5"[31m
+                [36m/>[31m
+                [36m<rect[31m
+                  [33mfill[31m=[32m"none"[31m
+                  [33mheight[31m=[32m"5"[31m
+                  [33mrx[31m=[32m"1"[31m
+                  [33mstroke[31m=[32m"currentColor"[31m
+                  [33mstroke-width[31m=[32m"1.4"[31m
+                  [33mwidth[31m=[32m"5"[31m
+                  [33mx[31m=[32m"1.5"[31m
+                  [33my[31m=[32m"9.5"[31m
+                [36m/>[31m
+                [36m<rect[31m
+                  [33mfill[31m=[32m"none"[31m
+                  [33mheight[31m=[32m"5"[31m
+                  [33mrx[31m=[32m"1"[31m
+                  [33mstroke[31m=[32m"currentColor"[31m
+                  [33mstroke-width[31m=[32m"1.4"[31m
+                  [33mwidth[31m=[32m"5"[31m
+                  [33mx[31m=[32m"9.5"[31m
+                  [33my[31m=[32m"9.5"[31m
+                [36m/>[31m
+              [36m</svg>[31m
+            [36m</span>[31m
+            [36m<span[31m
+              [33mclass[31m=[32m"nav-label"[31m
+            [36m>[31m
+              [0mStock Overview[0m
+            [36m</span>[31m
+          [36m</a>[31m
+          [36m<a[31m
+            [33mclass[31m=[32m"nav-link"[31m
+            [33mhref[31m=[32m"/stock/market?symbol=RELIANCE"[31m
+            [33mtitle[31m=[32m"Market Data"[31m
+          [36m>[31m
+            [36m<span[31m
+              [33mclass[31m=[32m"nav-icon"[31m
+            [36m>[31m
+              [36m<svg[31m
+                [33maria-hidden[31m=[32m"true"[31m
+                [33mheight[31m=[32m"15"[31m
+                [33mviewBox[31m=[32m"0 0 16 16"[31m
+                [33mwidth[31m=[32m"15"[31m
+              [36m>[31m
+                [36m<path[31m
+                  [33md[31m=[32m"M2.5 13.5v-6l3.5 2 3.5-4 4 5.5"[31m
+                  [33mfill[31m=[32m"none"[31m
+                  [33mstroke[31m=[32m"currentColor"[31m
+                  [33mstroke-width[31m=[32m"1.4"[31m
+                [36m/>[31m
+              [36m</svg>[31m
+            [36m</span>[31m
+            [36m<span[31m
+              [33mclass[31m=[32m"nav-label"[31m
+            [36m>[31m
+              [0mMarket Data[0m
+            [36m</span>[31m
+          [36m</a>[31m
+          [36m<a[31m
+            [33mclass[31m=[32m"nav-link"[31m
+            [33mhref[31m=[32m"/stock/fundamentals?symbol=RELIANCE"[31m
+            [33mtitle[31m=[32m"Fundamentals"[31m
+          [36m>[31m
+            [36m<span[31m
+              [33mclass[31m=[32m"nav-icon"[31m
+            [36m>[31m
+              [36m<svg[31m
+                [33maria-hidden[31m=[32m"true"[31m
+                [33mheight[31m=[32m"15"[31m
+                [33mviewBox[31m=[32m"0 0 16 16"[31m
+                [33mwidth[31m=[32m"15"[31m
+              [36m>[31m
+                [36m<rect[31m
+                  [33mfill[31m=[32m"none"[31m
+                  [33mheight[31m=[32m"9"[31m
+                  [33mrx[31m=[32m"1"[31m
+                  [33mstroke[31m=[32m"currentColor"[31m
+                  [33mstroke-width[31m=[32m"1.4"[31m
+                  [33mwidth[31m=[32m"11"[31m
+                  [33mx[31m=[32m"2.5"[31m
+                  [33my[31m=[32m"5"[31m
+                [36m/>[31m
+                [36m<path[31m
+                  [33md[31m=[32m"M5.5 5V3.5h5V5M5.5 8h2M5....[39m
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m13 passed[39m[22m[90m (15)[39m
+[2m   Start at [22m 01:08:23
+[2m   Duration [22m 4.26s[2m (transform 548ms, setup 588ms, collect 3.06s, tests 983ms, environment 1.97s, prepare 377ms)[22m
+

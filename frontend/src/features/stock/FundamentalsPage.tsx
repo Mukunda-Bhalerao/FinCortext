@@ -71,6 +71,7 @@ export default function FundamentalsPage() {
 
   return (
     <section className="page">
+      <h2>Fundamentals</h2>
       <header className="card dash-head fade-in">
         <div className="dash-identity">
           <div className="term-symbol">{symbol}</div>
