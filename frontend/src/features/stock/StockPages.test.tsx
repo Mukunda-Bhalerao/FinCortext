@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { FinCortextProvider } from '../../app/FinCortextContext';
 import FundamentalsPage from './FundamentalsPage';
@@ -202,7 +202,7 @@ function mockFetch(responses: Record<string, unknown>) {
   });
 }
 
-function renderPage(ui: React.ReactElement, initial = ['/']) {
+function renderPage(ui: React.ReactElement, initial: string = '/') {
   return render(
     <MemoryRouter initialEntries={[initial]}>
       <FinCortextProvider>{ui}</FinCortextProvider>

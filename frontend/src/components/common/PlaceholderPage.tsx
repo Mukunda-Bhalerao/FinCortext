@@ -12,8 +12,9 @@ export default function PlaceholderPage({ title, note }: PlaceholderPageProps) {
         <span className="badge badge-coming-soon">Coming soon</span>
         <p>{note ?? 'This module is not implemented yet.'}</p>
         <p className="muted">
-          FinCortext V1 implements the Firm, Industry and Sentiment Analysts only.
-          Future modules will integrate through the standardized agent output contract.
+          FinCortext implements the Firm, Industry, Sentiment and Macro
+          Analysts behind the platform sections. Future modules will integrate
+          through the standardized agent output contract.
         </p>
       </div>
     </section>

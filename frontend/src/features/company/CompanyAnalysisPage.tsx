@@ -8,7 +8,6 @@ import { useFilingsCount } from './useFilingsCount';
 import { useFundamentalsCoverage } from './useFundamentalsCoverage';
 import { useMarketQuote, fmtPriceNA, describeFreshness } from './useMarketQuote';
 import { usePeerQuotes } from './usePeerQuotes';
-import PreparationStatus from '../../components/common/PreparationStatus';
 
 const ANALYSTS = [
   { id: 'firm_analyst', label: 'Firm Analyst', to: '/intelligence/firm' },
@@ -119,7 +118,6 @@ export default function CompanyAnalysisPage() {
         Company overview and the data behind the views — what FinCortext holds for{' '}
         {displayName}, and what is missing. Select the company in the search bar above.
       </p>
-      <PreparationStatus symbol={symbol} />
 
       {/* Identity */}
       <header className="card company-head fade-in">

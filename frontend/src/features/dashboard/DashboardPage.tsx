@@ -13,7 +13,6 @@ import {
 } from '../company/priceStats';
 import { useFilingsCount } from '../company/useFilingsCount';
 import { useMarketQuote, fmtPriceNA, fmtIntNA, describeFreshness } from '../company/useMarketQuote';
-import PreparationStatus from '../../components/common/PreparationStatus';
 import { usePeerQuotes } from '../company/usePeerQuotes';
 
 const RANGES = [
@@ -36,6 +35,12 @@ const TABS = [
   { label: 'News', target: 'dash-news' },
   { label: 'Peers', target: 'dash-peers' },
 ] as const;
+
+/** Provider names are shown to users — never raw lowercase internal ids. */
+function sourceLabel(source: string): string {
+  if (!source) return '';
+  return source.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 /** Animate a number from 0 to `target` once real data arrives (subtle, eased). */
 function useCountUp(target: number | null, duration = 600): number | null {
@@ -326,7 +331,7 @@ export default function DashboardPage() {
             ) : (
               <>
                 {freshness.label} · {series?.count ?? 0} stored days
-                {freshness.source ? ` · Source: ${freshness.source}` : ''}
+                {freshness.source ? ` · Source: ${sourceLabel(freshness.source)}` : ''}
               </>
             )}
           </div>
@@ -365,8 +370,6 @@ export default function DashboardPage() {
           ▶ Analyze Company
         </button>
       </header>
-
-      <PreparationStatus symbol={symbol} />
 
       {/* Section tabs (anchor navigation) */}
       <nav className="dash-tabs fade-in" aria-label="Dashboard sections" style={{ animationDelay: '0.04s' }}>

@@ -1,4 +1,15 @@
-import type { MacroOutput, MacroSignalValue } from '../../types/api';
+import type { MacroDirectionValue, MacroOutput, MacroSignalValue } from '../../types/api';
+
+const DIRECTION_LABELS: Record<MacroDirectionValue, string> = {
+  up: 'rising',
+  down: 'falling',
+  flat: 'flat',
+  unknown: 'unknown',
+};
+
+function directionLabel(direction: MacroDirectionValue): string {
+  return DIRECTION_LABELS[direction] ?? 'unknown';
+}
 
 export const MACRO_SIGNAL_CLASS: Record<MacroSignalValue, string> = {
   positive: 'signal-buy',
@@ -61,10 +72,6 @@ export default function MacroOutputCard({ output }: { output: MacroOutput }) {
             </span>{' '}
             <span className="muted">confidence {(output.confidence * 100).toFixed(0)}%</span>
           </p>
-          <p className="muted">
-            Signal: {output.overall_signal.replace(/_/g, ' ').toUpperCase()} · Status: {output.status} ·{' '}
-            Confidence: {(output.confidence * 100).toFixed(0)}%
-          </p>
         </div>
       </header>
 
@@ -86,7 +93,7 @@ export default function MacroOutputCard({ output }: { output: MacroOutput }) {
                     {f.unit ? ` ${f.unit}` : ''}
                   </span>
                 )}
-                <span className="muted"> · direction: {f.direction}</span>
+                <span className="muted"> · direction: {directionLabel(f.direction)}</span>
                 {f.data_as_of && (
                   <span className="muted"> · as of {f.data_as_of}</span>
                 )}
@@ -96,7 +103,7 @@ export default function MacroOutputCard({ output }: { output: MacroOutput }) {
                   <ul className="evidence-list">
                     {f.evidence.map((e, i) => (
                       <li key={`${e.reference}-${i}`}>
-                        <span className="badge badge-evidence">{e.indicator_id}</span>{' '}
+                        <span className="badge badge-evidence">evidence</span>{' '}
                         {e.note ?? e.reference}
                         {e.source_name && <span className="muted"> — {e.source_name}</span>}
                       </li>
@@ -138,7 +145,6 @@ export default function MacroOutputCard({ output }: { output: MacroOutput }) {
       <footer className="agent-card-footer muted">
         Analysed {new Date(output.generated_at).toLocaleString()}
         {newestThrough && <> · macro data through {newestThrough}</>}
-        {' '}· methodology: {output.methodology}
       </footer>
     </article>
   );

@@ -9,6 +9,32 @@ export const SIGNAL_CLASS: Record<string, string> = {
   unavailable: 'signal-unavailable',
 };
 
+const AGENT_LABELS: Record<string, string> = {
+  firm_analyst: 'Firm Analyst',
+  industry_analyst: 'Industry Analyst',
+  sentiment_analyst: 'Sentiment Analyst',
+  macro_analyst: 'Macro Analyst',
+};
+
+const DATA_TYPE_LABELS: Record<string, string> = {
+  financial_observation: 'financial data',
+  market_price: 'price history',
+  news_article: 'news article',
+  market_data: 'market data',
+  stored_prices: 'stored prices',
+  peer_price_history: 'peer price history',
+  research_report: 'web research',
+  filing_document: 'official filing',
+};
+
+function agentLabel(agentId: string): string {
+  return AGENT_LABELS[agentId] ?? agentId.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function dataTypeLabel(dataType: string): string {
+  return DATA_TYPE_LABELS[dataType] ?? dataType.replace(/_/g, ' ');
+}
+
 function ScoreDial({ score, status }: { score: number | null; status: string }) {
   if (score === null) {
     return (
@@ -44,7 +70,7 @@ export default function AgentOutputCard({ output }: { output: AgentOutput }) {
       <header className="agent-card-header">
         <ScoreDial score={output.score} status={output.status} />
         <div className="agent-card-title">
-          <h3>{output.agent_id.replace(/_/g, ' ')}</h3>
+          <h3>{agentLabel(output.agent_id)}</h3>
           <p>
             <span className={`badge ${SIGNAL_CLASS[output.signal] ?? ''}`}>
               {output.signal.replace(/_/g, ' ').toUpperCase()}
@@ -91,7 +117,7 @@ export default function AgentOutputCard({ output }: { output: AgentOutput }) {
           <ul className="evidence-list">
             {output.evidence.map((e, i) => (
               <li key={`${e.reference}-${i}`}>
-                <span className="badge badge-evidence">{e.data_type}</span>{' '}
+                <span className="badge badge-evidence">{dataTypeLabel(e.data_type)}</span>{' '}
                 {e.note ?? e.reference}
                 {e.source_name && <span className="muted"> — {e.source_name}</span>}
               </li>
@@ -115,7 +141,6 @@ export default function AgentOutputCard({ output }: { output: AgentOutput }) {
         Analysed {new Date(output.generated_at).toLocaleString()}
         {marketThrough && <> · market data through {marketThrough}</>}
         {newsThrough && <> · news through {newsThrough}</>}
-        {' '}· methodology: {String(output.provenance?.methodology ?? output.data_version)}
       </footer>
     </article>
   );

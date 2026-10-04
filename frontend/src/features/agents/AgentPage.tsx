@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import AgentOutputCard from '../../components/common/AgentOutputCard';
-import PreparationStatus from '../../components/common/PreparationStatus';
 import { sameSymbol, useFinCortext } from '../../app/FinCortextContext';
 import { api, ApiRequestError } from '../../services/api';
 import type { AgentOutput } from '../../types/api';
@@ -81,8 +80,6 @@ export default function AgentPage({
         {description} Analysing <strong>{symbol}</strong> — change the company in the
         search bar above.
       </p>
-
-      <PreparationStatus symbol={symbol} />
 
       <div className="run-bar">
         <button className="btn btn-primary" onClick={run} disabled={loading || !symbol}>

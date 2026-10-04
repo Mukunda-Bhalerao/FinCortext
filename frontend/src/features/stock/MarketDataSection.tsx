@@ -84,7 +84,7 @@ export default function MarketDataSection() {
             <div className="term-name">{entry?.name ?? quote?.name ?? symbol}</div>
             <div className="term-chips">
               {entry?.sector && <span className="chip chip-sector">{entry.sector}</span>}
-              <span className="chip">{quote?.source ? `Market data: ${quote.source}` : 'Market data unavailable'}</span>
+              <span className="chip">{quote?.source ? 'Market data: Upstox' : 'Market data unavailable'}</span>
             </div>
           </div>
         </div>
