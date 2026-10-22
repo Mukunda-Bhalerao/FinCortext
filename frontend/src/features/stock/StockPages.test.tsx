@@ -3,7 +3,6 @@ import { MemoryRouter } from 'react-router-dom';
 import { FinCortextProvider } from '../../app/FinCortextContext';
 import FundamentalsPage from './FundamentalsPage';
 import NewsPage from './NewsPage';
-import MarketDataSection from './MarketDataSection';
 import InsightsPage from './InsightsPage';
 import type { AgentOutputSummary } from '../../types/api';
 
@@ -347,41 +346,3 @@ describe('NewsPage', () => {
   });
 });
 
-describe('MarketDataSection', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    localStorage.clear();
-  });
-
-  it('renders the candle chart, live order book and quote stats', async () => {
-    vi.stubGlobal('fetch', mockFetch(fullMocks));
-    renderPage(<MarketDataSection />);
-    await waitFor(() => {
-      expect(screen.getByText('Price Chart')).toBeInTheDocument();
-    });
-    expect(screen.getByText('Live Order Book')).toBeInTheDocument();
-    await waitFor(() => {
-      expect(screen.getByText('Bid Price')).toBeInTheDocument();
-    });
-    expect(screen.getByText('Ask Price')).toBeInTheDocument();
-    expect(screen.getByText(/Total buy qty/)).toBeInTheDocument();
-    expect(screen.getByText('52w High')).toBeInTheDocument();
-  });
-
-  it('renders an honest empty order book when the quote is not live', async () => {
-    const notLive = { ...quoteResp, live: false, status: 'CACHED', depth_buy: null, depth_sell: null };
-    vi.stubGlobal(
-      'fetch',
-      mockFetch({
-        ...fullMocks,
-        '/api/market/quote/TCS?instrument_key=NSE_EQ%7CINE467B01029': notLive,
-        '/api/market/quote/TCS': notLive,
-      }),
-    );
-    renderPage(<MarketDataSection />);
-    await waitFor(() => {
-      expect(screen.getByText(/only available from a live market quote/)).toBeInTheDocument();
-    });
-    expect(screen.queryByText('Bid Price')).not.toBeInTheDocument();
-  });
-});

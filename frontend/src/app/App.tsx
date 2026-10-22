@@ -6,7 +6,7 @@ import CompanySelector from '../components/common/CompanySelector';
 import StatusBadge from '../components/common/StatusBadge';
 import { describeFreshness } from '../features/company/useMarketQuote';
 import DashboardPage from '../features/dashboard/DashboardPage';
-import MarketDataSection from '../features/stock/MarketDataSection';
+import MarketDashboardPage from '../features/stock/MarketDashboardPage';
 import FundamentalsPage from '../features/stock/FundamentalsPage';
 import NewsPage from '../features/stock/NewsPage';
 import InsightsPage from '../features/stock/InsightsPage';
@@ -48,7 +48,7 @@ const iconProps = {
 const NAV_ITEMS: NavItem[] = [
   {
     to: '/',
-    label: 'Stock Overview',
+    label: 'Market Dashboard',
     end: true,
     icon: (
       <svg {...iconProps}>
@@ -60,8 +60,8 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    to: '/stock/market',
-    label: 'Market Data',
+    to: '/stock/overview',
+    label: 'Stock Overview',
     icon: (
       <svg {...iconProps}>
         <path d="M2.5 13.5v-6l3.5 2 3.5-4 4 5.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
@@ -227,10 +227,10 @@ function Shell() {
         </header>
         <main className="app-main">
           <Routes>
-            {/* Investment-platform model: Search (topbar) → Stock Overview →
-                Market Data → Fundamentals → News → Insights → Portfolio */}
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/stock/market" element={<MarketDataSection />} />
+            {/* Investment-platform model: Market Dashboard (home) → Stock
+                Overview → Fundamentals → News → Insights → Portfolio */}
+            <Route path="/" element={<MarketDashboardPage />} />
+            <Route path="/stock/overview" element={<DashboardPage />} />
             <Route path="/stock/fundamentals" element={<FundamentalsPage />} />
             <Route path="/stock/news" element={<NewsPage />} />
             <Route path="/stock/insights" element={<InsightsPage />} />

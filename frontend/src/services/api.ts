@@ -23,6 +23,7 @@ import type {
   ResearchListResponse,
   ResearchStatusResponse,
   StockContext,
+  MarketDashboardData,
   UniverseResponse,
   UpstoxSearchResponse,
 } from '../types/api';
@@ -81,6 +82,10 @@ export const api = {
         { method: 'DELETE' },
       ),
   },
+
+  /** Market Dashboard: Indian market overview (indices, movers, research
+   *  opportunities) — real Upstox data plus stored analyst outputs. */
+  dashboard: () => request<MarketDashboardData>('/api/market/dashboard'),
 
   market: {
     status: () => request<MarketStatusResponse>('/api/market/status'),

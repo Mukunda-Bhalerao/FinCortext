@@ -220,6 +220,67 @@ export interface StockContext {
   unavailable_from_upstox: string[];
 }
 
+/** Market Dashboard — Indian market overview (real Upstox data only). */
+export interface IndexPoint {
+  date: string;
+  close: number;
+}
+
+export interface MarketIndex {
+  key: string;
+  name: string;
+  value: number | null;
+  day_change: number | null;
+  day_change_pct: number | null;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  chart: IndexPoint[] | null;
+  status: DataStatusValue;
+  source: string | null;
+}
+
+export interface MoverRow {
+  symbol: string;
+  name: string;
+  instrument_key: string | null;
+  status: DataStatusValue;
+  last_price: number | null;
+  day_change: number | null;
+  day_change_pct: number | null;
+  volume: number | null;
+}
+
+export interface OpportunityItem {
+  symbol: string;
+  name: string;
+  agent_id: string;
+  score: number | null;
+  signal: string;
+  confidence: number | null;
+  status: string;
+  generated_at: string;
+  rationale: string;
+}
+
+export interface MarketDashboardData {
+  indices: { items: MarketIndex[] };
+  movers: {
+    status: DataStatusValue;
+    tracked: number;
+    quoted: number;
+    gainers: MoverRow[];
+    losers: MoverRow[];
+  };
+  opportunities: {
+    status: DataStatusValue;
+    count: number;
+    items: OpportunityItem[];
+  };
+  tracked_count: number;
+  as_of: string;
+}
+
 /** One preparation area inside a company-preparation response. */
 export interface PreparationArea {
   status: DataStatusValue;

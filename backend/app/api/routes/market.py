@@ -147,3 +147,12 @@ def market_data_status() -> dict:
             }
         )
     return {"symbols": rows}
+
+
+@router.get("/dashboard")
+def market_dashboard() -> dict:
+    """Indian market overview: indices, tracked-company movers, research
+    opportunities (stored analyst outputs). Real Upstox data only —
+    unavailable sections degrade to explicit statuses, never fabricated."""
+    container = get_container()
+    return container.market_dashboard_service.get_dashboard()

@@ -34,6 +34,7 @@ from app.services.macro_service import MacroService
 from app.services.market_service import MarketService
 from app.services.news_service import NewsService
 from app.services.research_service import ResearchService
+from app.services.market_dashboard_service import MarketDashboardService
 from app.services.stock_context_service import StockContextService
 
 
@@ -179,6 +180,18 @@ class Container:
             financial_repo=self.financial_repo,
             news_repo=self.news_repo,
             research_service=self.research_service,
+        )
+        # Market Dashboard: Indian market overview (indices, tracked-company
+        # movers, stored-output research opportunities) from the same Upstox
+        # client the market provider uses — no new data source.
+        from app.data.universe.universe_config import get_universe as _universe_entries
+
+        self.market_dashboard_service = MarketDashboardService(
+            upstox_client=self.market_provider._client,
+            market_repo=self.market_repo,
+            instrument_repo=self.instrument_repo,
+            agent_output_repo=self.agent_output_repo,
+            universe_entries=_universe_entries,
         )
         # Lazy-loading local FinBERT wrapper — never loads at startup.
         self.sentiment_model = get_sentiment_model()

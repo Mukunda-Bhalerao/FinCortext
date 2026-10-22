@@ -1,0 +1,36 @@
+
+> fincortext-frontend@0.1.0 test
+> vitest run --run
+
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mD:/KODERRRR/FinCortext/frontend[39m
+
+ [32m✓[39m src/components/common/AgentOutputCard.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[90m 196[2mms[22m[39m
+ [32m✓[39m src/features/agents/IntelligenceSummaryPage.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[90m 265[2mms[22m[39m
+ [32m✓[39m src/features/agents/MacroAnalystPage.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[90m 280[2mms[22m[39m
+ [32m✓[39m src/features/stock/MarketDashboardPage.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 497[2mms[22m[39m
+ [32m✓[39m src/features/company/CompanyAnalysisPage.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[33m 494[2mms[22m[39m
+   [33m[2m✓[22m[39m CompanyAnalysisPage[2m > [22mrenders company details, price statistics and data inventory [33m322[2mms[22m[39m
+ [32m✓[39m src/features/stock/StockPages.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 506[2mms[22m[39m
+ [32m✓[39m src/features/portfolio/PortfolioSynthesisPage.test.tsx [2m([22m[2m16 tests[22m[2m)[22m[33m 2255[2mms[22m[39m
+   [33m[2m✓[22m[39m PortfolioSynthesisPage[2m > [22mrenders the stored synthesis with four perspectives and no blended score [33m318[2mms[22m[39m
+   [33m[2m✓[22m[39m PortfolioSynthesisPage[2m > [22mupdates the synthesis across TCS, INFY and RELIANCE switches [33m304[2mms[22m[39m
+ [32m✓[39m src/features/company/priceStats.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 5[2mms[22m[39m
+ [32m✓[39m src/features/agents/SentimentAnalystPage.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[90m 172[2mms[22m[39m
+ [32m✓[39m src/features/agents/AgentPage.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[90m 184[2mms[22m[39m
+ [32m✓[39m src/app/FinCortextContext.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[90m 97[2mms[22m[39m
+ [32m✓[39m src/features/roadmap/RoadmapPage.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[90m 121[2mms[22m[39m
+ [32m✓[39m src/features/dashboard/DashboardPage.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 1820[2mms[22m[39m
+   [33m[2m✓[22m[39m DashboardPage terminal[2m > [22mrenders the TCS overview with real market data and stored intelligence [33m566[2mms[22m[39m
+   [33m[2m✓[22m[39m DashboardPage terminal[2m > [22mswitching companies in the search reloads the terminal with that company [33m926[2mms[22m[39m
+ [32m✓[39m src/app/App.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 1091[2mms[22m[39m
+   [33m[2m✓[22m[39m App demo navigation[2m > [22mshows the investment-platform destinations in the sidebar [33m422[2mms[22m[39m
+   [33m[2m✓[22m[39m App demo navigation[2m > [22mkeeps the selected company across Dashboard â†’ analyst â†’ Dashboard navigation [33m437[2mms[22m[39m
+ [32m✓[39m src/components/common/CandleChart.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[90m 102[2mms[22m[39m
+ [32m✓[39m src/components/common/StatusBadge.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[90m 33[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m16 passed[39m[22m[90m (16)[39m
+[2m      Tests [22m [1m[32m76 passed[39m[22m[90m (76)[39m
+[2m   Start at [22m 19:23:36
+[2m   Duration [22m 7.55s[2m (transform 2.27s, setup 3.54s, collect 12.71s, tests 8.12s, environment 26.93s, prepare 3.29s)[22m
+

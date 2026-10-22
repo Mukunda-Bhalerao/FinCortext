@@ -367,18 +367,21 @@ internal symbol. Raw artifacts archived under `data/raw/`; sample fixtures under
 
 ## 25. Frontend routes
 
-Demo sidebar (the product — investment-platform model): `/` Stock Overview
-(search-driven: price, live quote stats, chart, sector peers, latest news,
-stored-intelligence takeaway) · `/stock/market` Market Data (candle chart with
-range presets, quote stats, live 5-level order book, circuit limits, 52w) ·
-`/stock/fundamentals` Fundamentals (per-metric stored figures with source
-labels — official filings / stored provider statements / web-researched —
-plus a labeled web-research enrich action) · `/stock/news` News (stored
-articles with refresh + the labeled web-research digest when stored articles
-are missing) · `/stock/insights` Insights (signals, opportunities and risks
-derived ONLY from stored analyst outputs — every item traces back to a real
-stored AgentOutput) · `/portfolio` Portfolio Intelligence (perspective cards,
-thesis, conditional scenarios, collapsible evidence/risks).
+Demo sidebar (the product — investment-platform model): `/` **Market
+Dashboard** (home: search entry point, Indian market overview — Nifty 50 /
+Nifty Bank / Nifty IT / India VIX movements from real Upstox index quotes +
+candles, gainers/losers among tracked companies with live quotes, research
+opportunities ranked from stored analyst runs) · `/stock/overview` Stock
+Overview (search-driven: price, live quote stats, chart, sector peers, latest
+news, stored-intelligence takeaway) · `/stock/fundamentals` Fundamentals
+(per-metric stored figures with source labels — official filings / stored
+provider statements / web-researched — plus a labeled web-research enrich
+action) · `/stock/news` News (stored articles with refresh + the labeled
+web-research digest when stored articles are missing) · `/stock/insights`
+Insights (signals, opportunities and risks derived ONLY from stored analyst
+outputs — every item traces back to a real stored AgentOutput) · `/portfolio`
+Portfolio Intelligence (perspective cards, thesis, conditional scenarios,
+collapsible evidence/risks).
 
 The four analysts run behind the scenes — their stored outputs feed these
 sections, they are not sections themselves. Superseded analyst-era routes stay

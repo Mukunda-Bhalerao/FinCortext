@@ -11,7 +11,7 @@ describe('App demo navigation', () => {
     );
     const nav = screen.getByRole('navigation', { name: 'Main navigation' });
     expect(nav).toHaveTextContent('Stock Overview');
-    expect(nav).toHaveTextContent('Market Data');
+    expect(nav).toHaveTextContent('Market Dashboard');
     expect(nav).toHaveTextContent('Fundamentals');
     expect(nav).toHaveTextContent('News');
     expect(nav).toHaveTextContent('Insights');
@@ -151,7 +151,8 @@ describe('App demo navigation', () => {
 
     // Dashboard â†’ each demo page â†’ Dashboard must keep the company correct.
     const legs: Array<{ link: string; heading: string }> = [
-      { link: 'Market Data', heading: 'Market Data' },
+      { link: 'Market Dashboard', heading: 'Market Dashboard' },
+      { link: 'Stock Overview', heading: 'Price Performance' },
       { link: 'Fundamentals', heading: 'Fundamentals' },
       { link: 'News', heading: 'News' },
       { link: 'Insights', heading: 'Insights' },
@@ -167,7 +168,7 @@ describe('App demo navigation', () => {
 
       // Dashboard picks up the company from the URL.
       await waitFor(() => {
-        expect(screen.getByRole('combobox')).toHaveValue('RELIANCE');
+        expect(screen.getAllByRole('combobox')[0]).toHaveValue('RELIANCE');
       });
 
       for (const leg of legs) {
@@ -178,11 +179,11 @@ describe('App demo navigation', () => {
           ).toBeInTheDocument();
         });
         // Analyst page kept the company â€” no reset to TCS.
-        expect(screen.getByRole('combobox')).toHaveValue('RELIANCE');
+        expect(screen.getAllByRole('combobox')[0]).toHaveValue('RELIANCE');
 
         fireEvent.click(screen.getByRole('link', { name: 'Stock Overview' }));
         await waitFor(() => {
-          expect(screen.getByRole('combobox')).toHaveValue('RELIANCE');
+          expect(screen.getAllByRole('combobox')[0]).toHaveValue('RELIANCE');
         });
       }
     } finally {
