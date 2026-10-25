@@ -187,11 +187,13 @@ export function Shell({ children }: { children: ReactNode }) {
         )}
       >
         <div className="flex h-[var(--topbar-h)] items-center gap-2.5 border-b border-line px-4">
-          <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden>
-            <rect width="32" height="32" rx="7" className="fill-surface-3" />
-            <path d="M9 22V10h12M9 16h8" className="stroke-accent" strokeWidth="3" fill="none" strokeLinecap="round" />
-            <circle cx="23" cy="21" r="2.5" className="fill-accent" />
-          </svg>
+          <img
+            src="/logo-mark.png"
+            alt=""
+            width={28}
+            height={28}
+            className="h-7 w-7 shrink-0 rounded-md bg-white ring-1 ring-line"
+          />
           <span className="text-[15px] font-semibold tracking-tight text-fg">
             Fin<span className="text-accent">Cortext</span>
           </span>

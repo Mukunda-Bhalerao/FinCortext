@@ -76,6 +76,7 @@ async def watchlist(svc: Svc) -> list[LabeledQuote]:
 @router.put("/watchlist", status_code=204)
 async def watch(svc: Svc, key: Key) -> Response:
     svc.market.watch(key)
+    svc.research.enqueue(key)
     return Response(status_code=204)
 
 

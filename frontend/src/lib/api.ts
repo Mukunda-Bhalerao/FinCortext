@@ -7,6 +7,8 @@ import type {
   MarketStatus,
   Movers,
   NewsFeed,
+  ResearchItem,
+  ResearchOverview,
   StockSummary,
   Timeframe,
 } from "./types";
@@ -70,6 +72,10 @@ export const api = {
   watch: (key: string) => request<void>(`/api/watchlist?key=${q(key)}`, { method: "PUT" }),
   unwatch: (key: string) => request<void>(`/api/watchlist?key=${q(key)}`, { method: "DELETE" }),
   news: () => request<NewsFeed>("/api/news"),
+  research: () => request<ResearchOverview>("/api/research"),
+  researchFor: (symbol: string) => request<ResearchItem>(`/api/research/${encodeURIComponent(symbol)}`),
+  runResearch: (symbol: string) =>
+    request<ResearchItem>(`/api/research/${encodeURIComponent(symbol)}/run`, { method: "POST" }),
 };
 
 export const LOGIN_URL = "/api/auth/upstox/login";

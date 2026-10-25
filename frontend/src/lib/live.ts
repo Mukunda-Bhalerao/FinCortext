@@ -147,6 +147,8 @@ export function useTick(key: string | null | undefined): Tick | undefined {
 }
 
 export function useLiveStatus(): { status: StatusMessage | null; socket: SocketState } {
+  // Pages without subscriptions still need the socket for feed and market status.
+  useEffect(() => live.start(), []);
   const status = useSyncExternalStore(
     (l) => live.onStatus(l),
     () => live.getStatus(),

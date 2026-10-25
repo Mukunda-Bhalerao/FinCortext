@@ -11,6 +11,7 @@ import { mergeQuote, useLiveStatus, useLiveSubscription, useTick } from "../../l
 import { useMarketOpen } from "../../lib/queries";
 import { useStoredState } from "../../lib/useStoredState";
 import { TIMEFRAMES, type StockSummary, type Timeframe } from "../../lib/types";
+import { AGENT_ORDER, AgentCard, CompositeSummary, isBusy, StateLabel } from "../research/agents";
 
 function RangeBar({ low, high, value, label }: { low: number | null; high: number | null; value: number | null; label: string }) {
   const valid = low != null && high != null && value != null && high > low;
@@ -78,6 +79,65 @@ function SourcesDrawer({ data, onClose }: { data: StockSummary; onClose: () => v
   );
 }
 
+function StockResearch({ symbol, inWatchlist }: { symbol: string; inWatchlist: boolean }) {
+  const qc = useQueryClient();
+  const q = useQuery({
+    queryKey: ["research", symbol],
+    queryFn: () => api.researchFor(symbol),
+    refetchInterval: (query) => (isBusy(query.state.data) ? 3_000 : 120_000),
+  });
+  const run = async () => {
+    await api.runResearch(symbol);
+    await qc.invalidateQueries({ queryKey: ["research", symbol] });
+  };
+  const item = q.data;
+  const report = item?.report;
+  return (
+    <Panel
+      title="Research"
+      meta={item ? <StateLabel item={item} /> : undefined}
+      actions={
+        item && (
+          <button
+            onClick={() => void run()}
+            disabled={isBusy(item)}
+            className="rounded-md border border-line px-2 py-0.5 text-2xs text-muted hover:border-line-strong hover:text-fg disabled:opacity-50"
+          >
+            {isBusy(item) ? "Running…" : report ? "Run again" : "Run research"}
+          </button>
+        )
+      }
+    >
+      {q.isPending ? (
+        <Skeleton className="m-3.5 h-24" />
+      ) : q.isError ? (
+        <ErrorState error={q.error} compact />
+      ) : report ? (
+        <div className="space-y-3 p-3">
+          <CompositeSummary composite={report.composite} />
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
+            {AGENT_ORDER.map((name) => {
+              const output = report.agents.find((a) => a.agent === name);
+              return output ? <AgentCard key={name} output={output} /> : null;
+            })}
+          </div>
+          <p className="text-2xs text-faint">
+            Scores summarise the evidence shown; they are not forecasts or recommendations.
+          </p>
+        </div>
+      ) : (
+        <p className="px-3.5 py-4 text-xs text-muted">
+          {isBusy(item)
+            ? "The four agents are gathering data for this stock."
+            : inWatchlist
+              ? "Research for this stock has not run yet."
+              : "Add this stock to the watchlist to keep its research current, or run it once now."}
+        </p>
+      )}
+    </Panel>
+  );
+}
+
 export function StockPage() {
   const { symbol = "" } = useParams();
   const qc = useQueryClient();
@@ -103,6 +163,7 @@ export function StockPage() {
     await Promise.all([
       qc.invalidateQueries({ queryKey: ["stock", symbol] }),
       qc.invalidateQueries({ queryKey: ["watchlist"] }),
+      qc.invalidateQueries({ queryKey: ["research"] }),
     ]);
   };
 
@@ -196,16 +257,7 @@ export function StockPage() {
         height={460}
       />
 
-      <Panel title="Research coverage">
-        <div className="grid grid-cols-1 gap-px bg-line sm:grid-cols-2 lg:grid-cols-4">
-          {["Firm fundamentals", "Industry and peers", "News sentiment", "Macro sensitivity"].map((m) => (
-            <div key={m} className="bg-surface px-3.5 py-3">
-              <div className="text-sm text-fg">{m}</div>
-              <div className="mt-0.5 text-2xs text-faint">Not yet available for {d.instrument.symbol}</div>
-            </div>
-          ))}
-        </div>
-      </Panel>
+      <StockResearch symbol={d.instrument.symbol} inWatchlist={d.in_watchlist} />
 
       {drawer && <SourcesDrawer data={d} onClose={() => setDrawer(false)} />}
     </div>

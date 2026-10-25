@@ -55,6 +55,12 @@ CREATE TABLE IF NOT EXISTS watchlist (
     instrument_key  VARCHAR PRIMARY KEY,
     added_at        TIMESTAMPTZ NOT NULL
 );
+CREATE TABLE IF NOT EXISTS research_reports (
+    instrument_key  VARCHAR PRIMARY KEY,
+    signal          VARCHAR NOT NULL,
+    payload         VARCHAR NOT NULL,
+    computed_at     TIMESTAMPTZ NOT NULL
+);
 CREATE TABLE IF NOT EXISTS meta (
     k           VARCHAR PRIMARY KEY,
     v           VARCHAR NOT NULL,

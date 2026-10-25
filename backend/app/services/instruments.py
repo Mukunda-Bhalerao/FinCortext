@@ -41,6 +41,7 @@ SECTOR_INDICES = [
     ("Infrastructure", "NIFTY INFRA"),
 ]
 MOVERS_UNIVERSE = "NIFTY 50"
+INDUSTRY_UNIVERSE = "NIFTY 500"  # NSE industry classification and peer sets
 
 _COLUMNS = (
     "instrument_key, trading_symbol, name, exchange, segment, instrument_type, isin, short_name"
@@ -108,26 +109,29 @@ class InstrumentService:
             cur.execute("COMMIT")
 
     async def _refresh_constituents(self) -> None:
-        row = self._db.fetchone(
-            "SELECT max(loaded_at) FROM index_constituents WHERE index_name = ?", [MOVERS_UNIVERSE]
-        )
-        if row and row[0] and (datetime.now(UTC) - row[0]).days < 7:
-            return
-        try:
-            members = await nse.fetch_constituents(MOVERS_UNIVERSE)
-        except Exception as exc:
-            log.warning("constituent refresh failed: %s", exc)
-            return
-        if not members:
-            return
+        for index_name in nse.CONSTITUENT_FILES:
+            row = self._db.fetchone(
+                "SELECT max(loaded_at) FROM index_constituents WHERE index_name = ?", [index_name]
+            )
+            if row and row[0] and (datetime.now(UTC) - row[0]).days < 7:
+                continue
+            try:
+                members = await nse.fetch_constituents(index_name)
+            except Exception as exc:
+                log.warning("constituent refresh failed for %s: %s", index_name, exc)
+                continue
+            if members:
+                self._store_constituents(index_name, members)
+
+    def _store_constituents(self, index_name: str, members: list[nse.Constituent]) -> None:
         now = datetime.now(UTC)
         with self._db.cursor() as cur:
             cur.execute("BEGIN TRANSACTION")
-            cur.execute("DELETE FROM index_constituents WHERE index_name = ?", [MOVERS_UNIVERSE])
+            cur.execute("DELETE FROM index_constituents WHERE index_name = ?", [index_name])
             cur.executemany(
-                "INSERT INTO index_constituents VALUES (?,?,?,?,?,?,?)",
+                "INSERT OR REPLACE INTO index_constituents VALUES (?,?,?,?,?,?,?)",
                 [
-                    (MOVERS_UNIVERSE, m.symbol, m.isin, m.company, m.industry, "nseindia.com", now)
+                    (index_name, m.symbol, m.isin, m.company, m.industry, "nseindia.com", now)
                     for m in members
                 ],
             )
@@ -212,6 +216,31 @@ class InstrumentService:
             ORDER BY i.trading_symbol
             """,
             [index_name],
+        )
+        return [_row_to_instrument(r) for r in rows]
+
+    def industry_of(self, isin: str | None, index_name: str = INDUSTRY_UNIVERSE) -> str | None:
+        """NSE industry classification for a member of the industry universe."""
+        if not isin:
+            return None
+        row = self._db.fetchone(
+            "SELECT industry FROM index_constituents WHERE index_name = ? AND isin = ?",
+            [index_name, isin],
+        )
+        return row[0] if row else None
+
+    def industry_members(
+        self, industry: str, index_name: str = INDUSTRY_UNIVERSE
+    ) -> list[Instrument]:
+        rows = self._db.fetchall(
+            f"""
+            SELECT {", ".join("i." + c.strip() for c in _COLUMNS.split(","))}
+            FROM index_constituents c
+            JOIN instruments i ON i.isin = c.isin AND i.segment = 'NSE_EQ'
+            WHERE c.index_name = ? AND c.industry = ?
+            ORDER BY i.trading_symbol
+            """,
+            [index_name, industry],
         )
         return [_row_to_instrument(r) for r in rows]
 

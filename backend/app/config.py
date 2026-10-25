@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     poll_interval_seconds: float = 3.0
 
     news_enabled: bool = True
+
+    # Optional language layer for agent rationales: "none" (templated text) or "ollama".
+    llm_provider: str = "none"
+    ollama_url: str = "http://127.0.0.1:11434"
+    ollama_model: str = ""
     log_level: str = "INFO"
 
     @property

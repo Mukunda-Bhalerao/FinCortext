@@ -161,3 +161,95 @@ export interface StatusMessage extends LiveStatus {
   type: "status";
   market: MarketStatus;
 }
+
+// Mirrors backend/app/schemas/research.py
+
+export type AgentName = "firm" | "industry" | "macro" | "sentiment";
+export type Signal = "positive" | "neutral" | "negative" | "insufficient_data";
+export type ResearchState = "not_started" | "queued" | "running" | "ready" | "failed";
+
+export interface Evidence {
+  factor: string;
+  metric: string;
+  value: number | string | null;
+  unit: string | null;
+  detail: string | null;
+  source: string;
+  as_of: string | null;
+  score: number | null;
+}
+
+export interface FactorScore {
+  name: string;
+  weight: number;
+  score: number | null;
+  note: string | null;
+}
+
+export interface AgentOutput {
+  agent: AgentName;
+  subject: string;
+  signal: Signal;
+  score: number | null;
+  confidence: number;
+  coverage: number;
+  factors: FactorScore[];
+  evidence: Evidence[];
+  data_gaps: string[];
+  rationale: string | null;
+  rationale_source: "template" | "model";
+  method: string;
+  computed_at: string;
+}
+
+export interface Composite {
+  signal: Signal;
+  score: number | null;
+  confidence: number;
+  agents_used: number;
+  method: string;
+}
+
+export interface ResearchReport {
+  instrument: Instrument;
+  classification: {
+    industry: string | null;
+    industry_source: string | null;
+    sector_index: string | null;
+    peers: string[];
+    peer_basis: string | null;
+  };
+  agents: AgentOutput[];
+  composite: Composite;
+  headlines: NewsItem[];
+  computed_at: string;
+  duration_ms: number;
+}
+
+export interface ResearchItem {
+  instrument: Instrument;
+  state: ResearchState;
+  error: string | null;
+  stale: boolean;
+  report: ResearchReport | null;
+}
+
+export interface MacroIndicator {
+  key: string;
+  label: string;
+  value: number | null;
+  unit: string;
+  change: number | null;
+  change_unit: string;
+  change_window: string;
+  as_of: string | null;
+  source: string;
+  stale: boolean;
+  problem: string | null;
+}
+
+export interface ResearchOverview {
+  items: ResearchItem[];
+  macro: MacroIndicator[];
+  refresh_after_hours: number;
+}

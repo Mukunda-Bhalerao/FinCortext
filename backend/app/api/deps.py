@@ -12,6 +12,7 @@ from app.services.live import LiveHub
 from app.services.market import MarketService
 from app.services.news import NewsService
 from app.services.quotes import QuoteService
+from app.services.research import ResearchService
 from app.services.session import SessionClock
 
 
@@ -28,6 +29,7 @@ class Services:
     candles: CandleService
     market: MarketService
     news: NewsService
+    research: ResearchService
 
 
 def services(request: Request) -> Services:

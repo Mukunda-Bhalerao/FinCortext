@@ -53,7 +53,7 @@ Secrets and tokens stay on the backend. They are never sent to the browser or wr
 Or in two terminals:
 
 ```bash
-cd backend && .venv/Scripts/python -m uvicorn app.main:app --reload --port 8000
+cd backend && .venv/Scripts/python -m uvicorn app.main:app --reload --reload-dir app --timeout-graceful-shutdown 2 --port 8000
 cd frontend && npm run dev
 ```
 
@@ -81,6 +81,10 @@ live feed and market session state.
 | Market session | Upstox feed status, then `/v2/market/status/NSE`, then the weekday timetable | Timetable fallback is labelled and does not know holidays |
 | NIFTY 50 constituents (movers) | NSE public CSV | Mapped to instruments by ISIN |
 | Headlines | Economic Times, Business Standard, Mint RSS | Headline, link, publisher and time only |
+| Industry and peers | NSE NIFTY 500 constituent CSV | NSE industry per company; peers are the 12 most traded members of the same industry |
+| Fundamentals, analyst consensus | Yahoo Finance quote summary (unofficial) | Cached 24 h; every field optional, missing fields become data gaps |
+| Macro series | FRED CSV: India 10Y yield, USD/INR, Brent, US 10Y, India CPI | Cached 12 h; observations past their freshness window are shown but not scored |
+| Company news | Google News RSS search | Last 30 days, filtered to headlines naming the company, cached 1 h |
 
 Every displayed price carries a state: **Live** (streamed tick), **Polled** (REST polling
 fallback), **Stale** (no update for 2 minutes while the market is open), **Last close**
@@ -95,15 +99,34 @@ update or roll over at the window boundary, the daily candle uses the provider's
 and weekly or monthly candles only update the current period. Provider candles replace
 tick-derived ones on the next refresh (every minute for intraday timeframes).
 
+## Research engine
+
+Four agents score each stock from −1 to +1 with a confidence and coverage figure, the evidence
+behind every factor (metric, value, source, as-of time) and a list of data gaps:
+
+| Agent | Scored factors | Reported as gaps |
+|---|---|---|
+| Firm | Valuation and margins vs peer median, ROE, growth, debt/equity, price trend and momentum | ESG (no free source) |
+| Industry | Sector index vs NIFTY 50, sector trend, 6-month return rank among peers, peer breadth | Demand and outlook |
+| Macro | Rates, rupee, crude, US yields, inflation, NIFTY trend, India VIX, sector sensitivity rules | Policy and event calendar |
+| Sentiment | Recency-weighted headline tone (word list in `tools/headlines.py`), analyst consensus, target gap | Social media |
+
+All numbers come from deterministic code in `backend/app/tools` and `backend/app/agents`. The
+composite is the confidence-weighted mean of the agents that had enough data. Adding a stock to
+the watchlist queues a run; a scheduler re-runs watchlist reports older than six hours (30
+minutes if the previous run could not score). `POST /api/research/{symbol}/run` forces a run for
+any stock. Signals summarise evidence; they are not forecasts or recommendations.
+
 ## Layout
 
 ```
 backend/app
   main.py            app factory, lifespan, wiring
   config.py, db.py   settings, DuckDB schema and response cache
-  providers/         the only code that calls external services (Upstox, NSE, RSS)
-  services/          auth, instruments, quotes, candles, live relay, market, news
-  tools/             pure computations (candles, market hours, quote math)
+  providers/         the only code that calls external services (Upstox, NSE, RSS, Yahoo, FRED, Ollama)
+  services/          auth, instruments, quotes, candles, live relay, market, news, research
+  agents/            firm, industry, macro, sentiment (pure functions of a research context)
+  tools/             pure computations (candles, market hours, quotes, technicals, scoring, headlines)
   api/routes/        thin HTTP and WebSocket handlers
 frontend/src
   app/               shell and routing

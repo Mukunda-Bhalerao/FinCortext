@@ -49,7 +49,7 @@ FinCortext is a research platform for NSE-listed Indian equities. A FastAPI back
 ```
 # backend (uv sync also works)
 cd backend && python -m venv .venv && .venv/Scripts/python -m pip install -e ".[dev]"
-.venv/Scripts/python -m uvicorn app.main:app --reload --port 8000
+.venv/Scripts/python -m uvicorn app.main:app --reload --reload-dir app --timeout-graceful-shutdown 2 --port 8000
 .venv/Scripts/python -m pytest -q && .venv/Scripts/python -m ruff check app
 
 # frontend

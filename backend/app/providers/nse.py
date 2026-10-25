@@ -10,6 +10,7 @@ from app.errors import ProviderUnavailable
 
 CONSTITUENT_FILES = {
     "NIFTY 50": "https://nsearchives.nseindia.com/content/indices/ind_nifty50list.csv",
+    "NIFTY 500": "https://nsearchives.nseindia.com/content/indices/ind_nifty500list.csv",
 }
 _HEADERS = {"User-Agent": "Mozilla/5.0 (FinCortext research client)", "Accept": "text/csv"}
 
