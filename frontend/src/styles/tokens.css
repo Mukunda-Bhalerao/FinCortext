@@ -1,0 +1,66 @@
+/* FinCortext design tokens. Components reference these through Tailwind theme names. */
+
+:root,
+:root[data-theme="dark"] {
+  --bg: #0a0d11;
+  --surface: #10141a;
+  --surface-2: #151a21;
+  --surface-3: #1b212a;
+  --border: #212833;
+  --border-strong: #2c3542;
+  --text: #e4e8ee;
+  --text-muted: #8a94a3;
+  --text-faint: #5b6574;
+  --accent: #5b8cff;
+  --accent-soft: rgba(91, 140, 255, 0.14);
+  --up: #22c27b;
+  --up-soft: rgba(34, 194, 123, 0.13);
+  --down: #f2555f;
+  --down-soft: rgba(242, 85, 95, 0.13);
+  --caution: #d6a23e;
+  --caution-soft: rgba(214, 162, 62, 0.14);
+  --chart-grid: rgba(138, 148, 163, 0.08);
+  --volume-up: rgba(34, 194, 123, 0.32);
+  --volume-down: rgba(242, 85, 95, 0.32);
+  --overlay: rgba(4, 6, 9, 0.6);
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --surface-2: #f7f8fa;
+  --surface-3: #eef1f5;
+  --border: #e2e6ec;
+  --border-strong: #cfd5de;
+  --text: #121821;
+  --text-muted: #5a6474;
+  --text-faint: #8d96a4;
+  --accent: #2f66e8;
+  --accent-soft: rgba(47, 102, 232, 0.1);
+  --up: #0f9d5c;
+  --up-soft: rgba(15, 157, 92, 0.1);
+  --down: #d93743;
+  --down-soft: rgba(217, 55, 67, 0.1);
+  --caution: #a87508;
+  --caution-soft: rgba(168, 117, 8, 0.1);
+  --chart-grid: rgba(90, 100, 116, 0.09);
+  --volume-up: rgba(15, 157, 92, 0.3);
+  --volume-down: rgba(217, 55, 67, 0.3);
+  --overlay: rgba(18, 24, 33, 0.35);
+  color-scheme: light;
+}
+
+:root {
+  --radius: 6px;
+  --radius-lg: 10px;
+  --sidebar-w: 208px;
+  --topbar-h: 52px;
+  --text-2xs: 10.5px;
+  --text-xs: 11.5px;
+  --text-sm: 12.5px;
+  --text-base: 13.5px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 26px;
+}

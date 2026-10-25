@@ -1,0 +1,51 @@
+"""Browser socket: {"action": "subscribe"|"unsubscribe", "keys": [...]} in, ticks/status out."""
+
+import asyncio
+import contextlib
+import json
+
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
+from app.api.deps import ws_services
+
+router = APIRouter()
+
+
+@router.websocket("/api/ws/live")
+async def live(websocket: WebSocket) -> None:
+    svc = ws_services(websocket)
+    origin = websocket.headers.get("origin")
+    if origin and origin.rstrip("/") not in svc.settings.allowed_origins:
+        await websocket.close(code=1008)
+        return
+    await websocket.accept()
+    client = svc.hub.connect()
+
+    async def pump() -> None:
+        while True:
+            await websocket.send_json(await client.queue.get())
+
+    sender = asyncio.create_task(pump())
+    try:
+        while True:
+            raw = await websocket.receive_text()
+            try:
+                msg = json.loads(raw)
+                action = msg.get("action")
+                keys = [k for k in msg.get("keys", []) if isinstance(k, str) and len(k) < 64]
+            except (ValueError, AttributeError):
+                continue
+            if action in ("subscribe", "unsubscribe"):
+                known = set(svc.instruments.get_many(keys))
+                valid = [k for k in keys if k in known]
+                if action == "subscribe":
+                    await svc.hub.subscribe(client, valid)
+                else:
+                    await svc.hub.unsubscribe(client, valid)
+    except WebSocketDisconnect:
+        pass
+    finally:
+        sender.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await sender
+        await svc.hub.disconnect(client)
