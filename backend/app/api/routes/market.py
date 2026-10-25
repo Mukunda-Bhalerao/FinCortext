@@ -77,12 +77,14 @@ async def watchlist(svc: Svc) -> list[LabeledQuote]:
 async def watch(svc: Svc, key: Key) -> Response:
     svc.market.watch(key)
     svc.research.enqueue(key)
+    svc.portfolio.request_run()
     return Response(status_code=204)
 
 
 @router.delete("/watchlist", status_code=204)
 async def unwatch(svc: Svc, key: Key) -> Response:
     svc.market.unwatch(key)
+    svc.portfolio.request_run()
     return Response(status_code=204)
 
 

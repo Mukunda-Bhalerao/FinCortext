@@ -18,6 +18,7 @@ import { LOGIN_URL } from "../lib/api";
 import { fmtTimeIST } from "../lib/format";
 import { live, useLiveStatus } from "../lib/live";
 import { useAuthStatus, useMarketStatus } from "../lib/queries";
+import { useHealth } from "../features/status/StatusPage";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: IconDashboard },
@@ -107,7 +108,10 @@ function FeedPill() {
   }
   return (
     <span
-      className={cx("inline-flex h-6 items-center rounded-full border border-line-strong px-2.5 text-2xs font-medium whitespace-nowrap", tone)}
+      className={cx(
+        "inline-flex h-6 items-center rounded-full border border-line-strong px-2.5 text-2xs font-medium whitespace-nowrap",
+        tone,
+      )}
       title={[auth.data?.user_name && `Upstox: ${auth.data.user_name}`, status?.detail].filter(Boolean).join(" · ")}
     >
       {label}
@@ -149,6 +153,35 @@ function ConnectNotice() {
       <button className="ml-auto text-muted hover:text-fg" onClick={() => setNotice(null)} aria-label="Dismiss">
         <IconClose />
       </button>
+    </div>
+  );
+}
+
+function SystemLink() {
+  const h = useHealth();
+  const state = h.isError ? "down" : (h.data?.overall ?? "ok");
+  const label =
+    state === "ok" ? "All systems working" : state === "degraded" ? "Some sources degraded" : "Backend unreachable";
+  return (
+    <NavLink to="/status" className="mb-2 flex items-center gap-2 text-muted hover:text-fg">
+      <span
+        className={cx(
+          "h-1.5 w-1.5 rounded-full",
+          state === "ok" ? "bg-up" : state === "degraded" ? "bg-caution" : "bg-down",
+        )}
+        aria-hidden
+      />
+      {label}
+    </NavLink>
+  );
+}
+
+function BackendBanner() {
+  const h = useHealth();
+  if (!h.isError) return null;
+  return (
+    <div className="flex items-center gap-3 border-b border-line bg-caution-soft px-4 py-2 text-xs text-fg">
+      The FinCortext backend is not answering. Pages show their last data; start the backend and this clears itself.
     </div>
   );
 }
@@ -221,6 +254,7 @@ export function Shell({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <div className="mt-auto border-t border-line p-3 text-2xs leading-relaxed text-faint">
+          <SystemLink />
           Research and education only. Not investment advice.
         </div>
       </aside>
@@ -249,6 +283,7 @@ export function Shell({ children }: { children: ReactNode }) {
             </button>
           </div>
         </header>
+        <BackendBanner />
         <ConnectNotice />
         <ConnectionBanner />
         <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>

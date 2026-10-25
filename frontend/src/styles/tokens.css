@@ -23,6 +23,15 @@
   --volume-up: rgba(34, 194, 123, 0.32);
   --volume-down: rgba(242, 85, 95, 0.32);
   --overlay: rgba(4, 6, 9, 0.6);
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --neutral-bar: #5b6574;
   color-scheme: dark;
 }
 
@@ -48,6 +57,15 @@
   --volume-up: rgba(15, 157, 92, 0.3);
   --volume-down: rgba(217, 55, 67, 0.3);
   --overlay: rgba(18, 24, 33, 0.35);
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #6250d6;
+  --series-8: #e34948;
+  --neutral-bar: #aab2bd;
   color-scheme: light;
 }
 

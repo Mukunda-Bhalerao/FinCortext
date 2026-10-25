@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel
@@ -76,6 +76,48 @@ class ResearchItem(BaseModel):
     error: str | None
     stale: bool
     report: ResearchReport | None
+    changes: "ResearchChanges | None" = None
+
+
+class AgentPoint(BaseModel):
+    signal: Signal
+    score: float | None
+    confidence: float
+
+
+class HistoryPoint(BaseModel):
+    date: date  # IST
+    computed_at: datetime
+    signal: Signal
+    score: float | None
+    confidence: float
+    agents: dict[str, AgentPoint]
+
+
+class Change(BaseModel):
+    agent: AgentName | Literal["composite"]
+    kind: Literal["signal", "score", "factor", "metric", "headlines"]
+    text: str
+    direction: Literal["better", "worse", "neutral"] = "neutral"
+    weight: float  # ordering only
+
+
+class ResearchChanges(BaseModel):
+    """Differences between the latest report and an earlier stored one (point-in-time record)."""
+
+    since: datetime
+    until: datetime
+    previous_signal: Signal
+    previous_score: float | None
+    summary: str
+    items: list[Change]
+
+
+class ResearchHistory(BaseModel):
+    instrument: Instrument
+    points: list[HistoryPoint]
+    changes: ResearchChanges | None
+    first_recorded: datetime | None
 
 
 class MacroIndicator(BaseModel):
@@ -96,3 +138,6 @@ class ResearchOverview(BaseModel):
     items: list[ResearchItem]
     macro: list[MacroIndicator]
     refresh_after_hours: float
+
+
+ResearchItem.model_rebuild()

@@ -5,12 +5,15 @@ from fastapi import Request, WebSocket
 from app.config import Settings
 from app.db import Database
 from app.providers.upstox import UpstoxProvider
+from app.services.assistant import Assistant
 from app.services.auth import AuthService
 from app.services.candles import CandleService
 from app.services.instruments import InstrumentService
 from app.services.live import LiveHub
 from app.services.market import MarketService
+from app.services.monitor import SourceMonitor
 from app.services.news import NewsService
+from app.services.portfolio import PortfolioService
 from app.services.quotes import QuoteService
 from app.services.research import ResearchService
 from app.services.session import SessionClock
@@ -30,6 +33,9 @@ class Services:
     market: MarketService
     news: NewsService
     research: ResearchService
+    portfolio: PortfolioService
+    assistant: Assistant
+    monitor: SourceMonitor
 
 
 def services(request: Request) -> Services:

@@ -1,6 +1,8 @@
 """DuckDB connection, schema and a small provider-response cache."""
 
 import json
+import logging
+import shutil
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -9,6 +11,11 @@ from pathlib import Path
 from typing import Any
 
 import duckdb
+
+log = logging.getLogger(__name__)
+
+BACKUPS_KEPT = 3
+BACKUP_EVERY = timedelta(hours=20)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS auth_tokens (
@@ -61,6 +68,49 @@ CREATE TABLE IF NOT EXISTS research_reports (
     payload         VARCHAR NOT NULL,
     computed_at     TIMESTAMPTZ NOT NULL
 );
+CREATE TABLE IF NOT EXISTS research_history (
+    instrument_key  VARCHAR NOT NULL,
+    computed_at     TIMESTAMPTZ NOT NULL,
+    snapshot_date   DATE NOT NULL,  -- IST date; older days keep only their last run
+    signal          VARCHAR NOT NULL,
+    score           DOUBLE,
+    confidence      DOUBLE NOT NULL,
+    payload         VARCHAR NOT NULL,
+    PRIMARY KEY (instrument_key, computed_at)
+);
+CREATE TABLE IF NOT EXISTS fundamentals_history (
+    symbol        VARCHAR NOT NULL,
+    observed_on   DATE NOT NULL,
+    payload       VARCHAR NOT NULL,
+    fetched_at    TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (symbol, observed_on)
+);
+CREATE TABLE IF NOT EXISTS dividends (
+    symbol     VARCHAR NOT NULL,
+    ex_date    DATE NOT NULL,
+    amount     DOUBLE NOT NULL,
+    source     VARCHAR NOT NULL,
+    loaded_at  TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (symbol, ex_date)
+);
+CREATE TABLE IF NOT EXISTS holdings (
+    instrument_key  VARCHAR PRIMARY KEY,
+    quantity        DOUBLE NOT NULL,
+    avg_cost        DOUBLE,
+    updated_at      TIMESTAMPTZ NOT NULL
+);
+CREATE TABLE IF NOT EXISTS text_cache (
+    k           VARCHAR PRIMARY KEY,
+    model       VARCHAR NOT NULL,
+    text        VARCHAR NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL
+);
+CREATE TABLE IF NOT EXISTS portfolio_runs (
+    id           VARCHAR PRIMARY KEY,
+    signature    VARCHAR NOT NULL,
+    payload      VARCHAR NOT NULL,
+    computed_at  TIMESTAMPTZ NOT NULL
+);
 CREATE TABLE IF NOT EXISTS meta (
     k           VARCHAR PRIMARY KEY,
     v           VARCHAR NOT NULL,
@@ -77,12 +127,17 @@ class Database:
     """
 
     def __init__(self, path: Path | str):
-        if str(path) != ":memory:":
-            Path(path).parent.mkdir(parents=True, exist_ok=True)
-        self._conn = duckdb.connect(str(path))
+        self.path = None if str(path) == ":memory:" else Path(path)
+        if self.path is not None:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            backup(self.path)
+        self._conn = _connect(self.path)
         self._lock = threading.RLock()
         with self.cursor() as cur:
             cur.execute(SCHEMA)
+
+    def size_bytes(self) -> int | None:
+        return self.path.stat().st_size if self.path and self.path.exists() else None
 
     @contextmanager
     def cursor(self) -> Iterator[duckdb.DuckDBPyConnection]:
@@ -125,9 +180,80 @@ class Database:
         )
         return now
 
+    def cache_prune(self) -> int:
+        """Drop cache entries that expired more than a day ago; returns rows removed."""
+        cutoff = datetime.now(UTC) - timedelta(days=1)
+        row = self.fetchone("SELECT count(*) FROM provider_cache WHERE expires_at < ?", [cutoff])
+        self.execute("DELETE FROM provider_cache WHERE expires_at < ?", [cutoff])
+        return int(row[0]) if row else 0
+
     def close(self) -> None:
         with self._lock:
             self._conn.close()
+
+
+def _backups(path: Path) -> list[Path]:
+    folder = path.parent / "backups"
+    return sorted(folder.glob(f"{path.stem}-*{path.suffix}")) if folder.exists() else []
+
+
+def backup(path: Path) -> Path | None:
+    """Copy the database file before it is opened, at most once per BACKUP_EVERY.
+
+    Run at startup only, while no connection holds the file, so the copy is consistent.
+    """
+    if not path.exists():
+        return None
+    existing = _backups(path)
+    if existing:
+        newest = datetime.fromtimestamp(existing[-1].stat().st_mtime, UTC)
+        if datetime.now(UTC) - newest < BACKUP_EVERY:
+            return None
+    target = path.parent / "backups" / f"{path.stem}-{datetime.now(UTC):%Y%m%d-%H%M%S}{path.suffix}"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    wal = path.with_name(path.name + ".wal")
+    try:
+        shutil.copy2(path, target)
+        if wal.exists():  # un-checkpointed changes after an unclean shutdown
+            shutil.copy2(wal, target.with_name(target.name + ".wal"))
+    except OSError as exc:  # another process holds the file; skip rather than fail startup
+        log.warning("database backup skipped: %s", exc)
+        return None
+    for old in _backups(path)[:-BACKUPS_KEPT]:
+        old.unlink(missing_ok=True)
+        old.with_name(old.name + ".wal").unlink(missing_ok=True)
+    return target
+
+
+_LOCKED = ("lock", "already open", "being used")
+
+
+def _connect(path: Path | None) -> duckdb.DuckDBPyConnection:
+    """Open the database; if the file is unreadable, set it aside and restore the newest backup."""
+    if path is None:
+        return duckdb.connect(":memory:")
+    try:
+        return duckdb.connect(str(path))
+    except duckdb.Error as exc:
+        if any(m in str(exc).lower() for m in _LOCKED) or not path.exists():
+            raise
+        aside = path.with_suffix(f".unreadable-{datetime.now(UTC):%Y%m%d-%H%M%S}")
+        path.rename(aside)
+        stale_wal = path.with_name(path.name + ".wal")
+        if stale_wal.exists():
+            stale_wal.rename(aside.with_name(aside.name + ".wal"))
+        restored = _backups(path)
+        if restored:
+            shutil.copy2(restored[-1], path)
+            wal = restored[-1].with_name(restored[-1].name + ".wal")
+            if wal.exists():
+                shutil.copy2(wal, path.with_name(path.name + ".wal"))
+            log.error(
+                "database unreadable (%s); moved to %s and restored %s", exc, aside, restored[-1]
+            )
+        else:
+            log.error("database unreadable (%s); moved to %s and started empty", exc, aside)
+        return duckdb.connect(str(path))
 
 
 def _as_utc(value: datetime) -> datetime:

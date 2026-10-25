@@ -12,8 +12,19 @@ import { useMarketOpen } from "../../lib/queries";
 import { useStoredState } from "../../lib/useStoredState";
 import { TIMEFRAMES, type StockSummary, type Timeframe } from "../../lib/types";
 import { AGENT_ORDER, AgentCard, CompositeSummary, isBusy, StateLabel } from "../research/agents";
+import { ResearchTimeline } from "../research/history";
 
-function RangeBar({ low, high, value, label }: { low: number | null; high: number | null; value: number | null; label: string }) {
+function RangeBar({
+  low,
+  high,
+  value,
+  label,
+}: {
+  low: number | null;
+  high: number | null;
+  value: number | null;
+  label: string;
+}) {
   const valid = low != null && high != null && value != null && high > low;
   const pos = valid ? Math.min(100, Math.max(0, ((value - low) / (high - low)) * 100)) : null;
   return (
@@ -43,7 +54,9 @@ function SourcesDrawer({ data, onClose }: { data: StockSummary; onClose: () => v
     ["Last trade", fmtStamp(data.quote?.last_trade_time)],
     [
       "Live updates",
-      status ? `${status.transport} / ${status.state}${status.detail ? ` (${status.detail})` : ""}` : "Socket not connected",
+      status
+        ? `${status.transport} / ${status.state}${status.detail ? ` (${status.detail})` : ""}`
+        : "Socket not connected",
     ],
     ["Last tick received", tick ? `${fmtStamp(tick.received_at)} via ${tick.transport}` : "None yet"],
     ["Candles", "Upstox V3 historical + intraday candle API"],
@@ -103,7 +116,7 @@ function StockResearch({ symbol, inWatchlist }: { symbol: string; inWatchlist: b
             disabled={isBusy(item)}
             className="rounded-md border border-line px-2 py-0.5 text-2xs text-muted hover:border-line-strong hover:text-fg disabled:opacity-50"
           >
-            {isBusy(item) ? "Running…" : report ? "Run again" : "Run research"}
+            {isBusy(item) ? "Runningâ€¦" : report ? "Run again" : "Run research"}
           </button>
         )
       }
@@ -115,6 +128,7 @@ function StockResearch({ symbol, inWatchlist }: { symbol: string; inWatchlist: b
       ) : report ? (
         <div className="space-y-3 p-3">
           <CompositeSummary composite={report.composite} />
+          <ResearchTimeline symbol={symbol} />
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
             {AGENT_ORDER.map((name) => {
               const output = report.agents.find((a) => a.agent === name);
@@ -164,6 +178,7 @@ export function StockPage() {
       qc.invalidateQueries({ queryKey: ["stock", symbol] }),
       qc.invalidateQueries({ queryKey: ["watchlist"] }),
       qc.invalidateQueries({ queryKey: ["research"] }),
+      qc.invalidateQueries({ queryKey: ["portfolio"] }),
     ]);
   };
 
@@ -186,8 +201,8 @@ export function StockPage() {
   }
   const d = q.data;
   const quote = d.quote;
-  const high = quote?.high != null && live.ltp != null ? Math.max(quote.high, live.ltp) : quote?.high ?? null;
-  const low = quote?.low != null && live.ltp != null ? Math.min(quote.low, live.ltp) : quote?.low ?? null;
+  const high = quote?.high != null && live.ltp != null ? Math.max(quote.high, live.ltp) : (quote?.high ?? null);
+  const low = quote?.low != null && live.ltp != null ? Math.min(quote.low, live.ltp) : (quote?.low ?? null);
 
   return (
     <div className="mx-auto flex max-w-[1680px] flex-col gap-3 p-3 sm:p-4">

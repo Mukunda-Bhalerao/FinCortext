@@ -7,6 +7,7 @@ from datetime import date
 import httpx
 
 from app.errors import ProviderUnavailable
+from app.providers import fetch
 
 SOURCE = "FRED, Federal Reserve Bank of St. Louis"
 _URL = "https://fred.stlouisfed.org/graph/fredgraph.csv"
@@ -31,7 +32,9 @@ def parse_series(text: str) -> list[tuple[date, float]]:
 async def fetch_series(series_id: str, start: date) -> list[tuple[date, float]]:
     try:
         async with httpx.AsyncClient(timeout=20.0, headers=_HEADERS) as client:
-            resp = await client.get(_URL, params={"id": series_id, "cosd": start.isoformat()})
+            resp = await fetch.get(
+                client, _URL, params={"id": series_id, "cosd": start.isoformat()}
+            )
             resp.raise_for_status()
     except httpx.HTTPError as exc:
         raise ProviderUnavailable(f"Could not download {series_id} from FRED.") from exc

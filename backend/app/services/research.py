@@ -21,14 +21,20 @@ from app.providers.ollama import OllamaClient
 from app.schemas.market import Instrument
 from app.schemas.research import (
     AgentOutput,
+    AgentPoint,
     Classification,
     Composite,
+    HistoryPoint,
+    ResearchChanges,
+    ResearchHistory,
     ResearchItem,
     ResearchOverview,
     ResearchReport,
 )
 from app.services.instruments import InstrumentService
 from app.services.research_data import ResearchData
+from app.tools.market_hours import to_ist
+from app.tools.research_diff import diff_reports
 from app.tools.scoring import signal_for
 
 log = logging.getLogger(__name__)
@@ -38,6 +44,9 @@ COMPOSITE_METHOD = "composite-v1: confidence-weighted mean of agent scores"
 REFRESH_AFTER = timedelta(hours=6)
 RETRY_AFTER = timedelta(minutes=30)  # reports that could not be scored
 SCHEDULER_INTERVAL = 15 * 60
+KEEP_ALL_RUNS = timedelta(days=3)  # older history keeps the last run of each IST day
+COMPARE_AFTER = timedelta(hours=20)  # "what changed" compares with a report about a day old
+HISTORY_POINTS = 120
 
 
 def composite(outputs: list[AgentOutput]) -> Composite:
@@ -105,6 +114,7 @@ class ResearchService:
         self._queue: asyncio.Queue[str] = asyncio.Queue()
         self._state: dict[str, tuple[str, str | None]] = {}
         self._tasks: list[asyncio.Task] = []
+        self._backfill_history()
 
     # --- lifecycle ---------------------------------------------------------------
 
@@ -132,6 +142,17 @@ class ResearchService:
             return
         self._state[instrument_key] = ("queued", None)
         self._queue.put_nowait(instrument_key)
+
+    def stats(self) -> dict[str, int | str | None]:
+        states = [st for st, _ in self._state.values()]
+        failed = [(k, e) for k, (st, e) in self._state.items() if st == "failed"]
+        return {
+            "queued": states.count("queued"),
+            "running": states.count("running"),
+            "failed": len(failed),
+            "last_error": failed[-1][1] if failed else None,
+            "worker_alive": bool(self._tasks) and not self._tasks[0].done(),
+        }
 
     async def _worker(self) -> None:
         while True:
@@ -170,16 +191,108 @@ class ResearchService:
             computed_at=ctx.now,
             duration_ms=int((time.perf_counter() - started) * 1000),
         )
+        payload = report.model_dump_json()
         self._db.execute(
             "INSERT OR REPLACE INTO research_reports VALUES (?, ?, ?, ?)",
+            [instrument.instrument_key, report.composite.signal, payload, report.computed_at],
+        )
+        self._record(instrument.instrument_key, report, payload)
+        return report
+
+    # --- point-in-time history ---------------------------------------------------
+
+    def _record(self, key: str, report: ResearchReport, payload: str) -> None:
+        """Append to the history, then thin days older than KEEP_ALL_RUNS to one run each."""
+        self._db.execute(
+            "INSERT OR REPLACE INTO research_history VALUES (?, ?, ?, ?, ?, ?, ?)",
             [
-                instrument.instrument_key,
-                report.composite.signal,
-                report.model_dump_json(),
+                key,
                 report.computed_at,
+                to_ist(report.computed_at).date(),
+                report.composite.signal,
+                report.composite.score,
+                report.composite.confidence,
+                payload,
             ],
         )
-        return report
+        self._db.execute(
+            """DELETE FROM research_history h
+               WHERE instrument_key = ? AND computed_at < ?
+                 AND computed_at < (SELECT max(computed_at) FROM research_history x
+                                    WHERE x.instrument_key = h.instrument_key
+                                      AND x.snapshot_date = h.snapshot_date)""",
+            [key, datetime.now(UTC) - KEEP_ALL_RUNS],
+        )
+
+    def _backfill_history(self) -> None:
+        """Reports stored before the history table existed become its first entries."""
+        rows = self._db.fetchall(
+            """SELECT r.instrument_key, r.payload FROM research_reports r
+               WHERE NOT EXISTS (SELECT 1 FROM research_history h
+                                 WHERE h.instrument_key = r.instrument_key
+                                   AND h.computed_at = r.computed_at)"""
+        )
+        for key, payload in rows:
+            try:
+                self._record(key, ResearchReport.model_validate(json.loads(payload)), payload)
+            except ValueError:
+                log.warning("skipped unreadable stored report for %s", key)
+
+    def _compared(self, key: str, latest: ResearchReport) -> ResearchReport | None:
+        """The newest stored report at least COMPARE_AFTER older than ``latest``, else the
+        previous run."""
+        row = self._db.fetchone(
+            """SELECT payload FROM research_history
+               WHERE instrument_key = ? AND computed_at <= ?
+               ORDER BY computed_at DESC LIMIT 1""",
+            [key, latest.computed_at - COMPARE_AFTER],
+        ) or self._db.fetchone(
+            """SELECT payload FROM research_history
+               WHERE instrument_key = ? AND computed_at < ?
+               ORDER BY computed_at DESC LIMIT 1""",
+            [key, latest.computed_at],
+        )
+        return ResearchReport.model_validate(json.loads(row[0])) if row else None
+
+    def changes(self, key: str, latest: ResearchReport | None = None) -> ResearchChanges | None:
+        latest = latest or self.latest(key)
+        if latest is None:
+            return None
+        previous = self._compared(key, latest)
+        return diff_reports(previous, latest) if previous else None
+
+    def history(self, instrument: Instrument) -> ResearchHistory:
+        key = instrument.instrument_key
+        rows = self._db.fetchall(
+            """SELECT payload FROM research_history WHERE instrument_key = ?
+               ORDER BY computed_at DESC LIMIT ?""",
+            [key, HISTORY_POINTS],
+        )
+        points = []
+        for (payload,) in reversed(rows):
+            r = ResearchReport.model_validate(json.loads(payload))
+            points.append(
+                HistoryPoint(
+                    date=to_ist(r.computed_at).date(),
+                    computed_at=r.computed_at,
+                    signal=r.composite.signal,
+                    score=r.composite.score,
+                    confidence=r.composite.confidence,
+                    agents={
+                        a.agent: AgentPoint(signal=a.signal, score=a.score, confidence=a.confidence)
+                        for a in r.agents
+                    },
+                )
+            )
+        first = self._db.fetchone(
+            "SELECT min(computed_at) FROM research_history WHERE instrument_key = ?", [key]
+        )
+        return ResearchHistory(
+            instrument=instrument,
+            points=points,
+            changes=self.changes(key),
+            first_recorded=_as_utc(first[0]) if first and first[0] else None,
+        )
 
     async def _phrase(self, output: AgentOutput) -> AgentOutput:
         if output.signal == "insufficient_data" or self._llm is None:
@@ -236,6 +349,7 @@ class ResearchService:
             error=error,
             stale=report is not None and self._is_stale(stored),
             report=report,
+            changes=self.changes(key, report) if report else None,
         )
 
     async def overview(self) -> ResearchOverview:

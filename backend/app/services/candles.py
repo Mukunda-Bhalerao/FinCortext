@@ -34,6 +34,8 @@ SPECS: dict[str, Spec] = {
 }
 
 HIST_TTL = timedelta(hours=1)
+LONG_TTL = timedelta(hours=12)
+LONG_YEARS = 10  # one request: the V3 day-candle limit is a decade
 INTRADAY_TTL_OPEN = timedelta(seconds=20)
 INTRADAY_TTL_CLOSED = timedelta(minutes=10)
 SOURCE = "upstox.v3.historical-candle"
@@ -95,6 +97,16 @@ class CandleService:
             source=SOURCE,
             fetched_at=fetched_at,
             data_gaps=gaps,
+        )
+
+    async def long_daily(self, instrument_key: str) -> tuple[list[Candle], datetime]:
+        """Completed daily sessions over the last decade (no current-session candle)."""
+        today = to_ist(datetime.now(UTC)).date()
+        start = today - timedelta(days=LONG_YEARS * 365)
+        return await self._cached(
+            f"hist:{instrument_key}:days:1:long:{today}",
+            LONG_TTL,
+            lambda: self._provider.get_historical_candles(instrument_key, "days", 1, today, start),
         )
 
     async def _cached(self, key: str, ttl: timedelta, fetch) -> tuple[list[Candle], datetime]:

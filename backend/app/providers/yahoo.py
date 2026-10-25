@@ -7,16 +7,19 @@ as a data gap. Symbols are the NSE trading symbol with the ``.NS`` suffix.
 import asyncio
 import logging
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta, timezone
 from urllib.parse import quote
 
 import httpx
 
 from app.errors import NotFound, ProviderUnavailable
+from app.providers import fetch
 
 log = logging.getLogger(__name__)
 
 SOURCE = "Yahoo Finance quote summary"
+DIVIDEND_SOURCE = "Yahoo Finance chart events"
+_CHART = "https://query2.finance.yahoo.com/v8/finance/chart/"
 _BASE = "https://query2.finance.yahoo.com/v10/finance/quoteSummary/"
 _MODULES = ",".join(
     (
@@ -138,6 +141,20 @@ def parse_summary(symbol: str, result: dict, fetched_at: datetime) -> Fundamenta
     return f
 
 
+_IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def parse_dividends(result: dict) -> list[tuple[date, float]]:
+    """(ex-date in IST, amount per share) from chart events; amounts are split-adjusted."""
+    events = ((result.get("events") or {}).get("dividends") or {}).values()
+    out = []
+    for e in events:
+        stamp, amount = e.get("date"), e.get("amount")
+        if isinstance(stamp, int | float) and isinstance(amount, int | float) and amount > 0:
+            out.append((datetime.fromtimestamp(stamp, _IST).date(), float(amount)))
+    return sorted(out)
+
+
 class YahooProvider:
     def __init__(self) -> None:
         self._client: httpx.AsyncClient | None = None
@@ -173,7 +190,8 @@ class YahooProvider:
             for attempt in range(2):
                 crumb = await self._ensure_crumb(renew=attempt > 0)
                 try:
-                    resp = await self._http().get(
+                    resp = await fetch.get(
+                        self._http(),
                         _BASE + quote(symbol, safe=""),
                         params={"modules": _MODULES, "crumb": crumb},
                     )
@@ -190,6 +208,26 @@ class YahooProvider:
         if not results:
             raise NotFound(f"Yahoo Finance has no record for {symbol}.")
         return parse_summary(symbol, results[0], datetime.now(UTC))
+
+    async def dividends(self, nse_symbol: str, years: int = 11) -> list[tuple[date, float]]:
+        symbol = f"{nse_symbol}.NS"
+        async with self._slots:
+            try:
+                resp = await fetch.get(
+                    self._http(),
+                    _CHART + quote(symbol, safe=""),
+                    params={"range": f"{years}y", "interval": "3mo", "events": "div"},
+                )
+            except httpx.HTTPError as exc:
+                raise ProviderUnavailable("Yahoo Finance is not reachable.") from exc
+        if resp.status_code == 404:
+            raise NotFound(f"Yahoo Finance has no record for {symbol}.")
+        if resp.status_code != 200:
+            raise ProviderUnavailable(f"Yahoo Finance returned HTTP {resp.status_code}.")
+        results = ((resp.json() or {}).get("chart") or {}).get("result") or []
+        if not results:
+            raise NotFound(f"Yahoo Finance has no record for {symbol}.")
+        return parse_dividends(results[0])
 
     async def aclose(self) -> None:
         if self._client is not None:

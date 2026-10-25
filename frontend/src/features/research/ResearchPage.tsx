@@ -6,15 +6,8 @@ import { cx, EmptyState, ErrorState, Panel, SkeletonRows } from "../../component
 import { api } from "../../lib/api";
 import { fmtDateIST, fmtNumber, fmtStamp } from "../../lib/format";
 import type { MacroIndicator, ResearchItem } from "../../lib/types";
-import {
-  AGENT_META,
-  AGENT_ORDER,
-  AgentCard,
-  CompositeSummary,
-  isBusy,
-  SignalCell,
-  StateLabel,
-} from "./agents";
+import { AGENT_META, AGENT_ORDER, AgentCard, CompositeSummary, isBusy, SignalCell, StateLabel } from "./agents";
+import { ResearchTimeline } from "./history";
 
 function MacroStrip({ indicators }: { indicators: MacroIndicator[] }) {
   return (
@@ -26,7 +19,11 @@ function MacroStrip({ indicators }: { indicators: MacroIndicator[] }) {
               ? "—"
               : `${m.change > 0 ? "+" : m.change < 0 ? "−" : ""}${fmtNumber(Math.abs(m.change), 2)}${m.change_unit === "%" ? "%" : " pp"}`;
           return (
-            <div key={m.key} className="min-w-0 bg-surface px-3.5 py-2.5 odd:last:col-span-2 sm:odd:last:col-span-1" title={m.source}>
+            <div
+              key={m.key}
+              className="min-w-0 bg-surface px-3.5 py-2.5 odd:last:col-span-2 sm:odd:last:col-span-1"
+              title={m.source}
+            >
               <div className="truncate text-2xs tracking-wide text-faint uppercase">{m.label}</div>
               <div className="num mt-0.5 text-sm text-fg">
                 {m.value == null ? "—" : `${fmtNumber(m.value, 2)}${m.unit === "%" ? "%" : ` ${m.unit}`}`}
@@ -64,7 +61,10 @@ function ReportDetail({ item }: { item: ResearchItem }) {
         <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <Link to={`/stock/${encodeURIComponent(item.instrument.symbol)}`} className="text-lg font-semibold text-fg hover:text-accent">
+              <Link
+                to={`/stock/${encodeURIComponent(item.instrument.symbol)}`}
+                className="text-lg font-semibold text-fg hover:text-accent"
+              >
                 {item.instrument.symbol}
               </Link>
               <StateLabel item={item} />
@@ -95,6 +95,7 @@ function ReportDetail({ item }: { item: ResearchItem }) {
       </div>
       {report ? (
         <>
+          <ResearchTimeline symbol={item.instrument.symbol} />
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
             {AGENT_ORDER.map((name) => {
               const output = report.agents.find((a) => a.agent === name);
@@ -106,7 +107,12 @@ function ReportDetail({ item }: { item: ResearchItem }) {
               <ul className="divide-y divide-line">
                 {report.headlines.map((h) => (
                   <li key={h.link} className="flex items-start gap-3 px-3.5 py-2">
-                    <a href={h.link} target="_blank" rel="noreferrer noopener" className="min-w-0 flex-1 text-sm text-fg hover:text-accent">
+                    <a
+                      href={h.link}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="min-w-0 flex-1 text-sm text-fg hover:text-accent"
+                    >
                       {h.title} <IconExternal className="inline text-faint" width={11} height={11} />
                     </a>
                     <span className="shrink-0 text-2xs whitespace-nowrap text-faint">
@@ -118,15 +124,17 @@ function ReportDetail({ item }: { item: ResearchItem }) {
             </Panel>
           )}
           <p className="text-2xs text-faint">
-            Computed {fmtStamp(report.computed_at)} in {(report.duration_ms / 1000).toFixed(1)} s. {report.composite.method}.
-            Peers: {report.classification.peers.join(", ") || "none"}
+            Computed {fmtStamp(report.computed_at)} in {(report.duration_ms / 1000).toFixed(1)} s.{" "}
+            {report.composite.method}. Peers: {report.classification.peers.join(", ") || "none"}
             {report.classification.peer_basis && ` (${report.classification.peer_basis})`}.
           </p>
         </>
       ) : (
         <div className="rounded-lg border border-line bg-surface">
           <EmptyState title={isBusy(item) ? "Research is running" : "No research yet"}>
-            {isBusy(item) ? "The four agents are gathering data for this stock." : "Run the agents to produce a report."}
+            {isBusy(item)
+              ? "The four agents are gathering data for this stock."
+              : "Run the agents to produce a report."}
           </EmptyState>
         </div>
       )}
@@ -150,8 +158,8 @@ export function ResearchPage() {
         <h1 className="text-lg font-semibold text-fg">Research</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted">
           Four agents score every watchlist stock from market data, fundamentals, macro series and headlines. Each score
-          runs from −1 to +1 and carries its evidence and data gaps. Adding a stock to the watchlist starts a run; reports
-          refresh every {q.data?.refresh_after_hours ?? 6} hours.
+          runs from −1 to +1 and carries its evidence and data gaps. Adding a stock to the watchlist starts a run;
+          reports refresh every {q.data?.refresh_after_hours ?? 6} hours.
         </p>
       </div>
 
@@ -195,6 +203,11 @@ export function ResearchPage() {
                         <div className="max-w-48 truncate text-2xs text-faint">
                           {item.report?.classification.industry ?? item.instrument.name}
                         </div>
+                        {item.changes && item.changes.items.length > 0 && (
+                          <div className="max-w-56 truncate text-2xs text-accent" title={item.changes.summary}>
+                            {item.changes.summary}
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2">
                         <SignalCell output={item.report?.composite} />

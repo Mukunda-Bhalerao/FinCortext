@@ -101,3 +101,24 @@ body {
     background-color: var(--down-soft);
   }
 }
+
+@keyframes fc-rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+.fc-rise {
+  animation: fc-rise 0.35s ease-out both;
+}
+.fc-updating {
+  transition: opacity 0.2s;
+  opacity: 0.55;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fc-rise,
+  .fc-pulse,
+  .fc-skeleton {
+    animation: none;
+  }
+}

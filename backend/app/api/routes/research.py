@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app.api.deps import Services, services
 from app.errors import NotFound
-from app.schemas.research import ResearchItem, ResearchOverview
+from app.schemas.research import ResearchHistory, ResearchItem, ResearchOverview
 
 router = APIRouter(prefix="/api/research")
 Svc = Annotated[Services, Depends(services)]
@@ -21,6 +21,14 @@ async def report(svc: Svc, symbol: str) -> ResearchItem:
     if len(symbol) > 40:
         raise NotFound("Unknown symbol")
     return svc.research.item(svc.instruments.by_symbol(symbol))
+
+
+@router.get("/{symbol}/history")
+async def history(svc: Svc, symbol: str) -> ResearchHistory:
+    """Stored research over time and what changed since about a day ago."""
+    if len(symbol) > 40:
+        raise NotFound("Unknown symbol")
+    return svc.research.history(svc.instruments.by_symbol(symbol))
 
 
 @router.post("/{symbol}/run", status_code=202)

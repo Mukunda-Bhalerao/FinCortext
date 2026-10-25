@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.deps import Services
-from app.api.routes import market, research, system, ws
+from app.api.routes import assistant, market, portfolio, research, system, ws
 from app.config import Settings, get_settings
 from app.db import Database
 from app.errors import AppError, app_error_handler
@@ -16,12 +16,15 @@ from app.providers.ollama import OllamaClient
 from app.providers.upstox import UpstoxProvider
 from app.providers.upstox_feed import UpstoxFeed
 from app.providers.yahoo import YahooProvider
+from app.services.assistant import Assistant
 from app.services.auth import AuthService
 from app.services.candles import CandleService
 from app.services.instruments import InstrumentService
 from app.services.live import LiveHub
 from app.services.market import MarketService
+from app.services.monitor import SourceMonitor
 from app.services.news import NewsService
+from app.services.portfolio import PortfolioService
 from app.services.quotes import QuoteService
 from app.services.research import ResearchService
 from app.services.research_data import ResearchData
@@ -61,14 +64,13 @@ def build_services(settings: Settings, db: Database | None = None) -> Services:
     market = MarketService(db, instruments, quotes, candles)
     llm = None
     if settings.llm_provider == "ollama" and settings.ollama_model:
-        llm = OllamaClient(settings.ollama_url, settings.ollama_model)
-    research = ResearchService(
-        db,
-        instruments,
-        ResearchData(db, instruments, candles, quotes, YahooProvider()),
-        market.watchlist_keys,
-        llm,
-    )
+        llm = OllamaClient(
+            settings.ollama_url, settings.ollama_model, settings.ollama_api_key.get_secret_value()
+        )
+    monitor = SourceMonitor()
+    data = ResearchData(db, instruments, candles, quotes, YahooProvider(), monitor)
+    research = ResearchService(db, instruments, data, market.watchlist_keys, llm)
+    portfolio = PortfolioService(db, instruments, data, research, market.watchlist_keys)
     return Services(
         settings=settings,
         db=db,
@@ -82,6 +84,9 @@ def build_services(settings: Settings, db: Database | None = None) -> Services:
         market=market,
         news=NewsService(db, settings.news_enabled),
         research=research,
+        portfolio=portfolio,
+        assistant=Assistant(db, portfolio, research, instruments, llm, monitor),
+        monitor=monitor,
     )
 
 
@@ -89,6 +94,14 @@ async def _reference_data_loop(svc: Services) -> None:
     await svc.auth.verify(svc.provider)
     while True:
         await svc.instruments.refresh_if_needed()
+        # Recovery after a restart: rebuild a missing or stale portfolio analysis.
+        svc.portfolio.request_run()
+        try:
+            removed = svc.db.cache_prune()
+            if removed:
+                logging.getLogger(__name__).info("pruned %d expired cache entries", removed)
+        except Exception:  # housekeeping must never stop the loop
+            logging.getLogger(__name__).exception("cache prune failed")
         await asyncio.sleep(REFERENCE_REFRESH_SECONDS)
 
 
@@ -107,6 +120,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         loader.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await loader
+        await svc.portfolio.stop()
         await svc.research.stop()
         await svc.hub.stop()
         await svc.provider.aclose()
@@ -125,6 +139,8 @@ def create_app() -> FastAPI:
     app.include_router(system.router)
     app.include_router(market.router)
     app.include_router(research.router)
+    app.include_router(portfolio.router)
+    app.include_router(assistant.router)
     app.include_router(ws.router)
     return app
 

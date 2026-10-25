@@ -29,10 +29,13 @@ class Settings(BaseSettings):
 
     news_enabled: bool = True
 
-    # Optional language layer for agent rationales: "none" (templated text) or "ollama".
+    # Optional language layer: "none" (templated text only) or "ollama". It phrases agent
+    # rationales, writes the portfolio brief and answers questions, always from computed facts.
     llm_provider: str = "none"
     ollama_url: str = "http://127.0.0.1:11434"
     ollama_model: str = ""
+    # Only for calling ollama.com directly; a signed-in local Ollama needs no key.
+    ollama_api_key: SecretStr = SecretStr("")
     log_level: str = "INFO"
 
     @property

@@ -8,6 +8,7 @@ import { mergeQuote, useLiveSubscription, useTick } from "../../lib/live";
 import { useMarketOpen } from "../../lib/queries";
 import { useStoredState } from "../../lib/useStoredState";
 import { TIMEFRAMES, type Instrument, type Timeframe } from "../../lib/types";
+import { BriefCard } from "./BriefCard";
 import { IndexStrip } from "./IndexStrip";
 import { MoversPanel, NewsPanel, SectorBoard, WatchlistPanel } from "./panels";
 
@@ -48,6 +49,7 @@ export function Dashboard() {
 
   return (
     <div className="mx-auto flex max-w-[1680px] flex-col gap-3 p-3 sm:p-4">
+      <BriefCard />
       <IndexStrip
         selectedKey={instrument?.instrument_key ?? null}
         onSelect={(item) => setParams({ chart: item.instrument.instrument_key }, { replace: true })}

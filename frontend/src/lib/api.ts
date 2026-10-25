@@ -1,5 +1,12 @@
 import type {
+  AskAnswer,
   AuthStatus,
+  Brief,
+  HoldingRow,
+  ObjectiveInfo,
+  PortfolioPlan,
+  Preferences,
+  ResearchHistory,
   CandleSeries,
   Health,
   Instrument,
@@ -7,6 +14,7 @@ import type {
   MarketStatus,
   Movers,
   NewsFeed,
+  PortfolioStatus,
   ResearchItem,
   ResearchOverview,
   StockSummary,
@@ -53,6 +61,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 const q = (key: string) => encodeURIComponent(key);
+const json = (method: string, body: unknown): RequestInit => ({
+  method,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
 
 export const api = {
   health: () => request<Health>("/api/health"),
@@ -62,12 +75,10 @@ export const api = {
   indices: () => request<LabeledQuote[]>("/api/market/indices"),
   sectors: () => request<LabeledQuote[]>("/api/market/sectors"),
   movers: () => request<Movers>("/api/market/movers"),
-  search: (text: string) =>
-    request<Instrument[]>(`/api/instruments/search?q=${encodeURIComponent(text)}&limit=12`),
+  search: (text: string) => request<Instrument[]>(`/api/instruments/search?q=${encodeURIComponent(text)}&limit=12`),
   lookup: (key: string) => request<Instrument>(`/api/instruments/lookup?key=${q(key)}`),
   stock: (symbol: string) => request<StockSummary>(`/api/stocks/${encodeURIComponent(symbol)}`),
-  candles: (key: string, tf: Timeframe) =>
-    request<CandleSeries>(`/api/candles?key=${q(key)}&tf=${tf}`),
+  candles: (key: string, tf: Timeframe) => request<CandleSeries>(`/api/candles?key=${q(key)}&tf=${tf}`),
   watchlist: () => request<LabeledQuote[]>("/api/watchlist"),
   watch: (key: string) => request<void>(`/api/watchlist?key=${q(key)}`, { method: "PUT" }),
   unwatch: (key: string) => request<void>(`/api/watchlist?key=${q(key)}`, { method: "DELETE" }),
@@ -76,6 +87,19 @@ export const api = {
   researchFor: (symbol: string) => request<ResearchItem>(`/api/research/${encodeURIComponent(symbol)}`),
   runResearch: (symbol: string) =>
     request<ResearchItem>(`/api/research/${encodeURIComponent(symbol)}/run`, { method: "POST" }),
+  portfolio: () => request<PortfolioStatus>("/api/portfolio"),
+  runPortfolio: () => request<PortfolioStatus>("/api/portfolio/run", { method: "POST" }),
+  researchHistory: (symbol: string) => request<ResearchHistory>(`/api/research/${encodeURIComponent(symbol)}/history`),
+  objectives: () => request<ObjectiveInfo[]>("/api/portfolio/objectives"),
+  preferences: () => request<Preferences>("/api/portfolio/preferences"),
+  savePreferences: (prefs: Preferences) => request<Preferences>("/api/portfolio/preferences", json("PUT", prefs)),
+  plan: (prefs: Preferences) => request<PortfolioPlan>("/api/portfolio/plan", json("POST", prefs)),
+  holdings: () => request<HoldingRow[]>("/api/portfolio/holdings"),
+  saveHoldings: (items: { symbol: string; quantity: number; avg_cost: number | null }[]) =>
+    request<HoldingRow[]>("/api/portfolio/holdings", json("PUT", items)),
+  brief: () => request<Brief>("/api/portfolio/brief"),
+  ask: (question: string, history: { role: "user" | "assistant"; content: string }[]) =>
+    request<AskAnswer>("/api/assistant/ask", json("POST", { question, history })),
 };
 
 export const LOGIN_URL = "/api/auth/upstox/login";

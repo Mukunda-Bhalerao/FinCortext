@@ -10,6 +10,7 @@ import feedparser
 import httpx
 
 from app.errors import ProviderUnavailable
+from app.providers import fetch
 from app.schemas.market import NewsItem
 
 log = logging.getLogger(__name__)
@@ -51,7 +52,7 @@ async def search_news(query: str, days: int = 30) -> list[NewsItem]:
         async with httpx.AsyncClient(
             timeout=10.0, headers=_HEADERS, follow_redirects=True
         ) as client:
-            resp = await client.get(url)
+            resp = await fetch.get(client, url)
             resp.raise_for_status()
     except httpx.HTTPError as exc:
         raise ProviderUnavailable("Google News search is not reachable.") from exc
@@ -64,7 +65,7 @@ async def fetch_all() -> tuple[list[NewsItem], list[str], list[str]]:
 
         async def one(publisher: str, url: str) -> list[NewsItem] | None:
             try:
-                resp = await client.get(url)
+                resp = await fetch.get(client, url)
                 resp.raise_for_status()
                 return parse_feed(publisher, resp.content)
             except (httpx.HTTPError, ValueError) as exc:

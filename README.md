@@ -81,7 +81,7 @@ live feed and market session state.
 | Market session | Upstox feed status, then `/v2/market/status/NSE`, then the weekday timetable | Timetable fallback is labelled and does not know holidays |
 | NIFTY 50 constituents (movers) | NSE public CSV | Mapped to instruments by ISIN |
 | Headlines | Economic Times, Business Standard, Mint RSS | Headline, link, publisher and time only |
-| Industry and peers | NSE NIFTY 500 constituent CSV | NSE industry per company; peers are the 12 most traded members of the same industry |
+| Industry, peers, candidates | NSE NIFTY 500 and NIFTY 100 constituent CSVs | NSE industry per company; peers are the 12 most traded members of the same industry |
 | Fundamentals, analyst consensus | Yahoo Finance quote summary (unofficial) | Cached 24 h; every field optional, missing fields become data gaps |
 | Macro series | FRED CSV: India 10Y yield, USD/INR, Brent, US 10Y, India CPI | Cached 12 h; observations past their freshness window are shown but not scored |
 | Company news | Google News RSS search | Last 30 days, filtered to headlines naming the company, cached 1 h |
@@ -117,6 +117,56 @@ the watchlist queues a run; a scheduler re-runs watchlist reports older than six
 minutes if the previous run could not score). `POST /api/research/{symbol}/run` forces a run for
 any stock. Signals summarise evidence; they are not forecasts or recommendations.
 
+## Portfolio intelligence
+
+The Portfolio page leads with a **brief**: a one-line headline and ranked insights (risks,
+options, track record, research changes, data gaps). Every insight cites numbered facts, and
+each fact names its source and whether it is *measured* (backtest), an *estimate* (trailing-year
+risk model), a *replay* (today's weights through a past episode) or *observed* (a stored
+research reading).
+
+**Objectives and plans.** `POST /api/portfolio/plan` builds a plan for one objective (Lower
+risk, Balanced growth, Aggressive growth, Dividend income) from the watchlist, minus any stocks
+left out, plus any stocks being tried. Changing the objective, the maximum weight per stock, the
+amount, or the stock set re-plans in about a second. A plan returns weights with plain-language
+reasons, a risk level against the NIFTY 50, a diversification score, a walk-forward backtest,
+stress replays (COVID-19 crash, 2022 rate-hike sell-off, late-2024 correction, the worst month in
+the data) and the trades to get there from cash or from your holdings (`/api/portfolio/holdings`,
+stored locally). Each objective's weights depend only on trailing data, so the backtest rebuilds
+them on every past rebalance date; the optional research overlay applies to today's weights only.
+
+**Backtesting V2** (`app/tools/backtest.py`):
+
+- ten years of Upstox daily closes plus cash dividends from Yahoo Finance (total return);
+- monthly rebalancing from cash, weights from the 252 sessions before each rebalance only;
+- itemised NSE delivery costs (STT, stamp duty, exchange, SEBI, GST, DP charge, assumed 0.05%
+  slippage) and an after-tax run (STCG 20%, LTCG 12.5% above Rs 1.25 lakh, FIFO lots, dividends
+  at your slab);
+- benchmark: the NIFTYBEES ETF as a NIFTY 50 total-return proxy (price index as fallback);
+- uncertainty: a moving-block bootstrap of the excess return over the benchmark;
+- bias controls: a selection check against 200 random same-size NIFTY 100 portfolios, and
+  out-of-sample re-tests of the top diversification candidates on an earlier period.
+
+Stocks are still chosen today, so every backtest carries survivorship and selection bias; the
+page says so beside the results.
+
+**Research history.** Every research run is stored (older days keep their last run).
+`GET /api/research/{symbol}/history` returns the score trend and what changed since about a day
+ago; fundamentals are also snapshotted daily so later backtests can use what was known then.
+
+**Optional language model.** With `LLM_PROVIDER=ollama` the brief gets a written note and the
+page gets an assistant (`POST /api/assistant/ask`) that answers only from the computed facts,
+cites them, and can turn a what-if question into a scenario the plan applies. Any output with a
+number that is not in the facts (beyond rounding) is rejected. A signed-in local Ollama can route
+a free-tier cloud model such as `gpt-oss:120b-cloud`; results are cached by the facts they use,
+so the model is called again only when the data changes. Everything else works without it.
+
+**Reliability.** `/api/health` reports each component and data source (`/status` in the app).
+The database is copied to `backend/data/backups` at each start (three kept) and restored
+automatically if it cannot be opened; public data sources are retried before a failure is
+recorded; expired cache entries are pruned; a missing or stale analysis is rebuilt after a
+restart.
+
 ## Layout
 
 ```
@@ -124,14 +174,16 @@ backend/app
   main.py            app factory, lifespan, wiring
   config.py, db.py   settings, DuckDB schema and response cache
   providers/         the only code that calls external services (Upstox, NSE, RSS, Yahoo, FRED, Ollama)
-  services/          auth, instruments, quotes, candles, live relay, market, news, research
+  services/          auth, instruments, quotes, candles, live relay, market, news, research,
+                     portfolio, planner, insights, assistant, source monitor
   agents/            firm, industry, macro, sentiment (pure functions of a research context)
-  tools/             pure computations (candles, market hours, quotes, technicals, scoring, headlines)
+  tools/             pure computations (candles, market hours, quotes, technicals, scoring, headlines,
+                     portfolio construction, backtesting, objectives, research diffs)
   api/routes/        thin HTTP and WebSocket handlers
 frontend/src
   app/               shell and routing
   components/        UI primitives, quote table, search, charts
-  features/          dashboard, stock, markets, watchlist, research, portfolio
+  features/          dashboard, stock, markets, watchlist, research, portfolio, status
   lib/               API client, live socket client, formatting, types
   styles/tokens.css  design tokens (dark and light)
 ```

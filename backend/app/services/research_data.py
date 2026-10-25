@@ -1,6 +1,7 @@
 """Gathers and caches every input the research agents need, recording why any input is missing."""
 
 import asyncio
+import json
 import logging
 from collections.abc import Awaitable
 from datetime import UTC, date, datetime, timedelta
@@ -10,13 +11,16 @@ from app.agents.base import Peer, PriceSeries, ResearchContext
 from app.db import Database
 from app.errors import AppError, NotFound
 from app.providers import fred, rss
+from app.providers import yahoo as yahoo_provider
 from app.providers.yahoo import Fundamentals, YahooProvider
 from app.schemas.market import Instrument, NewsItem
 from app.schemas.research import MacroIndicator
 from app.services.candles import CandleService
 from app.services.instruments import INDUSTRY_UNIVERSE, InstrumentService
+from app.services.monitor import SourceMonitor
 from app.services.quotes import QuoteService
 from app.tools.headlines import is_relevant, name_terms
+from app.tools.market_hours import to_ist
 
 log = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -26,6 +30,7 @@ MAX_HEADLINES = 40
 FUNDAMENTALS_TTL = timedelta(hours=24)
 MACRO_TTL = timedelta(hours=12)
 NEWS_TTL = timedelta(hours=1)
+DIVIDENDS_TTL = timedelta(hours=24)
 PRICE_SOURCE = "Upstox daily candles"
 
 # NSE industry (NIFTY 500 classification) -> sector index trading symbol.
@@ -127,7 +132,9 @@ class ResearchData:
         candles: CandleService,
         quotes: QuoteService,
         yahoo: YahooProvider,
+        monitor: SourceMonitor | None = None,
     ):
+        self.monitor = monitor or SourceMonitor()
         self._db = db
         self._instruments = instruments
         self._candles = candles
@@ -136,8 +143,22 @@ class ResearchData:
 
     # --- individual inputs -------------------------------------------------------
 
+    async def _tracked(self, source: str, coro: Awaitable[T]) -> T:
+        try:
+            result = await coro
+        except NotFound:
+            self.monitor.ok(source)  # the source answered; the record just does not exist
+            raise
+        except AppError as exc:
+            self.monitor.failed(source, exc.message)
+            raise
+        self.monitor.ok(source)
+        return result
+
     async def daily(self, instrument: Instrument, label: str | None = None) -> PriceSeries:
-        series = await self._candles.series(instrument.instrument_key, "1D")
+        series = await self._tracked(
+            "upstox", self._candles.series(instrument.instrument_key, "1D")
+        )
         if not series.candles:
             raise NotFound(f"No daily candles for {instrument.symbol}.")
         return PriceSeries(
@@ -148,21 +169,75 @@ class ResearchData:
             as_of=series.fetched_at,
         )
 
+    async def long_daily(self, instrument: Instrument) -> PriceSeries:
+        """About ten years of completed daily sessions, for backtests and stress replays."""
+        candles, at = await self._tracked(
+            "upstox", self._candles.long_daily(instrument.instrument_key)
+        )
+        if not candles:
+            raise NotFound(f"No daily candles for {instrument.symbol}.")
+        return PriceSeries(
+            label=instrument.symbol,
+            times=[c.time for c in candles],
+            closes=[c.close for c in candles],
+            source=PRICE_SOURCE,
+            as_of=at,
+        )
+
+    async def dividends(self, symbol: str) -> list[tuple[date, float]]:
+        """Cash dividends per share by ex-date, stored so the record stays point-in-time."""
+        key = f"yahoo:dividends:{symbol}"
+        if self._db.cache_get(key) is None:
+            rows = await self._tracked("yahoo", self._yahoo.dividends(symbol))
+            now = datetime.now(UTC)
+            for d, amount in rows:
+                self._db.execute(
+                    "INSERT OR REPLACE INTO dividends VALUES (?, ?, ?, ?, ?)",
+                    [symbol, d, amount, yahoo_provider.DIVIDEND_SOURCE, now],
+                )
+            self._db.cache_put(key, "yahoo", len(rows), DIVIDENDS_TTL)
+        return [
+            (d, float(a))
+            for d, a in self._db.fetchall(
+                "SELECT ex_date, amount FROM dividends WHERE symbol = ? ORDER BY ex_date", [symbol]
+            )
+        ]
+
     async def fundamentals(self, symbol: str) -> Fundamentals:
         key = f"yahoo:summary:{symbol}"
         hit = self._db.cache_get(key)
         if hit is not None:
             return Fundamentals.from_json(hit[0])
-        f = await self._yahoo.fundamentals(symbol)
-        self._db.cache_put(key, "yahoo", f.to_json(), FUNDAMENTALS_TTL)
+        f = await self._tracked("yahoo", self._yahoo.fundamentals(symbol))
+        payload = f.to_json()
+        self._db.cache_put(key, "yahoo", payload, FUNDAMENTALS_TTL)
+        self._db.execute(  # point-in-time record: what the source reported on this day
+            "INSERT OR REPLACE INTO fundamentals_history VALUES (?, ?, ?, ?)",
+            [symbol, to_ist(f.fetched_at).date(), json.dumps(payload), f.fetched_at],
+        )
         return f
+
+    async def latest_prices(self, instruments: list[Instrument]) -> dict[str, tuple[float, str]]:
+        """Last traded price (or last close) per instrument key, with its basis."""
+        out: dict[str, tuple[float, str]] = {}
+        try:
+            quotes = await self._quotes.get([i.instrument_key for i in instruments])
+        except AppError:
+            quotes = {}
+        for i in instruments:
+            q = quotes.get(i.instrument_key)
+            if q is not None and q.ltp:
+                out[i.instrument_key] = (q.ltp, "last traded price")
+        return out
 
     async def _fred(self, series_id: str) -> list[tuple[date, float]]:
         key = f"fred:{series_id}"
         hit = self._db.cache_get(key)
         if hit is not None:
             return [(date.fromisoformat(d), v) for d, v in hit[0]]
-        rows = await fred.fetch_series(series_id, date.today() - timedelta(days=6 * 365))
+        rows = await self._tracked(
+            "fred", fred.fetch_series(series_id, date.today() - timedelta(days=6 * 365))
+        )
         self._db.cache_put(key, "fred", [(d.isoformat(), v) for d, v in rows], MACRO_TTL)
         return rows
 
@@ -188,7 +263,7 @@ class ResearchData:
         if hit is not None:
             return [NewsItem.model_validate(i) for i in hit[0]], terms
         query = max(terms, key=len)
-        items = await rss.search_news(f'"{query}"')
+        items = await self._tracked("news", rss.search_news(f'"{query}"'))
         seen: set[str] = set()
         relevant: list[NewsItem] = []
         for item in items:
