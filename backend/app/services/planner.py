@@ -16,6 +16,7 @@ from app.agents.base import PriceSeries
 from app.schemas.market import Instrument
 from app.schemas.plan import (
     Comparison,
+    HalfResult,
     ObjectiveInfo,
     PlanAsset,
     PlanBacktest,
@@ -183,14 +184,52 @@ def _shrunk(R: list[list[float]]) -> P.Matrix:
     return P.shrunk_covariance(R)[0]
 
 
-def weight_fn(obj: Objective, prep: Prepared, max_weight: float | None):
+def apply_custom(
+    w: list[float], symbols: list[str], custom: dict[str, float] | None
+) -> tuple[list[float], str | None]:
+    """Fix the listed symbols at their weights; the others share the rest in proportion to
+    ``w``. Returns (weights, note)."""
+    if not custom:
+        return w, None
+    fixed = {s.upper(): max(0.0, float(v)) for s, v in custom.items()}
+    total_fixed = sum(fixed.get(s, 0.0) for s in symbols)
+    note = None
+    if total_fixed > 1.0:
+        scale = 1.0 / total_fixed
+        fixed = {k: v * scale for k, v in fixed.items()}
+        total_fixed = 1.0
+        note = "The chosen weights added up to more than 100%, so they were scaled down."
+    free = [i for i, s in enumerate(symbols) if s not in fixed]
+    free_base = sum(w[i] for i in free)
+    out = []
+    for i, s in enumerate(symbols):
+        if s in fixed:
+            out.append(fixed[s])
+        elif free_base > 0:
+            out.append(w[i] / free_base * (1.0 - total_fixed))
+        else:
+            out.append(0.0)
+    total = sum(out)
+    if total <= 0:
+        return w, "The chosen weights could not be applied."
+    if not free and abs(total - 1.0) > 1e-9:
+        note = "The chosen weights did not add up to 100%, so they were scaled to fit."
+    return [x / total for x in out], note
+
+
+def weight_fn(
+    obj: Objective,
+    prep: Prepared,
+    max_weight: float | None,
+    custom: dict[str, float] | None = None,
+):
     sectors = [a.sector for a in prep.assets]
+    symbols = [a.inst.symbol for a in prep.assets]
 
     def fn(window: list[list[float]], t: int) -> list[float]:
         S = _shrunk(window)
-        return objective_weights(obj, S, sectors, _signals(obj, window, prep, t), None, max_weight)[
-            0
-        ]
+        w = objective_weights(obj, S, sectors, _signals(obj, window, prep, t), None, max_weight)[0]
+        return apply_custom(w, symbols, custom)[0]
 
     return fn
 
@@ -466,6 +505,27 @@ def _explain(
     return out
 
 
+def _halves(prep: Prepared, daily: list[float], bench: list[float], start: int) -> list[HalfResult]:
+    """The same walk-forward split in two: a plan that only worked in one half is fragile."""
+    n = len(daily)
+    if n < 2 * P.TRADING_DAYS:
+        return []
+    out = []
+    for label, a, b in (("First half", 0, n // 2), ("Second half", n // 2, n)):
+        s, m = P.stats(daily[a:b]), P.stats(bench[a:b])
+        out.append(
+            HalfResult(
+                label=label,
+                start=day_to_date(prep.days[start + a]),
+                end=day_to_date(prep.days[min(start + b - 1, len(prep.days) - 1)]),
+                cagr=s.cagr,
+                benchmark_cagr=m.cagr,
+                max_drawdown=s.max_drawdown,
+            )
+        )
+    return out
+
+
 def build_plan(
     prep: Prepared,
     prefs: Preferences,
@@ -475,6 +535,7 @@ def build_plan(
     others: dict[str, tuple[str, float]] | None = None,
     bench_label: str = "NIFTY 50",
     light: bool = False,
+    research_note: str | None = None,
 ) -> PortfolioPlan:
     started = time.perf_counter()
     obj = OBJECTIVES[prefs.objective]
@@ -545,6 +606,8 @@ def build_plan(
     w, _, note = objective_weights(
         obj, S, sectors, _signals(obj, R, prep, t_now), overlay, prefs.max_weight
     )
+    w, custom_note = apply_custom(w, [a.inst.symbol for a in prep.assets], prefs.custom_weights)
+    note = custom_note or note
     vols = [math.sqrt(max(S[i][i], 0.0) * P.TRADING_DAYS) for i in range(n)]
     rc = P.risk_contributions(w, S)
     corr = P.correlation(S)
@@ -597,6 +660,20 @@ def build_plan(
     ]
     base.weight_note = note
     base.explanation = _explain(obj, prep, w, vols, mom, yields, overlay)
+    if prefs.custom_weights:
+        chosen = [
+            f"{a.inst.symbol} {w[i]:.0%}"
+            for i, a in enumerate(prep.assets)
+            if a.inst.symbol in {k.upper() for k in prefs.custom_weights}
+        ]
+        if chosen:
+            base.explanation.insert(
+                0,
+                f"You fixed {', '.join(chosen)}; the other stocks share the rest in the "
+                f"{obj.label} proportions. The backtest holds these weights at every rebalance.",
+            )
+    if overlay and any(x is not None for x in overlay) and research_note:
+        base.explanation.append(research_note)
 
     # Baseline: current holdings by value, otherwise equal weight of the watchlist stocks.
     held_value = [
@@ -611,7 +688,7 @@ def build_plan(
         bw = [m / sum(mask) for m in mask] if sum(mask) else P.equal_weight(S)
         baseline_label = "Equal weight of your watchlist"
 
-    fn = weight_fn(obj, prep, prefs.max_weight)
+    fn = weight_fn(obj, prep, prefs.max_weight, prefs.custom_weights)
     run = _simulate(prep, fn, prefs.capital, prefs.tax_slab, with_tax=True)
     base_run = None
     if run is not None and not light:
@@ -675,7 +752,10 @@ def build_plan(
             if boot
             else None,
             return_basis=divs_note,
+            halves=_halves(prep, pre.daily, bench_daily, start),
         )
+        base._daily = list(after.daily if after else pre.daily)
+        base._bench_daily = list(bench_daily)
     if not light:
         base.stress = _stress(prep, w)
         base.trades = _trades(prep, w, prefs, holdings, prices, others or {})
@@ -702,4 +782,10 @@ def preview(prep: Prepared, key: str, rf: float, capital: float, slab: float) ->
         max_drawdown=bt.pre_tax.max_drawdown if bt else None,
         top_weight_symbol=plan.risk.largest_weight_symbol if plan.risk else None,
         top_weight=plan.risk.largest_weight if plan.risk else None,
+        dividend_yield=sum(a.weight * (a.dividend_yield or 0.0) for a in plan.assets)
+        if plan.assets
+        else None,
+        diversification_score=plan.risk.diversification_score if plan.risk else None,
+        top_risk_symbol=plan.risk.top_risk_symbol if plan.risk else None,
+        top_risk_share=plan.risk.top_risk_share if plan.risk else None,
     )

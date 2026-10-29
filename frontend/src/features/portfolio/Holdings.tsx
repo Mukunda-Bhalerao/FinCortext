@@ -69,6 +69,7 @@ export function HoldingsEditor({ onClose }: { onClose: () => void }) {
       );
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["holdings"] }),
+        qc.invalidateQueries({ queryKey: ["summary"] }),
         qc.invalidateQueries({ queryKey: ["plan"] }),
         qc.invalidateQueries({ queryKey: ["brief"] }),
       ]);

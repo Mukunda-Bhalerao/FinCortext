@@ -14,6 +14,7 @@ log = logging.getLogger(__name__)
 
 TTL_OPEN = timedelta(seconds=5)
 TTL_CLOSED = timedelta(minutes=2)
+STREAM_PREFERRED = timedelta(seconds=15)
 
 
 class QuoteService:
@@ -57,7 +58,14 @@ class QuoteService:
         observed_at = fetched_at
         source = "upstox.rest.market-quote"
         streamed = False
-        if live and (observed_at is None or live.received_at > observed_at):
+        # A recent streamed tick wins even if a REST snapshot was fetched a moment later:
+        # the snapshot is no fresher, and preferring it would flip the label to "polled".
+        recent_stream = (
+            live is not None
+            and live.transport == "stream"
+            and now - live.received_at < STREAM_PREFERRED
+        )
+        if live and (observed_at is None or live.received_at > observed_at or recent_stream):
             t = live.tick
             ltp, prev_close = t.ltp, t.prev_close or prev_close
             volume = t.volume_today or volume

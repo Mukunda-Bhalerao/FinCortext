@@ -8,10 +8,13 @@
 //   A new day candle is created only when the feed supplies the day's OHLC bar.
 // - 1W / 1M: only the current candle is updated; new periods come from the next refetch.
 
-import type { Candle, Tick, Timeframe } from "./types";
+import type { Candle, ChartTimeframe, Tick } from "./types";
 
 const IST_OFFSET = 19800;
-const BUCKET: Partial<Record<Timeframe, number>> = {
+const BUCKET: Partial<Record<ChartTimeframe, number>> = {
+  "5s": 5,
+  "15s": 15,
+  "30s": 30,
   "1m": 60,
   "5m": 300,
   "15m": 900,
@@ -33,11 +36,20 @@ function istMonth(unix: number): number {
 export function applyTick(
   last: Candle | undefined,
   tick: Tick,
-  timeframe: Timeframe,
+  timeframe: ChartTimeframe,
   state: LiveCandleState,
 ): Candle | null {
-  if (!last || !tick.last_trade_ms || !(tick.ltp > 0)) return null;
+  if (!tick.last_trade_ms || !(tick.ltp > 0)) return null;
   const t = Math.floor(tick.last_trade_ms / 1000);
+  if (!last) {
+    // Only seconds candles may start from nothing: they have no provider history to anchor on.
+    const sec = BUCKET[timeframe];
+    if (!sec || sec >= 60) return null;
+    if (tick.volume != null) state.lastVolume = tick.volume;
+    const start = Math.floor(t / sec) * sec;
+    const p = tick.ltp;
+    return { time: start, open: p, high: p, low: p, close: p, volume: 0, oi: null };
+  }
   if (t < last.time) return null;
   const price = tick.ltp;
 
@@ -58,7 +70,10 @@ export function applyTick(
         volume: last.volume + volumeDelta,
       };
     }
-    const start = last.time + Math.floor((t - last.time) / bucket) * bucket;
+    // Seconds buckets align to the clock; minute and hour buckets follow the provider's last
+    // candle so session alignment (09:15 for hourly bars) is preserved.
+    const start =
+      bucket < 60 ? Math.floor(t / bucket) * bucket : last.time + Math.floor((t - last.time) / bucket) * bucket;
     return { time: start, open: price, high: price, low: price, close: price, volume: volumeDelta, oi: null };
   }
 

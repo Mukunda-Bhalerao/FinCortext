@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from app.api.deps import Services, services
 from app.errors import NotFound
 from app.schemas.research import ResearchHistory, ResearchItem, ResearchOverview
+from app.schemas.validation import ValidationStatus
 
 router = APIRouter(prefix="/api/research")
 Svc = Annotated[Services, Depends(services)]
@@ -14,6 +15,18 @@ Svc = Annotated[Services, Depends(services)]
 async def overview(svc: Svc) -> ResearchOverview:
     """Latest research for every watchlist stock, plus the market-wide macro indicators."""
     return await svc.research.overview()
+
+
+@router.get("/validation")
+async def validation(svc: Svc) -> ValidationStatus:
+    """Whether the agents' scores lined up with later returns (replay plus forward tracking)."""
+    return svc.lab.status()
+
+
+@router.post("/validation/run", status_code=202)
+async def run_validation(svc: Svc) -> ValidationStatus:
+    svc.lab.request_run(force=True)
+    return svc.lab.status()
 
 
 @router.get("/{symbol}")

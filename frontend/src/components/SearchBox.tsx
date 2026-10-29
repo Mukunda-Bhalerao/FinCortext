@@ -28,7 +28,7 @@ export function SearchBox() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const typing = (e.target as HTMLElement | null)?.closest("input, textarea");
+      const typing = e.target instanceof Element && e.target.closest("input, textarea");
       if ((e.key === "/" && !typing) || (e.key.toLowerCase() === "k" && (e.ctrlKey || e.metaKey))) {
         e.preventDefault();
         input.current?.focus();

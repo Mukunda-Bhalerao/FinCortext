@@ -69,3 +69,17 @@ describe("applyTick", () => {
     expect(applyTick(candle(month), tick(feb, 97), "1M", { lastVolume: null })).toBeNull();
   });
 });
+
+describe("seconds candles", () => {
+  it("starts the first seconds candle from a tick and aligns to the clock", () => {
+    const state = { lastVolume: null };
+    const first = applyTick(undefined, tick(T0 + 7, 100, 1000), "5s", state);
+    expect(first).toMatchObject({ time: T0 + 5, open: 100, close: 100, volume: 0 });
+    const next = applyTick(first!, tick(T0 + 11, 101, 1004), "5s", state);
+    expect(next).toMatchObject({ time: T0 + 10, open: 101, volume: 4 });
+  });
+
+  it("never starts minute candles without provider history", () => {
+    expect(applyTick(undefined, tick(T0, 100), "1m", { lastVolume: null })).toBeNull();
+  });
+});

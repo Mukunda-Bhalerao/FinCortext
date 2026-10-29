@@ -7,7 +7,7 @@ import { fmtNumber } from "../../lib/format";
 import { mergeQuote, useLiveSubscription, useTick } from "../../lib/live";
 import { useMarketOpen } from "../../lib/queries";
 import { useStoredState } from "../../lib/useStoredState";
-import { TIMEFRAMES, type Instrument, type Timeframe } from "../../lib/types";
+import { CHART_TIMEFRAMES, type Instrument, type ChartTimeframe } from "../../lib/types";
 import { BriefCard } from "./BriefCard";
 import { IndexStrip } from "./IndexStrip";
 import { MoversPanel, NewsPanel, SectorBoard, WatchlistPanel } from "./panels";
@@ -35,8 +35,8 @@ function ChartHeading({ instrument }: { instrument: Instrument }) {
 
 export function Dashboard() {
   const [params, setParams] = useSearchParams();
-  const [stored, setTimeframe] = useStoredState<Timeframe>("fc-dash-tf", "15m");
-  const timeframe = TIMEFRAMES.includes(stored) ? stored : "15m";
+  const [stored, setTimeframe] = useStoredState<ChartTimeframe>("fc-dash-tf", "15m");
+  const timeframe = CHART_TIMEFRAMES.includes(stored) ? stored : "15m";
   const indices = useQuery({ queryKey: ["indices"], queryFn: api.indices });
   const requested = params.get("chart");
   const lookup = useQuery({

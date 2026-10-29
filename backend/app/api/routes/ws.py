@@ -3,12 +3,36 @@
 import asyncio
 import contextlib
 import json
+from typing import Annotated
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 
-from app.api.deps import ws_services
+from app.api.deps import Services, services, ws_services
 
 router = APIRouter()
+Svc = Annotated[Services, Depends(services)]
+
+
+@router.get("/api/live/diagnostics")
+async def diagnostics(svc: Svc) -> dict:
+    """Per-key upstream state, silent keys and measured feed latency."""
+    return svc.hub.diagnostics()
+
+
+@router.get("/api/live/ticks")
+async def ticks(
+    svc: Svc,
+    key: Annotated[str, Query(max_length=64)],
+    since_ms: Annotated[int, Query(ge=0)] = 0,
+) -> dict:
+    """Streamed updates recorded for a subscribed instrument, for seconds-based candles.
+
+    Each row is [exchange trade time ms, price, cumulative day volume]. Only updates received
+    since the instrument was first subscribed exist; there is no earlier tick history.
+    """
+    svc.instruments.get(key)
+    rows = svc.hub.recent_ticks(key, since_ms)
+    return {"key": key, "ticks": rows, "count": len(rows)}
 
 
 @router.websocket("/api/ws/live")

@@ -24,6 +24,7 @@ from app.providers.upstox_proto import MarketDataFeed_pb2 as pb
 log = logging.getLogger(__name__)
 
 MODE = "full"  # LTPC + OHLC bars + day volume; documented limit 2000 keys per connection
+SUB_CHUNK = 100  # keys per subscription request
 
 
 def _bars(market_ohlc: "pb.MarketOHLC") -> list[OHLCBar]:
@@ -44,6 +45,7 @@ def _bars(market_ohlc: "pb.MarketOHLC") -> list[OHLCBar]:
 
 def decode_feed_message(raw: bytes) -> FeedEvent:
     msg = pb.FeedResponse.FromString(raw)
+    server_ms = int(msg.currentTs) or None
     ticks: list[Tick] = []
     for key, feed in msg.feeds.items():
         kind = feed.WhichOneof("FeedUnion")
@@ -79,12 +81,13 @@ def decode_feed_message(raw: bytes) -> FeedEvent:
                 volume_today=volume,
                 avg_price=avg,
                 bars=bars,
+                server_ms=server_ms,
             )
         )
     status = {
         seg: pb.MarketStatus.Name(value) for seg, value in msg.marketInfo.segmentStatus.items()
     }
-    return FeedEvent(ticks=ticks, segment_status=status, server_ms=int(msg.currentTs) or None)
+    return FeedEvent(ticks=ticks, segment_status=status, server_ms=server_ms)
 
 
 def _request(method: str, keys: list[str]) -> bytes:
@@ -111,9 +114,11 @@ class UpstoxFeed:
                 url, open_timeout=10, ping_interval=20, ping_timeout=20, max_size=2**22
             ) as ws:
                 self._ws = ws
-                await on_open()
                 if initial_keys:
-                    await ws.send(_request("sub", initial_keys))
+                    await self.subscribe(initial_keys)
+                # The hub subscribes everything it needs at this point, after the socket is
+                # open, so keys requested while the connection was being set up are not lost.
+                await on_open()
                 async for raw in ws:
                     if not isinstance(raw, bytes):
                         continue
@@ -131,9 +136,11 @@ class UpstoxFeed:
             self._ws = None
 
     async def subscribe(self, keys: list[str]) -> None:
-        if self._ws is not None and keys:
-            await self._ws.send(_request("sub", keys))
+        if self._ws is not None:
+            for i in range(0, len(keys), SUB_CHUNK):
+                await self._ws.send(_request("sub", keys[i : i + SUB_CHUNK]))
 
     async def unsubscribe(self, keys: list[str]) -> None:
-        if self._ws is not None and keys:
-            await self._ws.send(_request("unsub", keys))
+        if self._ws is not None:
+            for i in range(0, len(keys), SUB_CHUNK):
+                await self._ws.send(_request("unsub", keys[i : i + SUB_CHUNK]))

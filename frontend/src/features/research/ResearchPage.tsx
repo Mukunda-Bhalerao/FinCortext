@@ -8,6 +8,7 @@ import { fmtDateIST, fmtNumber, fmtStamp } from "../../lib/format";
 import type { MacroIndicator, ResearchItem } from "../../lib/types";
 import { AGENT_META, AGENT_ORDER, AgentCard, CompositeSummary, isBusy, SignalCell, StateLabel } from "./agents";
 import { ResearchTimeline } from "./history";
+import { ValidationPanel } from "./validation";
 
 function MacroStrip({ indicators }: { indicators: MacroIndicator[] }) {
   return (
@@ -231,8 +232,11 @@ export function ResearchPage() {
 
       {current && <ReportDetail item={current} />}
 
+      <ValidationPanel />
+
       <p className="text-2xs text-faint">
-        Scores summarise the evidence shown; they are not forecasts or recommendations. Research and education only.
+        Scores summarise the evidence shown; the track record below shows whether they have predicted returns. Research
+        and education only.
       </p>
     </div>
   );

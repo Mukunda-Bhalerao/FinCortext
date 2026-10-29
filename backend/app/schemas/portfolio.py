@@ -166,6 +166,10 @@ class ObjectivePreview(BaseModel):
     max_drawdown: float | None
     top_weight_symbol: str | None
     top_weight: float | None
+    dividend_yield: float | None = None  # weighted trailing 12-month yield
+    diversification_score: int | None = None
+    top_risk_symbol: str | None = None
+    top_risk_share: float | None = None
 
 
 class SelectionCheck(BaseModel):

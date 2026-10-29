@@ -132,10 +132,7 @@ export const live = new LiveClient();
 
 /** Subscribe the given instrument keys for as long as the component is mounted. */
 export function useLiveSubscription(keys: (string | null | undefined)[]): void {
-  const list = useMemo(
-    () => [...new Set(keys.filter((k): k is string => !!k))].sort(),
-    [keys.join(",")],
-  );
+  const list = useMemo(() => [...new Set(keys.filter((k): k is string => !!k))].sort(), [keys.join(",")]);
   useEffect(() => (list.length ? live.subscribe(list) : undefined), [list]);
 }
 
@@ -160,7 +157,7 @@ export function useLiveStatus(): { status: StatusMessage | null; socket: SocketS
   return { status, socket };
 }
 
-const STALE_MS = 2 * 60 * 1000;
+const STALE_MS = 60 * 1000;
 
 export interface DisplayQuote {
   ltp: number | null;
@@ -180,8 +177,13 @@ export function mergeQuote(
   marketOpen: boolean,
   now = Date.now(),
 ): DisplayQuote {
+  const tickAge = tick ? now - new Date(tick.received_at).getTime() : Infinity;
+  // A recent streamed tick wins over a REST snapshot fetched a moment later.
   const tickNewer =
-    tick && (!quote || new Date(tick.received_at).getTime() > new Date(quote.fetched_at).getTime());
+    tick &&
+    (!quote ||
+      new Date(tick.received_at).getTime() > new Date(quote.fetched_at).getTime() ||
+      (tick.transport === "stream" && tickAge < 15_000));
   if (tickNewer && tick) {
     const age = now - new Date(tick.received_at).getTime();
     const freshness: Freshness = !marketOpen

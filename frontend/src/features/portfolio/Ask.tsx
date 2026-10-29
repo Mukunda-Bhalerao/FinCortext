@@ -1,16 +1,18 @@
 import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ErrorState, Panel } from "../../components/ui/primitives";
 import { api } from "../../lib/api";
 import type { AIStatus, AskAnswer, Scenario } from "../../lib/types";
 import { FactList } from "./Brief";
+import { ToolResult } from "./ToolResult";
 
 const SUGGESTED = [
-  "Why does my largest stock get the most weight?",
+  "Why is my weakest stock lagging?",
+  "Compare the objectives",
+  "What if I add the best diversifier?",
+  "Can I reach 50 lakh in 10 years adding 10k a month?",
   "What is the biggest risk in this portfolio?",
-  "How did it hold up in the COVID crash?",
-  "What if I drop my weakest stock and add the best diversifier?",
-  "How much do costs and taxes take each year?",
 ];
 
 interface Turn {
@@ -19,7 +21,16 @@ interface Turn {
   error?: unknown;
 }
 
-export function AskPanel({ ai, onScenario }: { ai: AIStatus; onScenario: (s: Scenario) => void }) {
+export function AskPanel({
+  ai,
+  onScenario,
+  suggestions,
+}: {
+  ai: AIStatus;
+  onScenario: (s: Scenario) => void;
+  suggestions?: string[];
+}) {
+  const chips = suggestions?.length ? suggestions : SUGGESTED;
   const [text, setText] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
   const ask = useMutation({
@@ -45,20 +56,32 @@ export function AskPanel({ ai, onScenario }: { ai: AIStatus; onScenario: (s: Sce
     ask.mutate(question);
   };
 
+  // An alert's "Ask about this" arrives as ?ask=...; ask it once, then clear the parameter.
+  const [params, setParams] = useSearchParams();
+  const asked = useRef(false);
+  const incoming = params.get("ask");
+  useEffect(() => {
+    if (!incoming || asked.current) return;
+    asked.current = true;
+    submit(incoming.slice(0, 500));
+    params.delete("ask");
+    setParams(params, { replace: true });
+  }, [incoming]);
+
   return (
     <Panel
-      title="Ask about your portfolio"
-      meta={ai.enabled ? `Answers cite the facts they use · ${ai.model}` : undefined}
+      title="Portfolio analyst"
+      meta={
+        ai.enabled
+          ? `Explained by ${ai.model} · ${ai.calls_today}/${ai.daily_limit} model calls today`
+          : "Language model off: answers come from the calculation engine"
+      }
     >
-      {!ai.enabled ? (
-        <p className="p-3.5 text-xs leading-relaxed text-muted">
-          The assistant is off. {ai.detail} Everything else on this page works without it.
-        </p>
-      ) : (
+      {
         <div className="flex flex-col gap-3 p-3.5">
           {turns.length === 0 && (
             <div className="flex flex-wrap gap-1.5">
-              {SUGGESTED.map((s) => (
+              {chips.map((s) => (
                 <button
                   key={s}
                   onClick={() => submit(s)}
@@ -79,12 +102,18 @@ export function AskPanel({ ai, onScenario }: { ai: AIStatus; onScenario: (s: Sce
               ) : (
                 <div className="rounded-md border border-line bg-surface-2 p-2.5">
                   <p className="text-sm leading-relaxed whitespace-pre-line text-muted">{t.answer.answer}</p>
+                  {t.answer.answered_by === "engine" && (
+                    <p className="mt-1 text-2xs text-faint">
+                      Answered by the calculation engine{t.answer.notice ? `: ${t.answer.notice}` : "."}
+                    </p>
+                  )}
+                  <ToolResult answer={t.answer} />
                   {t.answer.scenario && (
                     <button
                       onClick={() => onScenario(t.answer!.scenario!)}
                       className="mt-2 rounded-md border border-accent/50 px-2 py-1 text-2xs font-medium text-accent hover:bg-accent-soft"
                     >
-                      Try it in the plan: {t.answer.scenario.label ?? "scenario"}
+                      Apply to my plan: {t.answer.scenario.label ?? "scenario"}
                     </button>
                   )}
                   {t.answer.cited.length > 0 && (
@@ -125,10 +154,12 @@ export function AskPanel({ ai, onScenario }: { ai: AIStatus; onScenario: (s: Sce
             </button>
           </form>
           <p className="text-2xs text-faint">
-            Answers use only numbers the engine computed; anything else is rejected. Not investment advice.
+            Ask why a stock lagged, try adding, dropping or re-weighting stocks, compare objectives or check a goal.
+            Calculations are done by the engine; the model only explains them, and answers with numbers it cannot back
+            are rejected. Not investment advice.
           </p>
         </div>
-      )}
+      }
     </Panel>
   );
 }

@@ -19,6 +19,8 @@ import { fmtTimeIST } from "../lib/format";
 import { live, useLiveStatus } from "../lib/live";
 import { useAuthStatus, useMarketStatus } from "../lib/queries";
 import { useHealth } from "../features/status/StatusPage";
+import { useStoredState } from "../lib/useStoredState";
+import { AlertsBell } from "../features/alerts/AlertsBell";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: IconDashboard },
@@ -112,7 +114,16 @@ function FeedPill() {
         "inline-flex h-6 items-center rounded-full border border-line-strong px-2.5 text-2xs font-medium whitespace-nowrap",
         tone,
       )}
-      title={[auth.data?.user_name && `Upstox: ${auth.data.user_name}`, status?.detail].filter(Boolean).join(" · ")}
+      title={[
+        auth.data?.user_name && `Upstox: ${auth.data.user_name}`,
+        status?.detail,
+        status?.latency?.provider_p50_ms != null &&
+          `Exchange trade to feed: median ${(status.latency.provider_p50_ms / 1000).toFixed(2)} s, 90% within ${((status.latency.provider_p90_ms ?? 0) / 1000).toFixed(2)} s (${status.latency.samples} updates)`,
+        status?.last_message_at && `Last feed message ${fmtTimeIST(status.last_message_at)}`,
+        status?.silent?.length ? `${status.silent.length} instrument(s) not updating` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")}
     >
       {label}
     </span>
@@ -157,21 +168,26 @@ function ConnectNotice() {
   );
 }
 
-function SystemLink() {
+function SystemLink({ compact }: { compact?: boolean }) {
   const h = useHealth();
   const state = h.isError ? "down" : (h.data?.overall ?? "ok");
   const label =
     state === "ok" ? "All systems working" : state === "degraded" ? "Some sources degraded" : "Backend unreachable";
   return (
-    <NavLink to="/status" className="mb-2 flex items-center gap-2 text-muted hover:text-fg">
+    <NavLink
+      to="/status"
+      title={compact ? label : undefined}
+      aria-label={compact ? label : undefined}
+      className={cx("flex items-center gap-2 text-muted hover:text-fg", compact ? "justify-center py-1" : "mb-2")}
+    >
       <span
         className={cx(
-          "h-1.5 w-1.5 rounded-full",
+          "h-1.5 w-1.5 shrink-0 rounded-full",
           state === "ok" ? "bg-up" : state === "degraded" ? "bg-caution" : "bg-down",
         )}
         aria-hidden
       />
-      {label}
+      <span className={compact ? "sr-only" : undefined}>{label}</span>
     </NavLink>
   );
 }
@@ -208,6 +224,9 @@ function ConnectionBanner() {
 export function Shell({ children }: { children: ReactNode }) {
   const [theme, toggleTheme] = useTheme();
   const [navOpen, setNavOpen] = useState(false);
+  // Desktop only: the mobile drawer always shows labels.
+  const [collapsedPref, setCollapsedPref] = useStoredState<"0" | "1">("fc-sidebar-collapsed", "0");
+  const collapsed = collapsedPref === "1" && !navOpen;
   const location = useLocation();
   useEffect(() => setNavOpen(false), [location.pathname]);
 
@@ -215,11 +234,18 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="flex h-full">
       <aside
         className={cx(
-          "fixed inset-y-0 left-0 z-40 flex w-[var(--sidebar-w)] flex-col border-r border-line bg-surface transition-transform md:static md:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-[var(--sidebar-w)] shrink-0 flex-col border-r border-line bg-surface transition-[transform,width] duration-200 md:static md:translate-x-0",
           navOpen ? "translate-x-0" : "-translate-x-full",
+          collapsed && "md:w-14",
         )}
+        aria-label="Main navigation"
       >
-        <div className="flex h-[var(--topbar-h)] items-center gap-2.5 border-b border-line px-4">
+        <div
+          className={cx(
+            "flex h-[var(--topbar-h)] items-center gap-2.5 border-b border-line",
+            collapsed ? "justify-center px-0" : "px-4",
+          )}
+        >
           <img
             src="/logo-mark.png"
             alt=""
@@ -227,7 +253,7 @@ export function Shell({ children }: { children: ReactNode }) {
             height={28}
             className="h-7 w-7 shrink-0 rounded-md bg-white ring-1 ring-line"
           />
-          <span className="text-[15px] font-semibold tracking-tight text-fg">
+          <span className={cx("text-[15px] font-semibold tracking-tight text-fg", collapsed && "sr-only")}>
             Fin<span className="text-accent">Cortext</span>
           </span>
         </div>
@@ -237,25 +263,57 @@ export function Shell({ children }: { children: ReactNode }) {
               key={to}
               to={to}
               end={to === "/"}
+              title={collapsed ? label : undefined}
+              aria-label={collapsed ? label : undefined}
               className={({ isActive }) =>
                 cx(
-                  "flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors",
+                  "flex h-8 items-center gap-2.5 rounded-md text-sm transition-colors",
+                  collapsed ? "justify-center px-0" : "px-2.5",
                   isActive ? "bg-accent-soft font-medium text-fg" : "text-muted hover:bg-surface-2 hover:text-fg",
                 )
               }
             >
               {({ isActive }) => (
                 <>
-                  <Icon className={isActive ? "text-accent" : undefined} />
-                  {label}
+                  <Icon className={cx("shrink-0", isActive && "text-accent")} />
+                  <span className={cx("truncate", collapsed && "sr-only")}>{label}</span>
                 </>
               )}
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto border-t border-line p-3 text-2xs leading-relaxed text-faint">
-          <SystemLink />
-          Research and education only. Not investment advice.
+        <div
+          className={cx("mt-auto border-t border-line text-2xs leading-relaxed text-faint", collapsed ? "p-2" : "p-3")}
+        >
+          <SystemLink compact={collapsed} />
+          {!collapsed && "Research and education only. Not investment advice."}
+          <button
+            onClick={() => setCollapsedPref(collapsed ? "0" : "1")}
+            className={cx(
+              "mt-2 hidden h-7 items-center gap-2 rounded-md text-muted hover:bg-surface-2 hover:text-fg md:flex",
+              collapsed ? "w-full justify-center" : "px-1.5",
+            )}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={!collapsed}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={cx("transition-transform", collapsed && "rotate-180")}
+              aria-hidden
+            >
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <path d="M9 4v16M15 10l-2 2 2 2" />
+            </svg>
+            {!collapsed && <span>Collapse</span>}
+          </button>
         </div>
       </aside>
       {navOpen && (
@@ -274,6 +332,7 @@ export function Shell({ children }: { children: ReactNode }) {
               <MarketPill />
             </span>
             <FeedPill />
+            <AlertsBell />
             <button
               onClick={toggleTheme}
               className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-fg"

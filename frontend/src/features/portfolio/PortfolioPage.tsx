@@ -4,13 +4,24 @@ import { useNavigate } from "react-router-dom";
 import { EmptyState, ErrorState, Panel, Skeleton } from "../../components/ui/primitives";
 import { api } from "../../lib/api";
 import { fmtDateIST, fmtStamp } from "../../lib/format";
-import type { InsightAction, PortfolioAnalysis, PortfolioStatus, Preferences, Scenario } from "../../lib/types";
+import type {
+  InsightAction,
+  PortfolioAnalysis,
+  PortfolioPlan,
+  PortfolioStatus,
+  Preferences,
+  Scenario,
+} from "../../lib/types";
 import { fmtScore, SignalBadge } from "../research/agents";
 import { AskPanel } from "./Ask";
 import { BriefHero } from "./Brief";
 import { Evidence, Tag } from "./evidence";
 import { pct } from "./format";
+import { ScenarioCompare } from "./Compare";
+import { GoalPlanner } from "./Goal";
 import { HoldingsEditor } from "./Holdings";
+import { MyPortfolio } from "./MyPortfolio";
+import { useValidation } from "../research/validation";
 import { ObjectivePicker, PlanWorkbench } from "./Plan";
 
 const busy = (s: PortfolioStatus | undefined) => s?.state === "queued" || s?.state === "running";
@@ -144,6 +155,9 @@ export function PortfolioPage() {
   const [undo, setUndo] = useState<{ prefs: Preferences; label: string } | null>(null);
   const [editing, setEditing] = useState(false);
   const [showEvidence, setShowEvidence] = useState(false);
+  const [pinned, setPinned] = useState<PortfolioPlan | null>(null);
+  const validation = useValidation();
+  const researchVerdict = validation.data?.result?.tests.find((t) => t.key === "composite")?.verdict ?? null;
   useEffect(() => {
     if (saved.data && !prefs) setPrefs(saved.data);
   }, [saved.data, prefs]);
@@ -214,6 +228,7 @@ export function PortfolioPage() {
         include: [...new Set([...prefs.include, ...s.include])].slice(-8),
         exclude: [...new Set([...prefs.exclude, ...s.exclude])],
         max_weight: s.max_weight ?? prefs.max_weight,
+        custom_weights: s.custom_weights ?? prefs.custom_weights ?? null,
       },
       s.label ?? "Scenario",
     );
@@ -225,6 +240,19 @@ export function PortfolioPage() {
     await qc.invalidateQueries({ queryKey: ["portfolio"] });
   };
 
+  const weakest = plan.data?.assets.reduce<(typeof plan.data.assets)[number] | null>(
+    (w, a) => (a.momentum != null && (w == null || (w.momentum ?? 0) > a.momentum) ? a : w),
+    null,
+  );
+  const diversifier = analysis?.candidates[0]?.symbol;
+  const suggestions = [
+    weakest ? `Why is ${weakest.symbol} lagging?` : null,
+    diversifier ? `What if I add ${diversifier}?` : null,
+    "Compare the objectives",
+    weakest ? `What if ${weakest.symbol} were 15%?` : null,
+    "Can I reach 50 lakh in 10 years adding 10k a month?",
+    "What is the biggest risk in this portfolio?",
+  ].filter((x): x is string => !!x);
   const updating = plan.isFetching || (prefs !== debounced && !!plan.data);
 
   return (
@@ -265,6 +293,8 @@ export function PortfolioPage() {
         <p className="rounded-md border border-line bg-surface px-3 py-2 text-xs text-muted">{status.data.error}</p>
       )}
 
+      <MyPortfolio plan={plan.data} onEdit={() => setEditing(true)} />
+
       {status.isError ? (
         <div className="rounded-lg border border-line bg-surface">
           <ErrorState error={status.error} />
@@ -287,6 +317,15 @@ export function PortfolioPage() {
             <p className="text-2xs text-faint">Pick an objective; the plan below updates as you change anything.</p>
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-3">
+            {plan.data && plan.data.assets.length > 0 && (
+              <button
+                onClick={() => setPinned(plan.data!)}
+                className="rounded-md border border-line px-2 py-0.5 text-2xs text-muted hover:border-accent hover:text-accent"
+                title="Keep this version to compare with the next change"
+              >
+                {pinned ? "Re-pin as A" : "Pin to compare"}
+              </button>
+            )}
             {undo && (
               <span className="fc-rise inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent-soft px-3 py-1 text-2xs text-fg">
                 {undo.label}
@@ -301,14 +340,20 @@ export function PortfolioPage() {
                 </button>
               </span>
             )}
-            {prefs && (prefs.include.length > 0 || prefs.exclude.length > 0 || prefs.max_weight != null) && (
-              <button
-                onClick={() => change({ include: [], exclude: [], max_weight: null }, "Reset to watchlist")}
-                className="text-2xs text-muted hover:text-fg"
-              >
-                Reset to watchlist
-              </button>
-            )}
+            {prefs &&
+              (prefs.include.length > 0 ||
+                prefs.exclude.length > 0 ||
+                prefs.max_weight != null ||
+                !!prefs.custom_weights) && (
+                <button
+                  onClick={() =>
+                    change({ include: [], exclude: [], max_weight: null, custom_weights: null }, "Reset to watchlist")
+                  }
+                  className="text-2xs text-muted hover:text-fg"
+                >
+                  Reset to watchlist
+                </button>
+              )}
           </div>
         </div>
         {prefs && (
@@ -336,18 +381,25 @@ export function PortfolioPage() {
               updating={updating}
               onChange={(p) => change(p)}
               onEditHoldings={() => setEditing(true)}
+              researchVerdict={researchVerdict}
             />
           )
         ) : (
           <Skeleton className="h-96 rounded-lg" />
         )}
+        {pinned && plan.data && plan.data.assets.length > 0 && (
+          <ScenarioCompare pinned={pinned} current={plan.data} onClear={() => setPinned(null)} />
+        )}
+        {prefs && plan.data?.backtest && <GoalPlanner prefs={prefs} />}
       </div>
 
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-5">
         <div className="xl:col-span-3">
           {analysis && prefs && <SuggestedMoves data={analysis} prefs={prefs} onTry={change} />}
         </div>
-        <div className="xl:col-span-2">{brief.data && <AskPanel ai={brief.data.ai} onScenario={onScenario} />}</div>
+        <div className="xl:col-span-2">
+          {brief.data && <AskPanel ai={brief.data.ai} onScenario={onScenario} suggestions={suggestions} />}
+        </div>
       </div>
 
       {analysis && (

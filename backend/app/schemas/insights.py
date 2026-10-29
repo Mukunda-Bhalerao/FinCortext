@@ -45,6 +45,8 @@ class AIStatus(BaseModel):
     enabled: bool
     model: str | None
     detail: str | None = None
+    calls_today: int = 0
+    daily_limit: int = 0
 
 
 class Brief(BaseModel):
@@ -62,6 +64,7 @@ class Scenario(BaseModel):
     include: list[str] = Field(default_factory=list, max_length=8)
     exclude: list[str] = Field(default_factory=list, max_length=20)
     max_weight: float | None = Field(None, ge=0.05, le=1.0)
+    custom_weights: dict[str, float] | None = None
     label: str | None = None
 
 
@@ -83,3 +86,8 @@ class AskAnswer(BaseModel):
     grounded: bool
     model: str | None
     generated_at: datetime
+    tool: str | None = None  # scenario | compare | investigate | goal
+    title: str | None = None
+    data: dict | None = None  # the tool's computed result, for the interface
+    answered_by: Literal["model", "engine"] = "model"
+    notice: str | None = None  # why the engine answered instead of the model

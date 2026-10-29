@@ -93,6 +93,14 @@ export function ObjectivePicker({
                   </span>
                 )}
                 {p.max_drawdown != null && <span title="Worst fall from a peak">Worst {pct(p.max_drawdown, 0)}</span>}
+                {p.dividend_yield != null && (
+                  <span title="Weighted trailing 12-month dividend yield">Income {pct(p.dividend_yield, 1)}</span>
+                )}
+                {p.top_weight_symbol && p.top_weight != null && (
+                  <span title="Largest single weight">
+                    Top {p.top_weight_symbol} {pct(p.top_weight, 0)}
+                  </span>
+                )}
               </span>
             )}
           </button>
@@ -430,6 +438,37 @@ function Outcome({ plan }: { plan: PortfolioPlan }) {
         <div className="mb-1 text-2xs tracking-wide text-faint uppercase">Year by year, before tax</div>
         <YearBars years={bt.years_table} label={bt.benchmark_label} />
       </div>
+      {bt.halves.length === 2 && (
+        <div className="border-t border-line px-3.5 py-3">
+          <div className="mb-1.5 text-2xs tracking-wide text-faint uppercase">Did it hold up in both halves?</div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {bt.halves.map((h) => {
+              const ahead = (h.cagr ?? 0) - (h.benchmark_cagr ?? 0);
+              return (
+                <div key={h.label} className="rounded-md border border-line bg-surface-2 p-2.5 text-xs">
+                  <div className="text-faint">
+                    {h.label}: {fmtDateIST(h.start)} to {fmtDateIST(h.end)}
+                  </div>
+                  <div className="num mt-0.5 text-fg">
+                    {pct(h.cagr, 1, true)} a year vs {pct(h.benchmark_cagr, 1, true)}{" "}
+                    <span className={ahead >= 0 ? "text-muted" : "text-caution"}>
+                      ({ahead >= 0 ? "ahead" : "behind"} by {pct(Math.abs(ahead), 1)})
+                    </span>
+                  </div>
+                  <div className="num text-faint">Worst fall {pct(h.max_drawdown, 0)}</div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-1.5 text-2xs text-faint">
+            {bt.halves.every((h) => (h.cagr ?? 0) >= (h.benchmark_cagr ?? 0))
+              ? "Ahead in both halves, though the lead differs; one strong stretch can carry a long average."
+              : bt.halves.every((h) => (h.cagr ?? 0) < (h.benchmark_cagr ?? 0))
+                ? "Behind in both halves."
+                : "Ahead in one half and behind in the other: the long-run average hides an unstable record."}
+          </p>
+        </div>
+      )}
       <p className="border-t border-line px-3.5 py-2 text-2xs text-faint">
         {bt.return_basis} Weights were rebuilt each month from the year before, so no future data was used. The stocks
         were chosen today, which flatters every past result.
@@ -550,12 +589,14 @@ export function PlanWorkbench({
   updating,
   onChange,
   onEditHoldings,
+  researchVerdict,
 }: {
   plan: PortfolioPlan;
   prefs: Preferences;
   updating: boolean;
   onChange: (p: Partial<Preferences>) => void;
   onEditHoldings: () => void;
+  researchVerdict?: string | null;
 }) {
   const symbols = useMemo(
     () => [...new Set([...plan.assets.map((a) => a.symbol), ...prefs.exclude])],
@@ -648,7 +689,13 @@ export function PlanWorkbench({
               />
               <span>
                 Let research scores nudge weights
-                <span className="block text-faint">Today only; it has no history to test.</span>
+                <span className="block text-faint">
+                  {researchVerdict === "evidence"
+                    ? "Replay tests found measurable value."
+                    : researchVerdict
+                      ? "Unproven: replay tests found no reliable link with later returns."
+                      : "Not yet tested against later returns."}
+                </span>
               </span>
             </label>
           </div>

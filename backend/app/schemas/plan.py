@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 from app.schemas.portfolio import CurvePoint, Excluded, PerfStats
 
@@ -15,8 +15,11 @@ class Preferences(BaseModel):
     max_weight: float | None = Field(None, ge=0.05, le=1.0)
     include: list[str] = Field(default_factory=list, max_length=8)  # NSE symbols to try adding
     exclude: list[str] = Field(default_factory=list, max_length=60)  # watchlist symbols to drop
-    research_overlay: bool = True
+    research_overlay: bool = False  # off by default: unvalidated (see research validation)
     tax_slab: float = Field(0.30, ge=0.0, le=0.43)  # income-tax rate applied to dividends
+    # Fixed weights for some stocks (symbol -> fraction); the rest share what is left in the
+    # objective's proportions. Used for "what if X were 30%" scenarios.
+    custom_weights: dict[str, float] | None = Field(None, max_length=20)
 
 
 class ObjectiveInfo(BaseModel):
@@ -74,6 +77,15 @@ class Uncertainty(BaseModel):
     method: str
 
 
+class HalfResult(BaseModel):
+    label: str
+    start: date
+    end: date
+    cagr: float | None
+    benchmark_cagr: float | None
+    max_drawdown: float | None
+
+
 class PlanBacktest(BaseModel):
     """Measured: walk-forward simulation from cash on historical prices and dividends."""
 
@@ -99,6 +111,7 @@ class PlanBacktest(BaseModel):
     years_table: list[YearReturn]
     uncertainty: Uncertainty | None
     return_basis: str
+    halves: list[HalfResult] = []
 
 
 class StressResult(BaseModel):
@@ -164,6 +177,46 @@ class PortfolioPlan(BaseModel):
     assumptions: list[str]
     limitations: list[str]
     duration_ms: int
+    # Daily after-tax and benchmark returns behind the backtest, kept for goal projections.
+    _daily: list[float] = PrivateAttr(default_factory=list)
+    _bench_daily: list[float] = PrivateAttr(default_factory=list)
+
+
+class GoalRequest(BaseModel):
+    preferences: Preferences
+    target: float = Field(gt=0, le=1e11)
+    years: int = Field(ge=1, le=30)
+    initial: float = Field(ge=0, le=1e11)
+    monthly: float = Field(0.0, ge=0, le=1e9)
+
+
+class GoalPoint(BaseModel):
+    year: int
+    p10: float
+    p50: float
+    p90: float
+    invested: float
+
+
+class GoalProjection(BaseModel):
+    """A hypothesis from resampled history, not a forecast."""
+
+    target: float
+    years: int
+    initial: float
+    monthly: float
+    invested: float
+    probability: float
+    p10: float
+    p50: float
+    p90: float
+    benchmark_probability: float | None
+    benchmark_p50: float | None
+    path: list[GoalPoint]
+    history_from: date | None
+    history_to: date | None
+    method: str
+    caveats: list[str]
 
 
 class HoldingIn(BaseModel):
@@ -182,3 +235,30 @@ class HoldingOut(BaseModel):
     price_basis: str | None
     value: float | None
     updated_at: datetime
+    source: Literal["manual", "upstox"] = "manual"
+    invested: float | None = None  # quantity x average cost, when the cost is known
+    pnl: float | None = None
+    pnl_pct: float | None = None
+    day_change_pct: float | None = None
+    weight: float | None = None
+
+
+class BrokerStatus(BaseModel):
+    connected: bool
+    can_sync: bool | None  # None until a sync has been attempted
+    detail: str
+    last_sync: datetime | None
+    synced_count: int
+
+
+class PortfolioSummary(BaseModel):
+    holdings: list[HoldingOut]
+    total_value: float | None
+    total_invested: float | None  # holdings with a known cost only
+    pnl: float | None
+    pnl_pct: float | None
+    day_change: float | None
+    cost_coverage: float  # share of value whose average cost is known
+    priced_at: datetime
+    broker: BrokerStatus
+    notes: list[str]

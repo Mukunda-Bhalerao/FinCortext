@@ -158,12 +158,28 @@ export interface Tick {
   bars: FeedBar[];
   transport: "stream" | "poll";
   received_at: string;
+  server_ms?: number | null;
+}
+
+export interface FeedLatency {
+  samples: number;
+  provider_p50_ms: number | null;
+  provider_p90_ms: number | null;
+  transit_p50_ms: number | null;
+  transit_p90_ms: number | null;
+  clock_offset_ms: number | null;
 }
 
 export interface StatusMessage extends LiveStatus {
   type: "status";
   market: MarketStatus;
+  latency?: FeedLatency;
+  silent?: string[];
 }
+
+/** Provider timeframes plus seconds intervals built from streamed updates in the browser. */
+export type ChartTimeframe = Timeframe | "5s" | "15s" | "30s";
+export const CHART_TIMEFRAMES: ChartTimeframe[] = ["5s", "15s", "30s", ...TIMEFRAMES];
 
 // Mirrors backend/app/schemas/research.py
 
@@ -424,6 +440,10 @@ export interface ObjectivePreview {
   max_drawdown: number | null;
   top_weight_symbol: string | null;
   top_weight: number | null;
+  dividend_yield?: number | null;
+  diversification_score?: number | null;
+  top_risk_symbol?: string | null;
+  top_risk_share?: number | null;
 }
 
 export interface SelectionCheck {
@@ -450,6 +470,7 @@ export interface Preferences {
   exclude: string[];
   research_overlay: boolean;
   tax_slab: number;
+  custom_weights?: Record<string, number> | null;
 }
 
 export interface ObjectiveInfo {
@@ -521,6 +542,14 @@ export interface PlanBacktest {
   turnover_per_year: number;
   rebalances: number;
   years_table: YearReturn[];
+  halves: {
+    label: string;
+    start: string;
+    end: string;
+    cagr: number | null;
+    benchmark_cagr: number | null;
+    max_drawdown: number | null;
+  }[];
   uncertainty: { excess_low: number; excess_high: number; prob_outperform: number; method: string } | null;
   return_basis: string;
 }
@@ -598,6 +627,33 @@ export interface HoldingRow {
   price_basis: string | null;
   value: number | null;
   updated_at: string;
+  source: "manual" | "upstox";
+  invested: number | null;
+  pnl: number | null;
+  pnl_pct: number | null;
+  day_change_pct: number | null;
+  weight: number | null;
+}
+
+export interface BrokerStatus {
+  connected: boolean;
+  can_sync: boolean | null;
+  detail: string;
+  last_sync: string | null;
+  synced_count: number;
+}
+
+export interface PortfolioSummary {
+  holdings: HoldingRow[];
+  total_value: number | null;
+  total_invested: number | null;
+  pnl: number | null;
+  pnl_pct: number | null;
+  day_change: number | null;
+  cost_coverage: number;
+  priced_at: string;
+  broker: BrokerStatus;
+  notes: string[];
 }
 
 export type FactBasis = "measured" | "estimate" | "observed" | "replay";
@@ -631,6 +687,8 @@ export interface AIStatus {
   enabled: boolean;
   model: string | null;
   detail: string | null;
+  calls_today: number;
+  daily_limit: number;
 }
 
 export interface Brief {
@@ -648,6 +706,7 @@ export interface Scenario {
   include: string[];
   exclude: string[];
   max_weight: number | null;
+  custom_weights?: Record<string, number> | null;
   label: string | null;
 }
 
@@ -658,6 +717,11 @@ export interface AskAnswer {
   grounded: boolean;
   model: string | null;
   generated_at: string;
+  tool: "scenario" | "compare" | "investigate" | "goal" | null;
+  title: string | null;
+  data: Record<string, unknown> | null;
+  answered_by: "model" | "engine";
+  notice: string | null;
 }
 
 export interface HealthComponent {
@@ -672,4 +736,97 @@ export interface PortfolioStatus {
   error: string | null;
   stale: boolean;
   result: PortfolioAnalysis | null;
+}
+
+export type Verdict = "evidence" | "negative" | "inconclusive" | "insufficient";
+
+export interface SignalTest {
+  key: string;
+  label: string;
+  agent: string;
+  kind: "composite" | "agent" | "factor";
+  inputs: string;
+  months: number;
+  avg_stocks: number;
+  first_date: string | null;
+  last_date: string | null;
+  mean_ic: number | null;
+  ic_t: number | null;
+  ic_low: number | null;
+  ic_high: number | null;
+  hit_rate: number | null;
+  first_half_ic: number | null;
+  second_half_ic: number | null;
+  spread_annual: number | null;
+  spread_t: number | null;
+  by_year: { year: number; ic: number; months: number }[];
+  verdict: Verdict;
+  verdict_text: string;
+}
+
+export interface SignalValidation {
+  computed_at: string;
+  universe: string;
+  stocks: number;
+  start: string | null;
+  end: string | null;
+  horizon_sessions: number;
+  tests: SignalTest[];
+  untestable: { agent: string; component: string; reason: string }[];
+  tracking: {
+    snapshots: number;
+    with_outcomes: number;
+    months_covered: number;
+    first_snapshot: string | null;
+    outcomes_from: string | null;
+    pooled_ic: number | null;
+    by_agent: Record<string, number | null>;
+    status: string;
+    recorded_snapshots: number;
+    scored_snapshots: number;
+    first_recorded: string | null;
+    recorded: { key: string; label: string; snapshots: number; mean_ic: number | null; verdict: Verdict }[];
+  };
+  headline: string;
+  method: string[];
+  limitations: string[];
+  duration_ms: number;
+}
+
+export interface ValidationStatus {
+  state: "not_started" | "queued" | "running" | "ready" | "failed";
+  error: string | null;
+  progress: string | null;
+  result: SignalValidation | null;
+}
+
+export interface GoalProjection {
+  target: number;
+  years: number;
+  initial: number;
+  monthly: number;
+  invested: number;
+  probability: number;
+  p10: number;
+  p50: number;
+  p90: number;
+  benchmark_probability: number | null;
+  benchmark_p50: number | null;
+  path: { year: number; p10: number; p50: number; p90: number; invested: number }[];
+  history_from: string | null;
+  history_to: string | null;
+  method: string;
+  caveats: string[];
+}
+
+export interface FeedEvent {
+  id: string;
+  kind: "research" | "market" | "portfolio" | "opportunity" | "data" | "results";
+  severity: "high" | "medium" | "low";
+  symbol: string | null;
+  title: string;
+  body: string;
+  facts: Fact[];
+  created_at: string;
+  seen: boolean;
 }

@@ -1,5 +1,10 @@
 import type {
   AskAnswer,
+  BrokerStatus,
+  PortfolioSummary,
+  FeedEvent,
+  GoalProjection,
+  ValidationStatus,
   AuthStatus,
   Brief,
   HoldingRow,
@@ -78,6 +83,8 @@ export const api = {
   search: (text: string) => request<Instrument[]>(`/api/instruments/search?q=${encodeURIComponent(text)}&limit=12`),
   lookup: (key: string) => request<Instrument>(`/api/instruments/lookup?key=${q(key)}`),
   stock: (symbol: string) => request<StockSummary>(`/api/stocks/${encodeURIComponent(symbol)}`),
+  liveTicks: (key: string) =>
+    request<{ key: string; ticks: [number, number, number | null][]; count: number }>(`/api/live/ticks?key=${q(key)}`),
   candles: (key: string, tf: Timeframe) => request<CandleSeries>(`/api/candles?key=${q(key)}&tf=${tf}`),
   watchlist: () => request<LabeledQuote[]>("/api/watchlist"),
   watch: (key: string) => request<void>(`/api/watchlist?key=${q(key)}`, { method: "PUT" }),
@@ -95,9 +102,17 @@ export const api = {
   savePreferences: (prefs: Preferences) => request<Preferences>("/api/portfolio/preferences", json("PUT", prefs)),
   plan: (prefs: Preferences) => request<PortfolioPlan>("/api/portfolio/plan", json("POST", prefs)),
   holdings: () => request<HoldingRow[]>("/api/portfolio/holdings"),
+  summary: () => request<PortfolioSummary>("/api/portfolio/summary"),
+  syncHoldings: () => request<BrokerStatus>("/api/portfolio/holdings/sync", { method: "POST" }),
   saveHoldings: (items: { symbol: string; quantity: number; avg_cost: number | null }[]) =>
     request<HoldingRow[]>("/api/portfolio/holdings", json("PUT", items)),
   brief: () => request<Brief>("/api/portfolio/brief"),
+  validation: () => request<ValidationStatus>("/api/research/validation"),
+  runValidation: () => request<ValidationStatus>("/api/research/validation/run", { method: "POST" }),
+  goal: (body: { preferences: Preferences; target: number; years: number; initial: number; monthly: number }) =>
+    request<GoalProjection>("/api/portfolio/goal", json("POST", body)),
+  events: () => request<{ events: FeedEvent[]; unread: number }>("/api/events"),
+  markSeen: (ids?: string[]) => request<void>("/api/events/seen", json("POST", { ids: ids ?? null })),
   ask: (question: string, history: { role: "user" | "assistant"; content: string }[]) =>
     request<AskAnswer>("/api/assistant/ask", json("POST", { question, history })),
 };

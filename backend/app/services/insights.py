@@ -130,15 +130,15 @@ def build(
             if u.excess_low < 0 < u.excess_high:
                 luck = " The gap is within what luck alone could produce."
         if gap < -0.01:
-            perf_phrase = f"has trailed the {bt.benchmark_label.split(' (')[0]}"
+            perf_phrase = f"has trailed the {bt.benchmark_label.split(' (')[0]} in past data"
             title = f"Trailed the market by {pct(-gap)} a year"
             sev = "medium"
         elif gap > 0.01:
-            perf_phrase = f"has beaten the {bt.benchmark_label.split(' (')[0]}"
+            perf_phrase = f"has beaten the {bt.benchmark_label.split(' (')[0]} in past data"
             title = f"Ahead of the market by {pct(gap)} a year"
             sev = "low"
         else:
-            perf_phrase = f"has kept pace with the {bt.benchmark_label.split(' (')[0]}"
+            perf_phrase = f"has kept pace with the {bt.benchmark_label.split(' (')[0]} in past data"
             title = "Kept pace with the market"
             sev = "low"
         if analysis and analysis.selection:
@@ -259,6 +259,39 @@ def build(
                     body="Owning both adds little protection: they tend to rise and fall on the "
                     "same days.",
                     facts=[f_corr],
+                )
+            )
+
+    # --- drift from the plan (holdings entered) ----------------------------------------
+    t = plan.trades
+    if t and t.basis == "holdings" and t.lines:
+        worst = max(t.lines, key=lambda x: abs(x.current_weight - x.target_weight))
+        gap = worst.current_weight - worst.target_weight
+        if abs(gap) >= 0.05:
+            moves = [
+                f"{x.action} {abs(x.delta_qty)} {x.symbol}" for x in t.lines if x.action != "hold"
+            ]
+            f_d = book.add(
+                f"{worst.symbol} is {pct(worst.current_weight, digits=0)} of your holdings versus "
+                f"{pct(worst.target_weight, digits=0)} in the {obj} plan; realigning would take "
+                f"{', '.join(moves) or 'no trades above the minimum size'} with estimated "
+                f"charges of Rs {t.est_costs:,.0f}.",
+                ENGINE,
+                "estimate",
+                asof,
+            )
+            out.append(
+                Insight(
+                    id="drift",
+                    kind="risk",
+                    severity="medium" if abs(gap) >= 0.1 else "low",
+                    title=f"{worst.symbol} is {'over' if gap > 0 else 'under'}weight by "
+                    f"{pct(abs(gap), digits=0)}",
+                    body="Your holdings have moved away from the plan. Rebalancing brings risk "
+                    "back in line but costs charges and may realise taxable gains; small drifts "
+                    "are often fine to leave.",
+                    facts=[f_d],
+                    action=InsightAction(kind="holdings", label="Review moves"),
                 )
             )
 

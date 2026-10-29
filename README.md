@@ -99,6 +99,32 @@ update or roll over at the window boundary, the daily candle uses the provider's
 and weekly or monthly candles only update the current period. Provider candles replace
 tick-derived ones on the next refresh (every minute for intraday timeframes).
 
+## Live prices and charts
+
+One Upstox market-data WebSocket ("full" mode) is shared by every browser tab; the backend
+reference-counts subscriptions and subscribes everything referenced once the socket is open, so
+keys requested during connection setup are never lost. A key the provider has not answered
+within 8 seconds is subscribed again (three times) and then reported as silent.
+`GET /api/live/diagnostics` shows per-instrument message counts, silent keys and measured
+latency; `python scripts/feed_probe.py 60` measures it from a client's point of view.
+
+Measured during a market session (29 Oct 2026, 13:00-13:40 IST): exchange trade to browser
+p50 0.56 s, p90 1.1 s, clock-corrected using Upstox's own server timestamps. Almost all of it
+is provider side: full mode sends updates at intervals (NIFTY 50 about every 0.15 s, liquid
+stocks about every 0.6 s, thinly traded stocks every few seconds). Backend to browser is 2-4 ms.
+
+Charts keep your zoom and position: provider refreshes update the last bars in place (or restore
+the exact window when older bars change), new candles move the view only when the latest bar is
+on screen, and resizing (full screen, sidebar) keeps the same time window. Drag to pan, wheel to
+zoom, drag an axis to scale it, Shift+drag (or the box tool) to zoom into a range; "Latest"
+returns to the newest candle. Tools: measure (change, % and bars), horizontal price lines (saved
+per instrument), magnet crosshair, reset view, full screen (Esc to leave).
+
+5s, 15s and 30s candles are built in the browser from streamed updates the backend has recorded
+since the instrument was first subscribed (`GET /api/live/ticks`); there is no earlier seconds
+history, and prices between feed updates are not known, so brief extremes can be missed. Upstox
+historical candles start at one minute.
+
 ## Research engine
 
 Four agents score each stock from −1 to +1 with a confidence and coverage figure, the evidence
@@ -154,12 +180,55 @@ page says so beside the results.
 `GET /api/research/{symbol}/history` returns the score trend and what changed since about a day
 ago; fundamentals are also snapshotted daily so later backtests can use what was known then.
 
+**Research validation.** `GET /api/research/validation` (the *Track record* panel on the
+Research page) tests whether the agents' scores lined up with later returns. Once a week it
+replays the unchanged Firm, Industry and Macro agents on each month's first session since late
+2017 across the NIFTY 500 (in a separate process, about five minutes), using only data dated on or before that session: price windows, FRED
+observations old enough to have been published, and annual statement ratios 75 days after year
+end. Each score is compared with the next 21 sessions' return (rank correlation, block-bootstrap
+interval, both halves of the history, top fifth versus universe after costs) against verdict
+rules fixed in advance. Sentiment (no headline or analyst-rating archive) and valuation multiples
+(unadjusted per-share history) cannot be replayed; stored live reports are tracked forward
+instead. Each weekly run also records that day's scores before their outcomes exist, a forward test that builds up over time.
+Current result: no agent or factor has shown reliable predictive value, so the research
+nudge to portfolio weights is off by default.
+
+**Goals, scenarios and alerts.** `POST /api/portfolio/goal` resamples a plan's own after-tax
+monthly history into a range of outcomes for a target amount and date, labelled as a hypothesis,
+next to the same calculation on the NIFTY 50. The workbench can pin one plan and compare it line
+by line with the next. Every plan's backtest is also split into halves to show whether it held up
+in both. A watcher (`/api/events`, the bell in the top bar) records research views that changed,
+unusually large moves in your stocks, drift from your plan, risk piling into one stock, a new best
+diversifier, failing data sources and new validation results, each with its evidence.
+
+**Your holdings.** `GET /api/portfolio/summary` values your holdings at the latest price with
+cost, P&L, today's change, weights and drift from the chosen plan; stocks you hold are always
+part of the plan even when they are not on the watchlist. `POST /api/portfolio/holdings/sync`
+reads Upstox long-term holdings (read-only; FinCortext never places orders). This needs a
+token from the Upstox login (`UPSTOX_API_KEY` and `UPSTOX_API_SECRET`, then Connect Upstox):
+an Analytics token is market-data only and Upstox refuses it holdings, which the app reports.
+Hand-entered holdings work either way; synced rows replace only earlier synced rows.
+
+**Analyst.** `POST /api/assistant/ask` first routes the question without the model: what-if
+changes (add, drop, swap, "INFY at 15%", switch objective), comparing objectives, why a stock
+did what it did (split into market, sector and stock-specific parts), and goals ("50 lakh in
+10 years adding 10k a month", with the monthly amount needed for even and three-in-four odds).
+The engine computes the answer; the model, when on and within budget, explains it from the
+computed facts, and its output is rejected if it adds numbers. Offline, over budget, timed out
+or malformed, the engine's own answer is shown, so the analyst works without the model.
+Scenarios can be applied to the plan and undone.
+
+**Alerts.** The watcher also notices new quarterly results, the NIFTY 50 crossing its 200-day
+average, India VIX jumps and a 5% weekly fall in your holdings. Alerts carry a priority; the
+same kind of alert for the same stock waits out a cooldown unless it is more severe, and at
+most six non-urgent alerts appear per day.
+
 **Optional language model.** With `LLM_PROVIDER=ollama` the brief gets a written note and the
 page gets an assistant (`POST /api/assistant/ask`) that answers only from the computed facts,
 cites them, and can turn a what-if question into a scenario the plan applies. Any output with a
 number that is not in the facts (beyond rounding) is rejected. A signed-in local Ollama can route
 a free-tier cloud model such as `gpt-oss:120b-cloud`; results are cached by the facts they use,
-so the model is called again only when the data changes. Everything else works without it.
+so the model is called again only when the data changes. A daily budget (`LLM_DAILY_CALLS`, default 150) caps calls because cloud tiers have limits the app cannot query; agent rationale rephrasing is off unless `LLM_RATIONALES=true`. Everything else works without it.
 
 **Reliability.** `/api/health` reports each component and data source (`/status` in the app).
 The database is copied to `backend/data/backups` at each start (three kept) and restored

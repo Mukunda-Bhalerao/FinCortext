@@ -31,6 +31,7 @@ FUNDAMENTALS_TTL = timedelta(hours=24)
 MACRO_TTL = timedelta(hours=12)
 NEWS_TTL = timedelta(hours=1)
 DIVIDENDS_TTL = timedelta(hours=24)
+STATEMENTS_TTL = timedelta(days=7)
 PRICE_SOURCE = "Upstox daily candles"
 
 # NSE industry (NIFTY 500 classification) -> sector index trading symbol.
@@ -203,6 +204,38 @@ class ResearchData:
             )
         ]
 
+    async def statements(self, symbol: str) -> list[tuple[str, date, float]]:
+        """Annual statement items by fiscal period end, stored for point-in-time use."""
+        key = f"yahoo:statements:{symbol}"
+        if self._db.cache_get(key) is None:
+            rows = await self._tracked("yahoo", self._yahoo.statements(symbol))
+            now = datetime.now(UTC)
+            for item, end, value in rows:
+                self._db.execute(
+                    "INSERT OR REPLACE INTO statements VALUES (?, ?, ?, ?, ?, ?)",
+                    [symbol, item, end, value, yahoo_provider.STATEMENTS_SOURCE, now],
+                )
+            self._db.cache_put(key, "yahoo", len(rows), STATEMENTS_TTL)
+        return [
+            (i, d, float(v))
+            for i, d, v in self._db.fetchall(
+                "SELECT item, period_end, value FROM statements WHERE symbol = ? "
+                "ORDER BY period_end",
+                [symbol],
+            )
+        ]
+
+    async def fred_history(self, series_id: str, years: int = 12) -> list[tuple[date, float]]:
+        key = f"fred:long:{series_id}"
+        hit = self._db.cache_get(key)
+        if hit is not None:
+            return [(date.fromisoformat(d), v) for d, v in hit[0]]
+        rows = await self._tracked(
+            "fred", fred.fetch_series(series_id, date.today() - timedelta(days=years * 365))
+        )
+        self._db.cache_put(key, "fred", [(d.isoformat(), v) for d, v in rows], MACRO_TTL)
+        return rows
+
     async def fundamentals(self, symbol: str) -> Fundamentals:
         key = f"yahoo:summary:{symbol}"
         hit = self._db.cache_get(key)
@@ -216,6 +249,9 @@ class ResearchData:
             [symbol, to_ist(f.fetched_at).date(), json.dumps(payload), f.fetched_at],
         )
         return f
+
+    async def quotes_for(self, instruments: list[Instrument]) -> dict:
+        return await self._quotes.get([i.instrument_key for i in instruments])
 
     async def latest_prices(self, instruments: list[Instrument]) -> dict[str, tuple[float, str]]:
         """Last traded price (or last close) per instrument key, with its basis."""

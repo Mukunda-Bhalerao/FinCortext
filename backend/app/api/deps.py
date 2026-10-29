@@ -17,6 +17,8 @@ from app.services.portfolio import PortfolioService
 from app.services.quotes import QuoteService
 from app.services.research import ResearchService
 from app.services.session import SessionClock
+from app.services.signal_lab import SignalLab
+from app.services.watcher import Watcher
 
 
 @dataclass
@@ -36,6 +38,8 @@ class Services:
     portfolio: PortfolioService
     assistant: Assistant
     monitor: SourceMonitor
+    lab: SignalLab
+    watcher: Watcher
 
 
 def services(request: Request) -> Services:

@@ -22,6 +22,10 @@ const queryClient = new QueryClient({
     },
   },
 });
+if (import.meta.env.DEV) {
+  // Test hook (development builds only).
+  (window as unknown as { __fcQuery?: QueryClient }).__fcQuery = queryClient;
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -85,6 +85,7 @@ class Tick:
     volume_today: int | None = None
     avg_price: float | None = None
     bars: list[OHLCBar] = field(default_factory=list)
+    server_ms: int | None = None  # provider's send time for the frame that carried the tick
 
 
 @dataclass(frozen=True)

@@ -10,7 +10,7 @@ import { fmtCompact, fmtPrice, fmtStamp } from "../../lib/format";
 import { mergeQuote, useLiveStatus, useLiveSubscription, useTick } from "../../lib/live";
 import { useMarketOpen } from "../../lib/queries";
 import { useStoredState } from "../../lib/useStoredState";
-import { TIMEFRAMES, type StockSummary, type Timeframe } from "../../lib/types";
+import { CHART_TIMEFRAMES, type StockSummary, type ChartTimeframe } from "../../lib/types";
 import { AGENT_ORDER, AgentCard, CompositeSummary, isBusy, StateLabel } from "../research/agents";
 import { ResearchTimeline } from "../research/history";
 
@@ -156,8 +156,8 @@ export function StockPage() {
   const { symbol = "" } = useParams();
   const qc = useQueryClient();
   const marketOpen = useMarketOpen();
-  const [stored, setTimeframe] = useStoredState<Timeframe>("fc-stock-tf", "1D");
-  const timeframe = TIMEFRAMES.includes(stored) ? stored : "1D";
+  const [stored, setTimeframe] = useStoredState<ChartTimeframe>("fc-stock-tf", "1D");
+  const timeframe = CHART_TIMEFRAMES.includes(stored) ? stored : "1D";
   const [drawer, setDrawer] = useState(false);
   const q = useQuery({
     queryKey: ["stock", symbol],

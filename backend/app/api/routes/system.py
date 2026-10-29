@@ -15,6 +15,7 @@ Svc = Annotated[Services, Depends(services)]
 
 STARTED_AT = datetime.now(UTC)
 _RANK = {"ok": 0, "off": 0, "unknown": 0, "degraded": 1, "down": 2}
+OPTIONAL = {"llm"}
 
 
 def _component(key: str, label: str, status: str, detail: str | None, **extra) -> dict:
@@ -126,7 +127,14 @@ def _components(svc: Services) -> list[dict]:
 @router.get("/health")
 async def health(svc: Svc) -> dict:
     components = _components(svc)
-    worst = max((_RANK.get(c["status"], 0) for c in components), default=0)
+    # Optional components (the language model) can degrade the overall status, never take it down.
+    worst = max(
+        (
+            min(_RANK.get(c["status"], 0), 1) if c["key"] in OPTIONAL else _RANK.get(c["status"], 0)
+            for c in components
+        ),
+        default=0,
+    )
     return {
         "status": "ok",
         "overall": ["ok", "degraded", "down"][worst],

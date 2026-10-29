@@ -93,12 +93,56 @@ CREATE TABLE IF NOT EXISTS dividends (
     loaded_at  TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (symbol, ex_date)
 );
+CREATE TABLE IF NOT EXISTS statements (
+    symbol      VARCHAR NOT NULL,
+    item        VARCHAR NOT NULL,
+    period_end  DATE NOT NULL,
+    value       DOUBLE NOT NULL,
+    source      VARCHAR NOT NULL,
+    loaded_at   TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (symbol, item, period_end)
+);
+CREATE TABLE IF NOT EXISTS lab_runs (
+    id           VARCHAR PRIMARY KEY,
+    payload      VARCHAR NOT NULL,
+    computed_at  TIMESTAMPTZ NOT NULL
+);
+CREATE TABLE IF NOT EXISTS forward_signals (
+    snapshot_date  DATE NOT NULL,  -- signals recorded before their outcomes exist
+    symbol         VARCHAR NOT NULL,
+    signal_key     VARCHAR NOT NULL,
+    score          DOUBLE NOT NULL,
+    recorded_at    TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (snapshot_date, symbol, signal_key)
+);
+CREATE TABLE IF NOT EXISTS events (
+    id          VARCHAR PRIMARY KEY,
+    kind        VARCHAR NOT NULL,
+    severity    VARCHAR NOT NULL,
+    symbol      VARCHAR,
+    title       VARCHAR NOT NULL,
+    body        VARCHAR NOT NULL,
+    facts       VARCHAR NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL,
+    seen        BOOLEAN NOT NULL DEFAULT FALSE
+);
+ALTER TABLE events ADD COLUMN IF NOT EXISTS priority DOUBLE DEFAULT 0;
+CREATE TABLE IF NOT EXISTS llm_usage (
+    day         DATE NOT NULL,
+    purpose     VARCHAR NOT NULL,
+    calls       INTEGER NOT NULL,
+    prompt_tokens  BIGINT NOT NULL,
+    output_tokens  BIGINT NOT NULL,
+    PRIMARY KEY (day, purpose)
+);
 CREATE TABLE IF NOT EXISTS holdings (
     instrument_key  VARCHAR PRIMARY KEY,
     quantity        DOUBLE NOT NULL,
     avg_cost        DOUBLE,
     updated_at      TIMESTAMPTZ NOT NULL
 );
+ALTER TABLE holdings ADD COLUMN IF NOT EXISTS source VARCHAR DEFAULT 'manual';
+ALTER TABLE holdings ADD COLUMN IF NOT EXISTS broker_pnl DOUBLE;
 CREATE TABLE IF NOT EXISTS text_cache (
     k           VARCHAR PRIMARY KEY,
     model       VARCHAR NOT NULL,

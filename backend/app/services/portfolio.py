@@ -16,14 +16,25 @@ import random
 import statistics
 import time
 from collections import OrderedDict
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from app.db import Database, _as_utc
-from app.errors import AppError, NotFound
+from app.errors import AppError, NotConnected, NotFound, ProviderRequestError
+from app.providers.upstox import BrokerHolding
 from app.schemas.market import Instrument
-from app.schemas.plan import HoldingIn, HoldingOut, PortfolioPlan, Preferences
+from app.schemas.plan import (
+    BrokerStatus,
+    GoalPoint,
+    GoalProjection,
+    GoalRequest,
+    HoldingIn,
+    HoldingOut,
+    PortfolioPlan,
+    PortfolioSummary,
+    Preferences,
+)
 from app.schemas.portfolio import (
     BacktestResult,
     Candidate,
@@ -43,7 +54,7 @@ from app.services import planner
 from app.services.instruments import InstrumentService
 from app.services.planner import AssetData, Prepared, curve, day_to_date, perf
 from app.services.research import ResearchService
-from app.services.research_data import ResearchData
+from app.services.research_data import SECTOR_INDEX, ResearchData
 from app.tools import backtest as B
 from app.tools import portfolio as P
 from app.tools.objectives import OBJECTIVES
@@ -146,7 +157,13 @@ class PortfolioService:
         data: ResearchData,
         research: ResearchService,
         watchlist_keys: Callable[[], list[str]],
+        research_verdicts: Callable[[], dict[str, str]] | None = None,
+        broker: Callable[[], Awaitable[list[BrokerHolding]]] | None = None,
+        broker_connected: Callable[[], bool] | None = None,
     ):
+        self._broker = broker
+        self._broker_connected = broker_connected or (lambda: False)
+        self._research_verdicts = research_verdicts or (lambda: {})
         self._db = db
         self._instruments = instruments
         self._data = data
@@ -161,7 +178,8 @@ class PortfolioService:
     # --- job control ---------------------------------------------------------------
 
     def _signature(self) -> str:
-        return hashlib.sha1("|".join(sorted(self._watchlist_keys())).encode()).hexdigest()
+        keys = sorted(set(self._watchlist_keys()) | set(self.holdings_map()))
+        return hashlib.sha1("|".join(keys).encode()).hexdigest()
 
     def request_run(self, force: bool = False) -> None:
         if self._task is not None and not self._task.done():
@@ -307,7 +325,10 @@ class PortfolioService:
         return 0.0, "Unavailable; Sharpe ratios use a 0% risk-free rate"
 
     def _watch_equities(self) -> tuple[list[Instrument], list[Excluded]]:
-        keys = self._watchlist_keys()
+        """Watchlist stocks plus anything held, so a held stock is never planned to zero just
+        because it is not on the watchlist."""
+        held = [k for k, (q, _) in self.holdings_map().items() if q > 0]
+        keys = list(dict.fromkeys(self._watchlist_keys() + held))
         found = self._instruments.get_many(keys)
         members = [found[k] for k in keys if k in found]
         excluded = [
@@ -906,58 +927,358 @@ class PortfolioService:
                 if k in prices:
                     others[k] = (sym, prices[k][0])
             plan = await asyncio.to_thread(
-                planner.build_plan, prep, prefs, rf, holdings, prices, others, bench_label
+                planner.build_plan,
+                prep,
+                prefs,
+                rf,
+                holdings,
+                prices,
+                others,
+                bench_label,
+                False,
+                self.research_note(),
             )
         self._plans[key] = plan
         while len(self._plans) > PLAN_CACHE:
             self._plans.popitem(last=False)
         return plan
 
+    def research_note(self) -> str:
+        verdict = self._research_verdicts().get("composite")
+        if verdict is None:
+            return (
+                "Research scores have not yet been tested against later returns, so treat this "
+                "nudge as a judgement call."
+            )
+        if verdict == "evidence":
+            return "Replay tests found measurable value in the combined research score."
+        return (
+            "In a replay of the agents since 2017, research scores did not reliably predict "
+            "the following month's returns, so treat this nudge as a judgement call."
+        )
+
+    async def goal(self, req: GoalRequest) -> GoalProjection:
+        plan = await self.plan(req.preferences)
+        if not plan._daily or plan.backtest is None:
+            raise AppError("This plan has no measured history to project from.", status_code=422)
+        return await asyncio.to_thread(_project, plan, req)
+
+    async def required_monthly(
+        self, req: GoalRequest, probabilities: tuple[float, ...]
+    ) -> list[float | None]:
+        """Monthly amount at which the resampled odds of reaching the target reach each
+        probability (None when even twice the straight-line amount is not enough)."""
+        plan = await self.plan(req.preferences)
+        if not plan._daily:
+            return [None for _ in probabilities]
+        monthly = B.monthly_returns(plan._daily)
+
+        def odds(contribution: float) -> float:
+            paths = B.goal_paths(monthly, req.years, req.initial, contribution, samples=800)
+            finals = [p[-1] for p in paths if p]
+            return sum(1 for f in finals if f >= req.target) / len(finals) if finals else 0.0
+
+        def solve(prob: float) -> float | None:
+            if odds(0.0) >= prob:
+                return 0.0
+            hi = 2 * req.target / (12 * req.years)
+            if odds(hi) < prob:
+                return None
+            lo = 0.0
+            for _ in range(16):
+                mid = (lo + hi) / 2
+                lo, hi = (lo, mid) if odds(mid) >= prob else (mid, hi)
+            return round(hi, -2)
+
+        return await asyncio.to_thread(lambda: [solve(p) for p in probabilities])
+
+    async def performance(self, inst: Instrument) -> dict | None:
+        """Price returns over 1, 3, 6 and 12 months for a stock, its sector index and the
+        NIFTY 50, plus its distance from the 1-year high."""
+        try:
+            stock = await self._asset(inst, divs=False)
+        except AppError:
+            return None
+        bench = sector = None
+        sector_label = None
+        with contextlib.suppress(AppError):
+            bench = await self._asset(self._instruments.by_symbol("NIFTY", "NSE_INDEX"), divs=False)
+        industry = self._instruments.industry_of(inst.isin)
+        mapped = SECTOR_INDEX.get(industry or "")
+        if mapped:
+            with contextlib.suppress(AppError):
+                sector = await self._asset(
+                    self._instruments.by_symbol(mapped[1], "NSE_INDEX"), divs=False
+                )
+                sector_label = mapped[0]
+
+        def ret(a: AssetData | None, n: int) -> float | None:
+            if a is None or len(a.series.closes) <= n:
+                return None
+            c = a.series.closes
+            return c[-1] / c[-1 - n] - 1
+
+        c = stock.series.closes
+        year = c[-252:]
+        r = [y / x - 1 for x, y in zip(year[:-1], year[1:], strict=True)]
+        vol = statistics.stdev(r) * P.TRADING_DAYS**0.5 if len(r) > 20 else None
+        return {
+            "periods": [
+                (label, ret(stock, n), ret(sector, n), ret(bench, n))
+                for label, n in (
+                    ("over 1 month", 21),
+                    ("over 3 months", 63),
+                    ("over 6 months", 126),
+                    ("over 1 year", 252),
+                )
+            ],
+            "sector_label": sector_label or "its sector",
+            "drawdown": c[-1] / max(year) - 1 if year else None,
+            "vol": vol,
+            "as_of": stock.series.as_of,
+        }
+
     # --- holdings -----------------------------------------------------------------------
 
     async def holdings(self) -> list[HoldingOut]:
+        return (await self.summary()).holdings
+
+    async def summary(self) -> PortfolioSummary:
+        """Holdings valued at the latest price, with cost, P&L and weights where known."""
         rows = self._db.fetchall(
-            "SELECT instrument_key, quantity, avg_cost, updated_at FROM holdings "
-            "ORDER BY instrument_key"
+            "SELECT instrument_key, quantity, avg_cost, updated_at, source FROM holdings "
+            "WHERE quantity > 0 ORDER BY instrument_key"
         )
         found = self._instruments.get_many([r[0] for r in rows])
         insts = [found[r[0]] for r in rows if r[0] in found]
-        prices = await self._data.latest_prices(insts) if insts else {}
-        out = []
-        for k, q, c, at in rows:
+        try:
+            quotes = await self._data.quotes_for(insts) if insts else {}
+        except AppError:
+            quotes = {}
+        out: list[HoldingOut] = []
+        notes: list[str] = []
+        day_change = 0.0
+        day_known = False
+        for k, q, c, at, src in rows:
             inst = found.get(k)
             if inst is None:
+                notes.append(f"{k} is no longer in the instrument master; left out.")
                 continue
-            px = prices.get(k)
+            qt = quotes.get(k)
+            px = (qt.ltp, "last traded price") if qt and qt.ltp else None
             if px is None:
                 with contextlib.suppress(AppError):
                     a = await self._asset(inst, divs=False)
                     px = (a.series.closes[-1], "last close")
+            qty = float(q)
+            cost = float(c) if c is not None else None
+            value = qty * px[0] if px else None
+            invested = qty * cost if cost is not None else None
+            pnl = value - invested if value is not None and invested is not None else None
+            if qt and qt.change is not None:
+                day_change += qty * qt.change
+                day_known = True
             out.append(
                 HoldingOut(
                     symbol=inst.symbol,
                     instrument_key=k,
                     name=inst.name,
-                    quantity=float(q),
-                    avg_cost=float(c) if c is not None else None,
+                    quantity=qty,
+                    avg_cost=cost,
                     price=px[0] if px else None,
                     price_basis=px[1] if px else None,
-                    value=float(q) * px[0] if px else None,
+                    value=value,
                     updated_at=_as_utc(at),
+                    source=src or "manual",  # type: ignore[arg-type]
+                    invested=invested,
+                    pnl=pnl,
+                    pnl_pct=pnl / invested if pnl is not None and invested else None,
+                    day_change_pct=qt.change_pct / 100
+                    if qt and qt.change_pct is not None
+                    else None,
                 )
             )
-        return out
+        total = sum(h.value for h in out if h.value is not None) or None
+        for h in out:
+            h.weight = h.value / total if total and h.value is not None else None
+        known = [h for h in out if h.invested is not None and h.value is not None]
+        invested = sum(h.invested for h in known) or None  # type: ignore[misc]
+        known_value = sum(h.value for h in known) or 0.0  # type: ignore[misc]
+        pnl = known_value - invested if invested else None
+        if out and len(known) < len(out):
+            notes.append(
+                f"Average cost unknown for {len(out) - len(known)} holding(s); P&L covers the rest."
+            )
+        if any(h.price_basis == "last close" for h in out):
+            notes.append("Some prices are the last close because no live quote was available.")
+        return PortfolioSummary(
+            holdings=out,
+            total_value=total,
+            total_invested=invested,
+            pnl=pnl,
+            pnl_pct=pnl / invested if pnl is not None and invested else None,
+            day_change=day_change if day_known else None,
+            cost_coverage=known_value / total if total else 0.0,
+            priced_at=datetime.now(UTC),
+            broker=self.broker_status(),
+            notes=notes,
+        )
+
+    def broker_status(self) -> BrokerStatus:
+        row = self._db.fetchone("SELECT v FROM meta WHERE k = 'broker.sync'")
+        last = json.loads(row[0]) if row else None
+        connected = self._broker_connected()
+        if last is None:
+            detail = (
+                "Not synced yet."
+                if connected
+                else "Upstox is not connected; enter holdings by hand."
+            )
+        else:
+            detail = last["detail"]
+        return BrokerStatus(
+            connected=connected,
+            can_sync=last["ok"] if last else None,
+            detail=detail,
+            last_sync=datetime.fromisoformat(last["at"]) if last else None,
+            synced_count=last.get("count", 0) if last else 0,
+        )
+
+    def _record_sync(self, ok: bool, detail: str, count: int = 0) -> None:
+        self._db.execute(
+            "INSERT OR REPLACE INTO meta VALUES ('broker.sync', ?, ?)",
+            [
+                json.dumps(
+                    {
+                        "ok": ok,
+                        "detail": detail,
+                        "count": count,
+                        "at": datetime.now(UTC).isoformat(),
+                    }
+                ),
+                datetime.now(UTC),
+            ],
+        )
+
+    async def sync_broker(self) -> BrokerStatus:
+        """Replace the broker-sourced holdings with Upstox's read-only holdings list."""
+        if self._broker is None:
+            self._record_sync(False, "No broker connection is configured.")
+            return self.broker_status()
+        try:
+            rows = await self._broker()
+        except ProviderRequestError:
+            self._record_sync(
+                False,
+                "This Upstox token cannot read holdings. Analytics tokens are market-data only; "
+                "connect through the Upstox login (UPSTOX_API_KEY and UPSTOX_API_SECRET in .env) "
+                "to sync, or enter holdings by hand.",
+            )
+            return self.broker_status()
+        except NotConnected:
+            self._record_sync(False, "Upstox is not connected.")
+            return self.broker_status()
+        except AppError as exc:
+            self._record_sync(False, f"Sync failed: {exc.message}")
+            return self.broker_status()
+        now = datetime.now(UTC)
+        resolved = []
+        skipped = []
+        for h in rows:
+            if h.quantity <= 0:
+                continue
+            inst = None
+            with contextlib.suppress(NotFound):
+                if h.instrument_key:
+                    inst = self._instruments.get(h.instrument_key)
+                elif h.symbol:
+                    inst = self._instruments.by_symbol(h.symbol)
+            if inst is None:
+                skipped.append(h.symbol or h.isin or "unknown")
+                continue
+            resolved.append((inst.instrument_key, h.quantity, h.average_price, h.pnl))
+        self._db.execute("DELETE FROM holdings WHERE source = 'upstox'")
+        for key, qty, cost, pnl in resolved:
+            self._db.execute(
+                "INSERT OR REPLACE INTO holdings (instrument_key, quantity, avg_cost, updated_at, "
+                "source, broker_pnl) VALUES (?, ?, ?, ?, 'upstox', ?)",
+                [key, qty, cost, now, pnl],
+            )
+        detail = f"Synced {len(resolved)} holding(s) from Upstox."
+        if skipped:
+            detail += f" Not matched to an NSE equity: {', '.join(skipped[:5])}."
+        self._record_sync(True, detail, len(resolved))
+        self._plans.clear()
+        return self.broker_status()
 
     def set_holdings(self, items: list[HoldingIn]) -> None:
+        """Replace the hand-entered holdings; broker-synced rows are left as they are."""
         resolved = []
         for item in items:
             inst = self._instruments.by_symbol(item.symbol.upper())
             resolved.append((inst.instrument_key, item.quantity, item.avg_cost))
+        broker = {
+            r[0]
+            for r in self._db.fetchall(
+                "SELECT instrument_key FROM holdings WHERE source = 'upstox'"
+            )
+        }
         now = datetime.now(UTC)
-        self._db.execute("DELETE FROM holdings")
+        self._db.execute("DELETE FROM holdings WHERE source = 'manual' OR source IS NULL")
         for key, qty, cost in resolved:
-            if qty > 0:
+            if qty > 0 and key not in broker:
                 self._db.execute(
-                    "INSERT OR REPLACE INTO holdings VALUES (?, ?, ?, ?)", [key, qty, cost, now]
+                    "INSERT OR REPLACE INTO holdings (instrument_key, quantity, avg_cost, "
+                    "updated_at, source) VALUES (?, ?, ?, ?, 'manual')",
+                    [key, qty, cost, now],
                 )
         self._plans.clear()
+
+
+def _project(plan: PortfolioPlan, req: GoalRequest) -> GoalProjection:
+    monthly = B.monthly_returns(plan._daily)
+    paths = B.goal_paths(monthly, req.years, req.initial, req.monthly)
+    bench_paths = B.goal_paths(
+        B.monthly_returns(plan._bench_daily), req.years, req.initial, req.monthly
+    )
+    finals = [p[-1] for p in paths if p]
+    if not finals:
+        raise AppError("Not enough measured history to project this goal.", status_code=422)
+    bench_finals = [p[-1] for p in bench_paths if p]
+    bt = plan.backtest
+    return GoalProjection(
+        target=req.target,
+        years=req.years,
+        initial=req.initial,
+        monthly=req.monthly,
+        invested=req.initial + req.monthly * 12 * req.years,
+        probability=sum(1 for f in finals if f >= req.target) / len(finals),
+        p10=B.quantile(finals, 0.1),
+        p50=B.quantile(finals, 0.5),
+        p90=B.quantile(finals, 0.9),
+        benchmark_probability=sum(1 for f in bench_finals if f >= req.target) / len(bench_finals)
+        if bench_finals
+        else None,
+        benchmark_p50=B.quantile(bench_finals, 0.5) if bench_finals else None,
+        path=[
+            GoalPoint(
+                year=y + 1,
+                p10=B.quantile([p[y] for p in paths], 0.1),
+                p50=B.quantile([p[y] for p in paths], 0.5),
+                p90=B.quantile([p[y] for p in paths], 0.9),
+                invested=req.initial + req.monthly * 12 * (y + 1),
+            )
+            for y in range(req.years)
+        ],
+        history_from=bt.start if bt else None,
+        history_to=bt.end if bt else None,
+        method="2,000 paths built from three-month blocks of this plan's own after-tax monthly "
+        "returns in the backtest (fixed seed); contributions added each month.",
+        caveats=[
+            "A hypothesis, not a forecast: it assumes the future resembles this one stretch of "
+            "history.",
+            "The stocks were picked with hindsight, which flatters their history; the NIFTY 50 "
+            "line shows the same calculation on the index.",
+            "Inflation is not deducted: amounts are in future rupees.",
+        ],
+    )

@@ -4,7 +4,17 @@ from fastapi import APIRouter, Body, Depends, Query
 
 from app.api.deps import Services, services
 from app.schemas.insights import Brief
-from app.schemas.plan import HoldingIn, HoldingOut, ObjectiveInfo, PortfolioPlan, Preferences
+from app.schemas.plan import (
+    BrokerStatus,
+    GoalProjection,
+    GoalRequest,
+    HoldingIn,
+    HoldingOut,
+    ObjectiveInfo,
+    PortfolioPlan,
+    PortfolioSummary,
+    Preferences,
+)
 from app.schemas.portfolio import PortfolioStatus
 from app.tools.objectives import OBJECTIVES
 
@@ -53,6 +63,24 @@ async def plan(
     if save:
         svc.portfolio.save_preferences(prefs)
     return await svc.portfolio.plan(prefs)
+
+
+@router.post("/goal")
+async def goal(svc: Svc, req: GoalRequest) -> GoalProjection:
+    """Range of outcomes for a target amount and date, resampled from the plan's history."""
+    return await svc.portfolio.goal(req)
+
+
+@router.get("/summary")
+async def summary(svc: Svc) -> PortfolioSummary:
+    """Holdings with value, cost, P&L, weights and the broker sync status."""
+    return await svc.portfolio.summary()
+
+
+@router.post("/holdings/sync")
+async def sync_holdings(svc: Svc) -> BrokerStatus:
+    """Read holdings from Upstox (read-only; FinCortext never places orders)."""
+    return await svc.portfolio.sync_broker()
 
 
 @router.get("/holdings")

@@ -20,6 +20,19 @@ log = logging.getLogger(__name__)
 SOURCE = "Yahoo Finance quote summary"
 DIVIDEND_SOURCE = "Yahoo Finance chart events"
 _CHART = "https://query2.finance.yahoo.com/v8/finance/chart/"
+STATEMENTS_SOURCE = "Yahoo Finance annual statements"
+_TIMESERIES = "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/"
+# Ratios built from these are currency- and share-count-free, so reporting currency (some
+# companies report in USD) and unadjusted per-share history do not distort them.
+STATEMENT_ITEMS = (
+    "annualNetIncome",
+    "annualTotalRevenue",
+    "annualOperatingIncome",
+    "annualStockholdersEquity",
+    "annualTotalDebt",
+    "quarterlyNetIncome",
+    "quarterlyTotalRevenue",
+)
 _BASE = "https://query2.finance.yahoo.com/v10/finance/quoteSummary/"
 _MODULES = ",".join(
     (
@@ -155,6 +168,24 @@ def parse_dividends(result: dict) -> list[tuple[date, float]]:
     return sorted(out)
 
 
+def parse_statements(payload: dict) -> list[tuple[str, date, float]]:
+    """(item, fiscal period end, value) rows from a fundamentals-timeseries response."""
+    out = []
+    for res in ((payload.get("timeseries") or {}).get("result")) or []:
+        item = ((res.get("meta") or {}).get("type") or [None])[0]
+        for row in res.get(item) or []:
+            if not row:
+                continue
+            raw = (row.get("reportedValue") or {}).get("raw")
+            try:
+                end = date.fromisoformat(row.get("asOfDate", ""))
+            except ValueError:
+                continue
+            if isinstance(raw, int | float):
+                out.append((item, end, float(raw)))
+    return out
+
+
 class YahooProvider:
     def __init__(self) -> None:
         self._client: httpx.AsyncClient | None = None
@@ -228,6 +259,31 @@ class YahooProvider:
         if not results:
             raise NotFound(f"Yahoo Finance has no record for {symbol}.")
         return parse_dividends(results[0])
+
+    async def statements(self, nse_symbol: str) -> list[tuple[str, date, float]]:
+        symbol = f"{nse_symbol}.NS"
+        async with self._slots:
+            for attempt in range(2):
+                crumb = await self._ensure_crumb(renew=attempt > 0)
+                try:
+                    resp = await fetch.get(
+                        self._http(),
+                        _TIMESERIES + quote(symbol, safe=""),
+                        params={
+                            "type": ",".join(STATEMENT_ITEMS),
+                            "period1": 0,
+                            "period2": int(datetime.now(UTC).timestamp()),
+                            "crumb": crumb,
+                        },
+                    )
+                except httpx.HTTPError as exc:
+                    raise ProviderUnavailable("Yahoo Finance is not reachable.") from exc
+                if resp.status_code == 401 and attempt == 0:
+                    continue
+                break
+        if resp.status_code != 200:
+            raise ProviderUnavailable(f"Yahoo Finance returned HTTP {resp.status_code}.")
+        return parse_statements(resp.json() or {})
 
     async def aclose(self) -> None:
         if self._client is not None:

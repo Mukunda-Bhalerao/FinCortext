@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     ollama_model: str = ""
     # Only for calling ollama.com directly; a signed-in local Ollama needs no key.
     ollama_api_key: SecretStr = SecretStr("")
+    # Calls per IST day across all features; cloud tiers have limits the app cannot query.
+    llm_daily_calls: int = 150
+    # Rephrasing every agent rationale costs four calls per research run; off by default.
+    llm_rationales: bool = False
     log_level: str = "INFO"
 
     @property

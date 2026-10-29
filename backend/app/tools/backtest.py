@@ -424,3 +424,53 @@ def equal_weight_cagr(
             w = [1.0 / n] * n
     years = (len(days) - 1 - start) / TRADING_DAYS
     return value ** (1 / years) - 1 if years > 0 and value > 0 else None
+
+
+def monthly_returns(daily: Sequence[float], step: int = 21) -> list[float]:
+    """Compound daily returns into consecutive ``step``-session returns."""
+    out = []
+    for a in range(0, len(daily) - step + 1, step):
+        g = 1.0
+        for r in daily[a : a + step]:
+            g *= 1 + r
+        out.append(g - 1)
+    return out
+
+
+def goal_paths(
+    monthly: Sequence[float],
+    years: int,
+    initial: float,
+    contribution: float,
+    samples: int = 2000,
+    block: int = 3,
+    seed: int = 23,
+) -> list[list[float]]:
+    """Wealth at each year end for ``samples`` paths built from blocks of consecutive historical
+    months (block bootstrap, fixed seed). Contributions are added at each month start."""
+    n = len(monthly)
+    if n < block * 4:
+        return []
+    rng = random.Random(seed)
+    months = years * 12
+    paths = []
+    for _ in range(samples):
+        w = initial
+        row = []
+        m = 0
+        while m < months:
+            s = rng.randrange(n - block + 1)
+            for r in monthly[s : s + block]:
+                if m >= months:
+                    break
+                w = (w + contribution) * (1 + r)
+                m += 1
+                if m % 12 == 0:
+                    row.append(w)
+        paths.append(row)
+    return paths
+
+
+def quantile(values: Sequence[float], q: float) -> float:
+    v = sorted(values)
+    return v[min(len(v) - 1, max(0, int(q * (len(v) - 1))))]
