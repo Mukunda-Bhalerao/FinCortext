@@ -1,3 +1,4 @@
+import { PageHeader } from "../../components/PageHeader";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Panel, cx } from "../../components/ui/primitives";
@@ -64,22 +65,25 @@ export function LearnPage() {
 
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-4 p-3 sm:p-4">
-      <div>
-        <h1 className="text-lg font-semibold text-fg">Learn</h1>
-        <p className="text-xs text-muted">
-          A path from watching your first stock to testing your own strategy, and the terms you will meet on the way.
-          Underlined words across the app open these explanations too.
-        </p>
-      </div>
+      <PageHeader
+        section="learn"
+        eyebrow="Start here"
+        title="Learn"
+        subtitle="A path from watching your first stock to testing your own strategy, and every term you'll meet on the way. Underlined words anywhere in the app explain themselves too."
+      />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {PATH.map((s) => (
-          <div key={s.title} className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-4">
+          <Link
+            key={s.title}
+            to={s.to}
+            className="fc-card group flex flex-col gap-2 rounded-lg border border-line bg-surface p-4 hover:border-line-strong"
+          >
             <h2 className="text-sm font-semibold text-fg">{s.title}</h2>
             <p className="flex-1 text-xs leading-relaxed text-muted">{s.text}</p>
-            <Link to={s.to} className="text-xs font-medium text-accent hover:underline">
-              {s.cta} →
-            </Link>
-          </div>
+            <span className="text-xs font-medium text-accent">
+              {s.cta} <span className="inline-block transition-transform group-hover:translate-x-1">→</span>
+            </span>
+          </Link>
         ))}
       </div>
       <Panel

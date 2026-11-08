@@ -1,3 +1,4 @@
+import { HeaderStat, PageHeader } from "../../components/PageHeader";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -155,14 +156,14 @@ export function ResearchPage() {
 
   return (
     <div className="mx-auto flex max-w-[1680px] flex-col gap-3 p-3 sm:p-4">
-      <div>
-        <h1 className="text-lg font-semibold text-fg">Research</h1>
-        <p className="mt-1 max-w-3xl text-sm text-muted">
-          Four agents score every watchlist stock from market data, fundamentals, macro series and headlines. Each score
-          runs from −1 to +1 and carries its evidence and data gaps. Adding a stock to the watchlist starts a run;
-          reports refresh every {q.data?.refresh_after_hours ?? 6} hours.
-        </p>
-      </div>
+      <PageHeader
+        section="research"
+        eyebrow="Four research agents"
+        title="Research"
+        subtitle={`Company, industry, economy and news agents score every stock you follow from −1 to +1, each with its evidence and data gaps. Reports refresh every ${q.data?.refresh_after_hours ?? 6} hours.`}
+      >
+        {items.length > 0 && <HeaderStat label="Covered">{items.length} stocks</HeaderStat>}
+      </PageHeader>
 
       {q.data && q.data.macro.length > 0 && <MacroStrip indicators={q.data.macro} />}
 

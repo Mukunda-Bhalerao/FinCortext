@@ -1,3 +1,4 @@
+import { PageHeader } from "../../components/PageHeader";
 import { useQuery } from "@tanstack/react-query";
 import { cx, ErrorState, Panel, SkeletonRows } from "../../components/ui/primitives";
 import { api } from "../../lib/api";
@@ -22,9 +23,9 @@ export function StatusPage() {
   const overall = q.data?.overall ?? "ok";
   return (
     <div className="mx-auto flex max-w-[1100px] flex-col gap-3 p-3 sm:p-4">
+      <PageHeader section="dashboard" eyebrow="Behind the scenes" title="System status" />
       <div>
-        <h1 className="text-lg font-semibold text-fg">System status</h1>
-        <p className="mt-1 text-sm text-muted">
+        <p className="text-sm text-muted">
           {q.isError
             ? "The backend is not answering."
             : overall === "ok"

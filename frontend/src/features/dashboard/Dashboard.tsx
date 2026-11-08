@@ -9,6 +9,7 @@ import { useMarketOpen } from "../../lib/queries";
 import { useStoredState } from "../../lib/useStoredState";
 import { CHART_TIMEFRAMES, type Instrument, type ChartTimeframe } from "../../lib/types";
 import { BriefCard } from "./BriefCard";
+import { Welcome } from "./Welcome";
 import { IndexStrip } from "./IndexStrip";
 import { MoversPanel, NewsPanel, SectorBoard, WatchlistPanel } from "./panels";
 
@@ -49,6 +50,7 @@ export function Dashboard() {
 
   return (
     <div className="mx-auto flex max-w-[1680px] flex-col gap-3 p-3 sm:p-4">
+      <Welcome />
       <BriefCard />
       <IndexStrip
         selectedKey={instrument?.instrument_key ?? null}

@@ -1,3 +1,4 @@
+import { StockAvatar } from "../../components/ui/visual";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { IconExternal } from "../../components/ui/icons";
@@ -60,7 +61,8 @@ export function StockStory({ s, defaultOpen }: { s: StockReview; defaultOpen?: b
         aria-expanded={open}
         className="flex w-full flex-col gap-2 p-3.5 text-left hover:bg-surface-2/50"
       >
-        <div className="flex w-full items-baseline gap-2">
+        <div className="flex w-full items-center gap-2">
+          <StockAvatar symbol={s.symbol} size={26} />
           <span className="text-sm font-semibold text-fg">{s.symbol}</span>
           <span className="hidden truncate text-xs text-faint sm:inline">{s.name}</span>
           <span className="ml-auto shrink-0 text-2xs text-faint">

@@ -254,7 +254,7 @@ export function ChartPanel({
       aria-label={full ? "Chart, full screen" : undefined}
     >
       <header className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-line px-3.5 py-1.5">
-        <h2 className="text-xs font-semibold tracking-wide text-fg uppercase">{title}</h2>
+        <h2 className="text-sm font-semibold tracking-tight text-fg">{title}</h2>
         {headerExtra && <div className="truncate text-2xs text-faint">{headerExtra}</div>}
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <TimeframePicker value={timeframe} onChange={onTimeframe} secondsAllowed={secondsAllowed} />

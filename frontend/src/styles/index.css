@@ -81,8 +81,22 @@ body {
 }
 
 .fc-skeleton {
-  background: var(--surface-3);
-  animation: fc-pulse 1.4s ease-in-out infinite;
+  background: linear-gradient(
+    100deg,
+    var(--surface-3) 30%,
+    color-mix(in srgb, var(--surface-3) 55%, var(--border-strong)) 50%,
+    var(--surface-3) 70%
+  );
+  background-size: 220% 100%;
+  animation: fc-shimmer 1.3s ease-in-out infinite;
+}
+@keyframes fc-shimmer {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
 }
 
 .fc-flash-up {
@@ -120,5 +134,229 @@ body {
   .fc-pulse,
   .fc-skeleton {
     animation: none;
+  }
+}
+
+/* --- interaction layer: every control answers the pointer, the finger and the keyboard ---- */
+
+:where(button, a, select, input, textarea, [role="button"], [role="tab"]) {
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease,
+    transform 0.12s ease;
+}
+
+:where(button, [role="button"], [role="tab"]):active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+:where(a, button, select, input, textarea, [role="button"], [role="tab"], [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+:where(input, select, textarea):hover:not(:focus):not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+/* Cards that open something lift slightly under the pointer. */
+.fc-card {
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    background-color 0.18s ease;
+}
+.fc-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.45);
+}
+:root[data-theme="light"] .fc-card:hover {
+  box-shadow: 0 6px 18px -8px rgba(18, 24, 33, 0.18);
+}
+.fc-card:active {
+  transform: translateY(0);
+}
+
+/* Table rows follow the pointer so long tables stay easy to read across. */
+table tbody tr {
+  transition: background-color 0.12s ease;
+}
+table tbody tr:hover {
+  background-color: color-mix(in srgb, var(--surface-2) 70%, transparent);
+}
+
+/* Panels settle in as a page opens. */
+.fc-panel {
+  animation: fc-rise 0.32s ease-out both;
+}
+
+/* The active page in the sidebar gets a marker that slides in. */
+.fc-nav-active::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--sec, var(--accent));
+  animation: fc-marker 0.25s ease-out;
+}
+@keyframes fc-marker {
+  from {
+    transform: scaleY(0.2);
+    opacity: 0;
+  }
+}
+
+/* Toasts */
+@keyframes fc-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+.fc-toast {
+  animation: fc-toast-in 0.22s ease-out both;
+}
+@keyframes fc-toast-bar {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+.fc-toast-bar {
+  transform-origin: left;
+  animation: fc-toast-bar linear forwards;
+}
+
+/* A soft breathing ring for the "live" dot. */
+@keyframes fc-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+.fc-ring {
+  animation: fc-ring 1.8s ease-out infinite;
+}
+
+body,
+.bg-surface,
+.bg-surface-2 {
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fc-card,
+  .fc-card:hover,
+  .fc-panel,
+  .fc-toast,
+  .fc-ring,
+  .fc-nav-active::before {
+    animation: none;
+    transform: none;
+  }
+  :where(button, [role="button"], [role="tab"]):active:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* --- the living backdrop ---------------------------------------------------------------- */
+
+/* A soft glow in the section's colour behind the top of each page, over a faint dot grid. */
+.fc-ambient {
+  background-image:
+    radial-gradient(
+      900px 340px at 78% -60px,
+      color-mix(in srgb, var(--sec, var(--accent)) calc(var(--glow-strength) * 100%), transparent),
+      transparent 70%
+    ),
+    radial-gradient(color-mix(in srgb, var(--text-faint) 18%, transparent) 1px, transparent 1px);
+  background-size:
+    100% 100%,
+    22px 22px;
+  background-attachment: local, local;
+  transition: background-image 0.4s ease;
+}
+
+.fc-glass {
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px);
+  -webkit-backdrop-filter: saturate(1.4) blur(10px);
+}
+
+/* Stock avatars: hue from the symbol, lightness from the theme. */
+.fc-avatar {
+  color: hsl(var(--av-h) 70% var(--avatar-l));
+  background: hsl(var(--av-h) 55% var(--avatar-bg-l) / 0.55);
+  box-shadow: inset 0 0 0 1px hsl(var(--av-h) 60% 50% / 0.22);
+  letter-spacing: -0.02em;
+}
+
+/* Section accents */
+.fc-sec-tile {
+  color: var(--sec);
+  background: color-mix(in srgb, var(--sec) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sec) 28%, transparent);
+}
+.fc-sec-text {
+  color: var(--sec);
+}
+.fc-sec-glow {
+  background: radial-gradient(circle, color-mix(in srgb, var(--sec) 45%, transparent), transparent 70%);
+}
+
+.fc-ring-arc {
+  transition: stroke-dashoffset 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes fc-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+.fc-grow {
+  transform-origin: left;
+  animation: fc-grow 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Staggered entrance for grids of cards */
+.fc-stagger > * {
+  animation: fc-rise 0.4s ease-out both;
+}
+.fc-stagger > *:nth-child(2) {
+  animation-delay: 40ms;
+}
+.fc-stagger > *:nth-child(3) {
+  animation-delay: 80ms;
+}
+.fc-stagger > *:nth-child(4) {
+  animation-delay: 120ms;
+}
+.fc-stagger > *:nth-child(5) {
+  animation-delay: 160ms;
+}
+.fc-stagger > *:nth-child(n + 6) {
+  animation-delay: 200ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fc-skeleton,
+  .fc-grow,
+  .fc-stagger > *,
+  .fc-ring-arc {
+    animation: none;
+    transition: none;
   }
 }

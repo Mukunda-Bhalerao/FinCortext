@@ -32,6 +32,19 @@
   --series-7: #9085e9;
   --series-8: #e66767;
   --neutral-bar: #5b6574;
+  /* section identities */
+  --sec-dashboard: #5b8cff;
+  --sec-markets: #4f9dff;
+  --sec-watchlist: #f2b33d;
+  --sec-portfolios: #2fcf8a;
+  --sec-lab: #a07bff;
+  --sec-ipos: #ff6b8b;
+  --sec-research: #2ec5d8;
+  --sec-planner: #7b83ff;
+  --sec-learn: #34d0b0;
+  --glow-strength: 0.16;
+  --avatar-l: 64%;
+  --avatar-bg-l: 22%;
   color-scheme: dark;
 }
 
@@ -66,6 +79,18 @@
   --series-7: #6250d6;
   --series-8: #e34948;
   --neutral-bar: #aab2bd;
+  --sec-dashboard: #2f66e8;
+  --sec-markets: #1f6fe0;
+  --sec-watchlist: #c27c00;
+  --sec-portfolios: #0e9a5e;
+  --sec-lab: #7448e8;
+  --sec-ipos: #e03a62;
+  --sec-research: #0a93a8;
+  --sec-planner: #4b53e0;
+  --sec-learn: #0f9b80;
+  --glow-strength: 0.1;
+  --avatar-l: 38%;
+  --avatar-bg-l: 92%;
   color-scheme: light;
 }
 

@@ -1,3 +1,6 @@
+import { secStyle } from "../../components/PageHeader";
+import { StockAvatar } from "../../components/ui/visual";
+import { toast } from "../../lib/toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useParams } from "react-router-dom";
@@ -172,8 +175,14 @@ export function StockPage() {
 
   const toggleWatch = async () => {
     if (!q.data) return;
-    if (q.data.in_watchlist) await api.unwatch(q.data.instrument.instrument_key);
-    else await api.watch(q.data.instrument.instrument_key);
+    const sym = q.data.instrument.symbol;
+    if (q.data.in_watchlist) {
+      await api.unwatch(q.data.instrument.instrument_key);
+      toast(`Removed ${sym} from your watchlist`, { tone: "info" });
+    } else {
+      await api.watch(q.data.instrument.instrument_key);
+      toast(`Starred ${sym}`, { body: "It's on your watchlist now, and the research engine will keep it scored." });
+    }
     await Promise.all([
       qc.invalidateQueries({ queryKey: ["stock", symbol] }),
       qc.invalidateQueries({ queryKey: ["watchlist"] }),
@@ -206,8 +215,13 @@ export function StockPage() {
 
   return (
     <div className="mx-auto flex max-w-[1680px] flex-col gap-3 p-3 sm:p-4">
-      <section className="rounded-lg border border-line bg-surface p-4">
-        <div className="flex flex-wrap items-start gap-x-8 gap-y-3">
+      <section
+        className="fc-panel relative overflow-hidden rounded-xl border border-line bg-surface p-4"
+        style={secStyle("research")}
+      >
+        <div className="fc-sec-glow pointer-events-none absolute -top-24 -right-16 h-56 w-56 opacity-30" aria-hidden />
+        <div className="relative flex flex-wrap items-start gap-x-8 gap-y-3">
+          <StockAvatar symbol={d.instrument.symbol} size={48} className="rounded-xl text-base" />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-semibold tracking-tight text-fg">{d.instrument.symbol}</h1>

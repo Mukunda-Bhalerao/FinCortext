@@ -1,9 +1,10 @@
+import asyncio
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Response
 
 from app.api.deps import Services, services
-from app.errors import NotFound
+from app.errors import AppError, NotFound
 from app.schemas.market import (
     CandleSeries,
     Instrument,
@@ -60,6 +61,29 @@ async def stock(svc: Svc, symbol: str) -> StockSummary:
     if len(symbol) > 40:
         raise NotFound("Unknown symbol")
     return await svc.market.summary(svc.instruments.by_symbol(symbol))
+
+
+@router.get("/market/sparklines")
+async def sparklines(
+    svc: Svc,
+    keys: Annotated[str, Query(min_length=3, max_length=4000, description="Comma-separated keys")],
+    days: Annotated[int, Query(ge=5, le=90)] = 30,
+) -> dict[str, list[float]]:
+    """Recent daily closes per instrument, for small trend lines in tables. Real closes only:
+    an instrument with no history is left out rather than drawn flat."""
+    wanted = list(dict.fromkeys(k for k in keys.split(",") if k))[:60]
+    slots = asyncio.Semaphore(6)
+
+    async def one(key: str) -> tuple[str, list[float]]:
+        async with slots:
+            try:
+                series = await svc.candles.series(key, "1D")
+            except AppError:
+                return key, []
+            return key, [c.close for c in series.candles[-days:]]
+
+    pairs = await asyncio.gather(*(one(k) for k in wanted))
+    return {k: closes for k, closes in pairs if len(closes) >= 2}
 
 
 @router.get("/candles")

@@ -1,12 +1,16 @@
+import { useSparklines } from "../../lib/sparklines";
+import { AnimatedNumber, Sparkline, StockAvatar } from "../../components/ui/visual";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { EquityChart, type EquityLine } from "../../components/charts/EquityChart";
+import { useFlash } from "../../components/QuoteTable";
 import { EmptyState, ErrorState, Panel, Segmented, Skeleton, SkeletonRows, cx } from "../../components/ui/primitives";
 import { api } from "../../lib/api";
 import { fmtAgo, fmtPrice, fmtStamp } from "../../lib/format";
 import { useLiveSubscription, useTick } from "../../lib/live";
 import { useMarketOpen } from "../../lib/queries";
+import { toast } from "../../lib/toast";
 import { Term } from "../../components/Term";
 import type { OrderSide, PortfolioReview, ReviewPeriod, TrackedPortfolio, TrackedPosition } from "../../lib/types";
 import { pct, rupees } from "../portfolio/format";
@@ -121,7 +125,9 @@ function Header({ p }: { p: TrackedPortfolio }) {
         <div className="ml-auto flex flex-wrap gap-x-6 gap-y-2">
           <div>
             <div className="text-2xs tracking-wide text-faint uppercase">Account value</div>
-            <div className="num text-lg font-semibold text-fg">{rupees(p.account_value)}</div>
+            <div className="num text-2xl font-semibold tracking-tight text-fg">
+              <AnimatedNumber value={p.account_value} format={(v) => rupees(v)} />
+            </div>
           </div>
           <div>
             <div className="text-2xs tracking-wide text-faint uppercase">Return</div>
@@ -256,7 +262,7 @@ function ReviewSection({
   return (
     <section className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-xs font-semibold tracking-wide text-fg uppercase">What happened</h2>
+        <h2 className="text-sm font-semibold tracking-tight text-fg">What happened</h2>
         <div className="ml-auto overflow-x-auto">
           <Segmented value={period} onChange={setPeriod} options={PERIODS} />
         </div>
@@ -339,13 +345,24 @@ function ReviewSection({
   );
 }
 
-function PositionRow({ pid, p, onSell }: { pid: string; p: TrackedPosition; onSell?: (p: TrackedPosition) => void }) {
+function PositionRow({
+  pid,
+  p,
+  onSell,
+  spark,
+}: {
+  pid: string;
+  p: TrackedPosition;
+  onSell?: (p: TrackedPosition) => void;
+  spark?: number[];
+}) {
   const qc = useQueryClient();
   const tick = useTick(p.instrument_key);
   const marketOpen = useMarketOpen();
   const [editing, setEditing] = useState(false);
   const [qty, setQty] = useState(String(p.quantity));
   const price = marketOpen && tick?.ltp != null ? tick.ltp : p.price;
+  const flash = useFlash(price);
   const value = price != null ? price * p.quantity : null;
   const pnl = value != null ? value - p.cost : null;
   const dayPct = marketOpen && tick?.change_pct != null ? tick.change_pct / 100 : p.day_change_pct;
@@ -365,10 +382,15 @@ function PositionRow({ pid, p, onSell }: { pid: string; p: TrackedPosition; onSe
   return (
     <tr className="border-t border-line">
       <td className="px-3 py-2">
-        <Link to={`/stock/${encodeURIComponent(p.symbol)}`} className="font-medium text-fg hover:text-accent">
-          {p.symbol}
-        </Link>
-        <div className="max-w-48 truncate text-2xs text-faint">{p.sector}</div>
+        <div className="flex items-center gap-2.5">
+          <StockAvatar symbol={p.symbol} size={30} />
+          <div className="min-w-0">
+            <Link to={`/stock/${encodeURIComponent(p.symbol)}`} className="font-medium text-fg hover:text-accent">
+              {p.symbol}
+            </Link>
+            <div className="max-w-48 truncate text-2xs text-faint">{p.sector}</div>
+          </div>
+        </div>
       </td>
       <td className="num px-3 py-2 text-right">
         {editing ? (
@@ -405,8 +427,11 @@ function PositionRow({ pid, p, onSell }: { pid: string; p: TrackedPosition; onSe
         <div className="text-2xs text-faint">{fmtAgo(p.entry_at)}</div>
         {p.break_even != null && <div className="text-2xs text-faint">break-even {fmtPrice(p.break_even)}</div>}
       </td>
-      <td className="num px-3 py-2 text-right" title={p.price_basis ?? undefined}>
-        {fmtPrice(price)}
+      <td className={cx("num rounded px-3 py-2 text-right", flash)} title={p.price_basis ?? undefined}>
+        <div className="flex items-center justify-end gap-2">
+          <Sparkline points={spark} width={52} height={18} className="hidden md:block" />
+          {fmtPrice(price)}
+        </div>
       </td>
       <td className="num px-3 py-2 text-right">{rupees(value)}</td>
       <td className="px-3 py-2 text-right">
@@ -449,6 +474,7 @@ function PositionRow({ pid, p, onSell }: { pid: string; p: TrackedPosition; onSe
 function Positions({ p, onSell }: { p: TrackedPortfolio; onSell?: (p: TrackedPosition) => void }) {
   const marketOpen = useMarketOpen();
   useLiveSubscription(p.positions.map((x) => x.instrument_key));
+  const sparks = useSparklines(p.positions.map((x) => x.instrument_key));
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[720px] text-sm">
@@ -466,7 +492,7 @@ function Positions({ p, onSell }: { p: TrackedPortfolio; onSell?: (p: TrackedPos
         </thead>
         <tbody>
           {p.positions.map((x) => (
-            <PositionRow key={x.id} pid={p.id} p={x} onSell={onSell} />
+            <PositionRow key={x.id} pid={p.id} p={x} onSell={onSell} spark={sparks[x.instrument_key]} />
           ))}
         </tbody>
       </table>
@@ -494,6 +520,34 @@ function PaperAccount({
     refetchInterval: 15_000,
   });
   const openOrders = activity.data?.orders.filter((o) => o.status === "OPEN").length ?? 0;
+  // Tell the user when something they were waiting for happens while they watch.
+  const seen = useRef<Map<string, string> | null>(null);
+  const qc = useQueryClient();
+  useEffect(() => {
+    const orders = activity.data?.orders;
+    if (!orders) return;
+    const before = seen.current;
+    seen.current = new Map(orders.map((o) => [o.id, o.status]));
+    if (!before) return;
+    let changed = false;
+    for (const o of orders) {
+      if (before.get(o.id) !== "OPEN" || o.status === "OPEN") continue;
+      changed = true;
+      const verb = o.side === "BUY" ? "Bought" : "Sold";
+      if (o.status === "FILLED")
+        toast(`${verb} ${o.quantity} ${o.symbol} at ${fmtPrice(o.fill_price)}`, {
+          body: o.parent_id
+            ? o.kind === "SL"
+              ? "Your stop-loss was hit."
+              : "Your target was reached."
+            : (o.fill_basis ?? undefined),
+        });
+      else if (o.status === "REJECTED")
+        toast(`${o.symbol} order rejected`, { tone: "error", body: o.message ?? undefined });
+      else if (o.status === "EXPIRED") toast(`${o.symbol} day order expired unfilled`, { tone: "warning" });
+    }
+    if (changed) void qc.invalidateQueries({ queryKey: ["tracked", p.id] });
+  }, [activity.data, qc, p.id]);
   const tabs: { value: Tab; label: string }[] = [
     { value: "overview", label: "Overview" },
     { value: "orders", label: openOrders ? `Orders (${openOrders} open)` : "Orders" },

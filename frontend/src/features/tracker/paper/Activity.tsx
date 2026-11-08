@@ -1,3 +1,5 @@
+import { Ring, StockAvatar } from "../../../components/ui/visual";
+import { toast } from "../../../lib/toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Term } from "../../../components/Term";
 import { EmptyState, cx } from "../../../components/ui/primitives";
@@ -26,7 +28,11 @@ export function OrdersList({ pid, orders }: { pid: string; orders: PaperOrder[] 
   const qc = useQueryClient();
   const cancel = useMutation({
     mutationFn: (oid: string) => api.cancelOrder(pid, oid),
-    onSuccess: () => {
+    onSuccess: (o) => {
+      toast(`Cancelled your ${o.side === "BUY" ? "buy" : "sell"} order for ${o.symbol}`, {
+        tone: "info",
+        body: o.side === "BUY" ? "The cash it was holding is free again." : undefined,
+      });
       void qc.invalidateQueries({ queryKey: ["activity", pid] });
       void qc.invalidateQueries({ queryKey: ["tracked", pid] });
     },
@@ -121,7 +127,8 @@ export function Journal({ entries }: { entries: JournalEntry[] }) {
   return (
     <ul className="divide-y divide-line">
       {entries.map((e, k) => (
-        <li key={k} className="flex gap-3 px-3.5 py-3">
+        <li key={k} className="flex gap-3 px-3.5 py-3 hover:bg-surface-2/60">
+          <StockAvatar symbol={e.symbol} size={34} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
               <span className="text-sm font-semibold text-fg">{e.symbol}</span>
@@ -192,7 +199,10 @@ export function ScorecardView({ a }: { a: AccountActivity }) {
           {s.closed_trades}
         </Big>
         <Big label={<Term k="win rate">Win rate</Term>} sub={`${s.wins} won, ${s.losses} lost`}>
-          {pct(s.win_rate, 0)}
+          <span className="flex items-center gap-2.5">
+            <Ring value={s.win_rate} size={34} stroke={4} tone={(s.win_rate ?? 0) >= 0.5 ? "up" : "caution"} />
+            {pct(s.win_rate, 0)}
+          </span>
         </Big>
         <Big label={<Term k="realised P&L">Realised</Term>} sub="net of all charges">
           <Signed v={s.realized_net}>{rupees(s.realized_net)}</Signed>
@@ -205,7 +215,14 @@ export function ScorecardView({ a }: { a: AccountActivity }) {
               : "on the same dates"
           }
         >
-          {s.compared ? `${s.beat_index} of ${s.compared}` : "—"}
+          {s.compared ? (
+            <span className="flex items-center gap-2.5">
+              <Ring value={s.beat_index / s.compared} size={34} stroke={4} tone="accent" />
+              {s.beat_index} of {s.compared}
+            </span>
+          ) : (
+            "—"
+          )}
         </Big>
         <Big label="Average win">
           <Signed v={s.average_win}>{pct(s.average_win, 1, true)}</Signed>

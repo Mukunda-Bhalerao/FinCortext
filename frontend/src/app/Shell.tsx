@@ -2,21 +2,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { SearchBox } from "../components/SearchBox";
-import {
-  IconBook,
-  IconBriefcase,
-  IconClose,
-  IconDashboard,
-  IconFlask,
-  IconMarkets,
-  IconMenu,
-  IconMoon,
-  IconPortfolio,
-  IconResearch,
-  IconRocket,
-  IconSun,
-  IconWatchlist,
-} from "../components/ui/icons";
+import { IconClose, IconMenu, IconMoon, IconSun } from "../components/ui/icons";
+import { SECTION_ICON, secStyle, type Section } from "../components/PageHeader";
 import { cx } from "../components/ui/primitives";
 import { LOGIN_URL } from "../lib/api";
 import { fmtTimeIST } from "../lib/format";
@@ -25,18 +12,52 @@ import { useAuthStatus, useMarketStatus } from "../lib/queries";
 import { useHealth } from "../features/status/StatusPage";
 import { useStoredState } from "../lib/useStoredState";
 import { AlertsBell } from "../features/alerts/AlertsBell";
+import { Toaster } from "../components/Toaster";
+import { StatusCard } from "./StatusCard";
 
-const NAV = [
-  { to: "/", label: "Dashboard", icon: IconDashboard },
-  { to: "/markets", label: "Markets", icon: IconMarkets },
-  { to: "/watchlist", label: "Watchlist", icon: IconWatchlist },
-  { to: "/portfolios", label: "Portfolios", icon: IconBriefcase },
-  { to: "/lab", label: "Strategy Lab", icon: IconFlask },
-  { to: "/ipos", label: "IPOs", icon: IconRocket },
-  { to: "/research", label: "Research", icon: IconResearch },
-  { to: "/portfolio", label: "Planner", icon: IconPortfolio },
-  { to: "/learn", label: "Learn", icon: IconBook },
+type NavItem = { to: string; label: string; section: Section; hint: string };
+const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
+  {
+    title: "Markets",
+    items: [
+      { to: "/", label: "Dashboard", section: "dashboard", hint: "Today's market at a glance" },
+      { to: "/markets", label: "Markets", section: "markets", hint: "Indices, sectors and the day's movers" },
+      { to: "/watchlist", label: "Watchlist", section: "watchlist", hint: "Stocks you've starred, live" },
+      { to: "/ipos", label: "IPOs", section: "ipos", hint: "Open issues, demand and recent listings" },
+    ],
+  },
+  {
+    title: "Practice",
+    items: [
+      { to: "/portfolios", label: "Portfolios", section: "portfolios", hint: "Paper trading and stocks you track" },
+      { to: "/lab", label: "Strategy Lab", section: "lab", hint: "Test trading rules on years of real prices" },
+    ],
+  },
+  {
+    title: "Insight",
+    items: [
+      { to: "/research", label: "Research", section: "research", hint: "What the research engine thinks, and why" },
+      { to: "/portfolio", label: "Planner", section: "planner", hint: "Plan a portfolio and test it on history" },
+      { to: "/learn", label: "Learn", section: "learn", hint: "A learning path and every term explained" },
+    ],
+  },
 ];
+
+/** The section a path belongs to, for the page's colour. */
+function sectionOf(path: string): Section {
+  const routes: [string, Section][] = [
+    ["/markets", "markets"],
+    ["/watchlist", "watchlist"],
+    ["/ipos", "ipos"],
+    ["/portfolios", "portfolios"],
+    ["/lab", "lab"],
+    ["/research", "research"],
+    ["/stock", "research"],
+    ["/portfolio", "planner"],
+    ["/learn", "learn"],
+  ];
+  return routes.find(([prefix]) => path.startsWith(prefix))?.[1] ?? "dashboard";
+}
 
 function useTheme(): [string, () => void] {
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme ?? "dark");
@@ -176,30 +197,6 @@ function ConnectNotice() {
   );
 }
 
-function SystemLink({ compact }: { compact?: boolean }) {
-  const h = useHealth();
-  const state = h.isError ? "down" : (h.data?.overall ?? "ok");
-  const label =
-    state === "ok" ? "All systems working" : state === "degraded" ? "Some sources degraded" : "Backend unreachable";
-  return (
-    <NavLink
-      to="/status"
-      title={compact ? label : undefined}
-      aria-label={compact ? label : undefined}
-      className={cx("flex items-center gap-2 text-muted hover:text-fg", compact ? "justify-center py-1" : "mb-2")}
-    >
-      <span
-        className={cx(
-          "h-1.5 w-1.5 shrink-0 rounded-full",
-          state === "ok" ? "bg-up" : state === "degraded" ? "bg-caution" : "bg-down",
-        )}
-        aria-hidden
-      />
-      <span className={compact ? "sr-only" : undefined}>{label}</span>
-    </NavLink>
-  );
-}
-
 function BackendBanner() {
   const h = useHealth();
   if (!h.isError) return null;
@@ -265,36 +262,64 @@ export function Shell({ children }: { children: ReactNode }) {
             Fin<span className="text-accent">Cortext</span>
           </span>
         </div>
-        <nav className="flex flex-col gap-0.5 p-2">
-          {NAV.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === "/"}
-              title={collapsed ? label : undefined}
-              aria-label={collapsed ? label : undefined}
-              className={({ isActive }) =>
-                cx(
-                  "flex h-8 items-center gap-2.5 rounded-md text-sm transition-colors",
-                  collapsed ? "justify-center px-0" : "px-2.5",
-                  isActive ? "bg-accent-soft font-medium text-fg" : "text-muted hover:bg-surface-2 hover:text-fg",
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <Icon className={cx("shrink-0", isActive && "text-accent")} />
-                  <span className={cx("truncate", collapsed && "sr-only")}>{label}</span>
-                </>
+        <nav className="flex flex-col gap-3 overflow-y-auto p-2">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.title} className="flex flex-col gap-0.5">
+              {collapsed ? (
+                <div className="mx-auto my-1 h-px w-6 bg-line" aria-hidden />
+              ) : (
+                <div className="px-2.5 pt-1 pb-1 text-2xs font-semibold tracking-wider text-faint uppercase">
+                  {group.title}
+                </div>
               )}
-            </NavLink>
+              {group.items.map(({ to, label, section, hint }) => {
+                const Icon = SECTION_ICON[section];
+                return (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    end={to === "/" || to === "/portfolio"}
+                    title={collapsed ? `${label}: ${hint}` : hint}
+                    aria-label={collapsed ? label : undefined}
+                    style={secStyle(section)}
+                    className={({ isActive }) =>
+                      cx(
+                        "group relative flex h-8 items-center gap-2.5 rounded-md text-sm",
+                        collapsed ? "justify-center px-0" : "px-2",
+                        isActive
+                          ? "fc-nav-active bg-surface-2 font-medium text-fg"
+                          : "text-muted hover:translate-x-0.5 hover:bg-surface-2 hover:text-fg",
+                      )
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <span
+                          className={cx(
+                            "flex h-6 w-6 shrink-0 items-center justify-center rounded-md",
+                            isActive ? "fc-sec-tile" : "group-hover:fc-sec-text",
+                          )}
+                        >
+                          <Icon className={cx(!isActive && "transition-colors group-hover:text-[var(--sec)]")} />
+                        </span>
+                        <span className={cx("truncate", collapsed && "sr-only")}>{label}</span>
+                      </>
+                    )}
+                  </NavLink>
+                );
+              })}
+            </div>
           ))}
         </nav>
         <div
           className={cx("mt-auto border-t border-line text-2xs leading-relaxed text-faint", collapsed ? "p-2" : "p-3")}
         >
-          <SystemLink compact={collapsed} />
-          {!collapsed && "Research and education only. Not investment advice."}
+          <StatusCard compact={collapsed} />
+          {!collapsed && (
+            <p className="mt-2 px-2 text-2xs leading-relaxed text-faint">
+              Practice money only. Nothing here is investment advice.
+            </p>
+          )}
           <button
             onClick={() => setCollapsedPref(collapsed ? "0" : "1")}
             className={cx(
@@ -329,7 +354,7 @@ export function Shell({ children }: { children: ReactNode }) {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-[var(--topbar-h)] shrink-0 items-center gap-3 border-b border-line bg-surface px-3 sm:px-4">
+        <header className="fc-glass relative z-20 flex h-[var(--topbar-h)] shrink-0 items-center gap-3 border-b border-line px-3 sm:px-4">
           <button className="text-muted md:hidden" onClick={() => setNavOpen(true)} aria-label="Open navigation">
             <IconMenu />
           </button>
@@ -353,8 +378,11 @@ export function Shell({ children }: { children: ReactNode }) {
         <BackendBanner />
         <ConnectNotice />
         <ConnectionBanner />
-        <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
+        <main className="fc-ambient min-h-0 flex-1 overflow-y-auto" style={secStyle(sectionOf(location.pathname))}>
+          {children}
+        </main>
       </div>
+      <Toaster />
     </div>
   );
 }

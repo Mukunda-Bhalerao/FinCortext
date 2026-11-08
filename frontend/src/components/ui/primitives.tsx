@@ -24,10 +24,15 @@ export function Panel({
   bodyClassName?: string;
 }) {
   return (
-    <section className={cx("flex min-w-0 flex-col rounded-lg border border-line bg-surface", className)}>
+    <section
+      className={cx(
+        "fc-panel flex min-w-0 flex-col rounded-xl border border-line bg-surface shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]",
+        className,
+      )}
+    >
       {(title || actions) && (
-        <header className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-3.5 py-1.5">
-          <h2 className="text-xs font-semibold tracking-wide text-fg uppercase">{title}</h2>
+        <header className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-4 py-2">
+          <h2 className="text-sm font-semibold tracking-tight text-fg">{title}</h2>
           {meta && <div className="truncate text-2xs text-faint">{meta}</div>}
           <div className="ml-auto flex items-center gap-2">{actions}</div>
         </header>
@@ -55,11 +60,26 @@ export function SkeletonRows({ rows = 6 }: { rows?: number }) {
   );
 }
 
-export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
+export function EmptyState({ title, children, action }: { title: string; children?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex h-full min-h-28 flex-col items-center justify-center gap-1 px-6 py-8 text-center">
+    <div className="flex h-full min-h-28 flex-col items-center justify-center gap-1.5 px-6 py-8 text-center">
+      <span className="mb-1 flex h-9 w-9 items-center justify-center rounded-full bg-surface-3 text-faint" aria-hidden>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        >
+          <path d="M4 17l5-5 4 3 7-8" />
+          <path d="M4 21h16" />
+        </svg>
+      </span>
       <p className="text-sm font-medium text-muted">{title}</p>
-      {children && <div className="max-w-sm text-xs text-faint">{children}</div>}
+      {children && <div className="max-w-sm text-xs leading-relaxed text-faint">{children}</div>}
+      {action && <div className="mt-1.5">{action}</div>}
     </div>
   );
 }

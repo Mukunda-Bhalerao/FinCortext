@@ -1,3 +1,6 @@
+import { Ring } from "../../components/ui/visual";
+import { HeaderStat, PageHeader, secStyle } from "../../components/PageHeader";
+import { toast } from "../../lib/toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { EquityChart, type EquityLine } from "../../components/charts/EquityChart";
@@ -53,9 +56,17 @@ function SymbolResultView({ r }: { r: BacktestSymbol }) {
         <Stat label="Trades" sub={r.open_trade ? "last one still open" : undefined}>
           {r.trades.filter((t) => t.exit_reason !== "still held").length}
         </Stat>
-        <Stat label={<Term k="win rate">Win rate</Term>}>{pct(r.win_rate, 0)}</Stat>
+        <Stat label={<Term k="win rate">Win rate</Term>}>
+          <span className="flex items-center gap-1.5">
+            <Ring value={r.win_rate} size={22} stroke={3} tone={(r.win_rate ?? 0) >= 0.5 ? "up" : "caution"} />
+            {pct(r.win_rate, 0)}
+          </span>
+        </Stat>
         <Stat label={<Term k="exposure">In the market</Term>} sub={`charges ₹${r.charges.toFixed(0)}`}>
-          {pct(r.exposure, 0)}
+          <span className="flex items-center gap-1.5">
+            <Ring value={r.exposure} size={22} stroke={3} tone="accent" />
+            {pct(r.exposure, 0)}
+          </span>
         </Stat>
       </div>
       <EquityChart lines={lines} height={260} />
@@ -224,10 +235,27 @@ function StrategyCard({ s }: { s: SavedStrategy }) {
   const refresh = () => void qc.invalidateQueries({ queryKey: ["strategies"] });
   const start = useMutation({
     mutationFn: () => api.startStrategy(s.id, { portfolio_id: pid || paper[0]?.id || "", per_trade: Number(amount) }),
-    onSuccess: refresh,
+    onSuccess: (x) => {
+      refresh();
+      toast(`${x.name} is running`, {
+        body: `It checks the rules after each close and trades ${rupees(x.per_trade)} at a time in ${x.portfolio_name}.`,
+      });
+    },
   });
-  const stop = useMutation({ mutationFn: () => api.stopStrategy(s.id), onSuccess: refresh });
-  const remove = useMutation({ mutationFn: () => api.deleteStrategy(s.id), onSuccess: refresh });
+  const stop = useMutation({
+    mutationFn: () => api.stopStrategy(s.id),
+    onSuccess: (x) => {
+      refresh();
+      toast(`${x.name} stopped`, { tone: "info", body: "Anything it bought stays in the account until you sell." });
+    },
+  });
+  const remove = useMutation({
+    mutationFn: () => api.deleteStrategy(s.id),
+    onSuccess: () => {
+      refresh();
+      toast(`Deleted ${s.name}`, { tone: "info" });
+    },
+  });
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-3.5">
       <div className="flex items-center gap-2">
@@ -317,43 +345,55 @@ export function LabPage() {
   });
   const save = useMutation({
     mutationFn: (name: string) => api.saveStrategy({ name, rules, symbols }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["strategies"] }),
+    onSuccess: (x) => {
+      void qc.invalidateQueries({ queryKey: ["strategies"] });
+      toast(`Saved ${x.name}`, { body: "Find it under Saved strategies. You can run it forward on paper." });
+    },
   });
   const saved = useQuery({ queryKey: ["strategies"], queryFn: api.strategies, refetchInterval: 60_000 });
 
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-4 p-3 sm:p-4">
-      <div>
-        <h1 className="text-lg font-semibold text-fg">Strategy Lab</h1>
-        <p className="text-xs text-muted">
-          Write simple trading rules, test them on up to ten years of real prices with charges, check them on later
-          years they were not tuned on, then run them forward in a paper account.
-        </p>
-      </div>
+      <PageHeader
+        section="lab"
+        eyebrow="Experiment safely"
+        title="Strategy Lab"
+        subtitle="Turn a hunch into rules, test them on up to ten years of real prices with charges, check them on later years they never saw, then let them trade on paper."
+      >
+        {saved.data && <HeaderStat label="Saved">{saved.data.length}</HeaderStat>}
+        {saved.data && <HeaderStat label="Running">{saved.data.filter((s) => s.active).length}</HeaderStat>}
+      </PageHeader>
       <Panel title="Rules">
         <div className="flex flex-col gap-4 p-3.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-2xs tracking-wide text-faint uppercase">Start from</span>
-            {PRESETS.map((p) => (
-              <button
-                key={p.name}
-                title={p.about}
-                onClick={() => {
-                  setPreset(p.name);
-                  setRules(p.rules);
-                }}
-                className={cx(
-                  "rounded-full border px-2.5 py-1 text-xs",
-                  preset === p.name ? "border-accent bg-accent-soft text-fg" : "border-line text-muted hover:text-fg",
-                )}
-              >
-                {p.name}
-              </button>
-            ))}
+          <div>
+            <div className="mb-2 text-xs font-medium text-muted">Start from a classic idea, then make it yours</div>
+            <div className="fc-stagger grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              {PRESETS.map((p) => (
+                <button
+                  key={p.name}
+                  onClick={() => {
+                    setPreset(p.name);
+                    setRules(p.rules);
+                  }}
+                  className={cx(
+                    "fc-card flex flex-col gap-1 rounded-lg border p-3 text-left",
+                    preset === p.name
+                      ? "border-[var(--sec)] bg-[color-mix(in_srgb,var(--sec)_10%,transparent)]"
+                      : "border-line hover:border-line-strong",
+                  )}
+                  style={secStyle("lab")}
+                >
+                  <span className="flex items-center gap-2 text-sm font-medium text-fg">
+                    <span
+                      className={cx("h-2 w-2 rounded-full", preset === p.name ? "bg-[var(--sec)]" : "bg-line-strong")}
+                    />
+                    {p.name}
+                  </span>
+                  <span className="text-2xs leading-relaxed text-muted">{p.about}</span>
+                </button>
+              ))}
+            </div>
           </div>
-          {PRESETS.find((p) => p.name === preset) && (
-            <p className="-mt-2 text-2xs text-faint">{PRESETS.find((p) => p.name === preset)?.about}</p>
-          )}
           <RuleBuilder
             rules={rules}
             onChange={(r) => {
@@ -436,7 +476,7 @@ export function LabPage() {
       {run.data && <Results res={run.data} onSave={(n) => save.mutate(n)} saving={save.isPending} />}
       {save.isError && <p className="text-xs text-down">{(save.error as Error).message}</p>}
       <section className="flex flex-col gap-2">
-        <h2 className="text-xs font-semibold tracking-wide text-fg uppercase">Saved strategies</h2>
+        <h2 className="text-sm font-semibold tracking-tight text-fg">Saved strategies</h2>
         {saved.data?.length ? (
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {saved.data.map((s) => (

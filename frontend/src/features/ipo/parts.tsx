@@ -1,3 +1,4 @@
+import { Ring, StockAvatar } from "../../components/ui/visual";
 import { Link } from "react-router-dom";
 import { IconExternal } from "../../components/ui/icons";
 import { cx } from "../../components/ui/primitives";
@@ -84,7 +85,7 @@ export function IssueCard({ i, rank }: { i: IpoIssue; rank?: number }) {
   return (
     <Link
       to={`/ipos/${encodeURIComponent(i.symbol)}`}
-      className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4 transition-colors hover:border-line-strong hover:bg-surface-2"
+      className="fc-card flex flex-col gap-3 rounded-lg border border-line bg-surface p-4 hover:border-line-strong hover:bg-surface-2"
     >
       <div className="flex items-start gap-2">
         {rank != null && (
@@ -92,6 +93,7 @@ export function IssueCard({ i, rank }: { i: IpoIssue; rank?: number }) {
             {rank}
           </span>
         )}
+        <StockAvatar symbol={i.symbol} size={34} />
         <div className="min-w-0">
           <h3 className="truncate text-sm font-semibold text-fg">{i.company}</h3>
           <div className="text-2xs text-faint">
@@ -129,11 +131,16 @@ export function IssueCard({ i, rank }: { i: IpoIssue; rank?: number }) {
       {i.subscription_note && <p className="text-2xs text-caution">{i.subscription_note}</p>}
       {i.odds && (
         <div className="rounded-md border border-line bg-surface-2 px-3 py-2">
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xs tracking-wide text-faint uppercase">Track record</span>
-            <span className="num ml-auto text-sm font-semibold text-fg">
-              {Math.round(i.odds.above_issue * 100)}% listed higher
-            </span>
+          <div className="flex items-center gap-2.5">
+            <Ring value={i.odds.above_issue} size={38} stroke={4} tone={i.odds.above_issue >= 0.6 ? "up" : "caution"}>
+              <span className="num text-2xs font-semibold text-fg">{Math.round(i.odds.above_issue * 100)}</span>
+            </Ring>
+            <div>
+              <span className="text-2xs tracking-wide text-faint uppercase">Track record</span>
+              <div className="num text-sm font-semibold text-fg">
+                {Math.round(i.odds.above_issue * 100)}% listed higher
+              </div>
+            </div>
           </div>
           <p className="mt-0.5 text-2xs leading-relaxed text-muted">{i.odds.text}</p>
         </div>

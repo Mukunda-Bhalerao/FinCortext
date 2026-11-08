@@ -112,7 +112,7 @@ export function AgentCard({ output }: { output: AgentOutput }) {
     <section className="flex min-w-0 flex-col rounded-lg border border-line bg-surface">
       <header className="flex items-start gap-2 border-b border-line px-3.5 py-2.5">
         <div className="min-w-0">
-          <h3 className="text-xs font-semibold tracking-wide text-fg uppercase">{meta.title}</h3>
+          <h3 className="text-sm font-semibold tracking-tight text-fg">{meta.title}</h3>
           <p className="truncate text-2xs text-faint">{meta.scope}</p>
         </div>
         <div className="ml-auto">

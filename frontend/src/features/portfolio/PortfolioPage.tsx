@@ -1,3 +1,4 @@
+import { PageHeader } from "../../components/PageHeader";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -258,13 +259,13 @@ export function PortfolioPage() {
   return (
     <div className="mx-auto flex max-w-[1680px] flex-col gap-4 p-3 sm:p-4">
       <div className="flex flex-wrap items-start gap-x-6 gap-y-2">
-        <div className="min-w-0">
-          <h1 className="text-lg font-semibold text-fg">Planner</h1>
-          <p className="mt-0.5 max-w-3xl text-sm text-muted">
-            What matters in your watchlist as a portfolio, the options worth considering, and how each would have
-            behaved. Every number links back to its data.
-          </p>
-        </div>
+        <PageHeader
+          section="planner"
+          eyebrow="Plan and backtest"
+          title="Planner"
+          subtitle="Your watchlist as a portfolio: the options worth considering and how each would have behaved. Every number links back to its data."
+          className="min-w-0 flex-1"
+        />
         <div className="ml-auto flex flex-wrap items-center gap-3">
           <span className="text-2xs text-faint">
             {busy(status.data)

@@ -1,17 +1,12 @@
+import { useSparklines } from "../../lib/sparklines";
+import { Sparkline } from "../../components/ui/visual";
+import { toast } from "../../lib/toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { QuoteTable } from "../../components/QuoteTable";
 import { IconClose, IconExternal } from "../../components/ui/icons";
-import {
-  cx,
-  EmptyState,
-  ErrorState,
-  Panel,
-  Segmented,
-  Skeleton,
-  SkeletonRows,
-} from "../../components/ui/primitives";
+import { cx, EmptyState, ErrorState, Panel, Segmented, Skeleton, SkeletonRows } from "../../components/ui/primitives";
 import { api } from "../../lib/api";
 import { fmtAgo, fmtPct, fmtStamp } from "../../lib/format";
 import { mergeQuote, useLiveSubscription, useTick } from "../../lib/live";
@@ -29,6 +24,7 @@ export function WatchlistPanel({ limit, className }: { limit?: number; className
   const remove = async (key: string) => {
     await api.unwatch(key);
     await qc.invalidateQueries({ queryKey: ["watchlist"] });
+    toast("Removed from your watchlist", { tone: "info" });
   };
   const items = q.data ?? [];
   return (
@@ -129,7 +125,15 @@ export function MoversPanel({ className, count = 8 }: { className?: string; coun
             </div>
           )}
           {d[tab].length === 0 ? (
-            <EmptyState title={tab === "gainers" ? "No advancing constituents" : tab === "losers" ? "No declining constituents" : "No volume reported"} />
+            <EmptyState
+              title={
+                tab === "gainers"
+                  ? "No advancing constituents"
+                  : tab === "losers"
+                    ? "No declining constituents"
+                    : "No volume reported"
+              }
+            />
           ) : (
             <QuoteTable items={d[tab].slice(0, count)} showVolume={tab === "most_active"} showName={false} />
           )}
@@ -143,7 +147,7 @@ export function MoversPanel({ className, count = 8 }: { className?: string; coun
   );
 }
 
-function SectorTile({ item, marketOpen }: { item: LabeledQuote; marketOpen: boolean }) {
+function SectorTile({ item, marketOpen, spark }: { item: LabeledQuote; marketOpen: boolean; spark?: number[] }) {
   const navigate = useNavigate();
   const tick = useTick(item.instrument.instrument_key);
   const q = mergeQuote(item.quote, tick, marketOpen);
@@ -153,7 +157,7 @@ function SectorTile({ item, marketOpen }: { item: LabeledQuote; marketOpen: bool
   return (
     <button
       onClick={() => navigate(`/?chart=${encodeURIComponent(item.instrument.instrument_key)}`)}
-      className="relative overflow-hidden rounded-md border border-line px-2.5 py-2 text-left hover:border-line-strong"
+      className="fc-card relative overflow-hidden rounded-lg border border-line px-2.5 py-2 text-left hover:border-line-strong"
       title={`${item.instrument.name ?? item.label} · ${q.observedAt ? fmtStamp(q.observedAt) : "no data"}`}
     >
       <span
@@ -161,7 +165,10 @@ function SectorTile({ item, marketOpen }: { item: LabeledQuote; marketOpen: bool
         style={{ opacity: 0.05 + strength * 0.3 }}
         aria-hidden
       />
-      <span className="relative block truncate text-xs text-fg">{item.label}</span>
+      <span className="relative flex items-center justify-between gap-1">
+        <span className="truncate text-xs text-fg">{item.label}</span>
+        <Sparkline points={spark} width={40} height={14} fill={false} />
+      </span>
       <span
         className={cx(
           "num relative mt-0.5 block text-sm font-medium",
@@ -183,6 +190,7 @@ export function SectorBoard({ className }: { className?: string }) {
   });
   useLiveSubscription((q.data ?? []).map((i) => i.instrument.instrument_key));
   const items = (q.data ?? []).slice().sort((a, b) => (b.quote?.change_pct ?? -99) - (a.quote?.change_pct ?? -99));
+  const sparks = useSparklines(items.map((i) => i.instrument.instrument_key));
   return (
     <Panel title="Sectors" meta="NSE sectoral indices" className={className}>
       {q.isPending ? (
@@ -196,9 +204,14 @@ export function SectorBoard({ className }: { className?: string }) {
       ) : items.length === 0 ? (
         <EmptyState title="Sector indices unavailable" />
       ) : (
-        <div className="grid grid-cols-2 gap-1.5 p-3 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
+        <div className="fc-stagger grid grid-cols-2 gap-1.5 p-3 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
           {items.map((i) => (
-            <SectorTile key={i.instrument.instrument_key} item={i} marketOpen={marketOpen} />
+            <SectorTile
+              key={i.instrument.instrument_key}
+              item={i}
+              marketOpen={marketOpen}
+              spark={sparks[i.instrument.instrument_key]}
+            />
           ))}
         </div>
       )}
@@ -220,7 +233,9 @@ export function NewsPanel({ className, limit = 14 }: { className?: string; limit
         <ErrorState error={q.error} />
       ) : q.data.items.length === 0 ? (
         <EmptyState title="No headlines available">
-          {q.data.sources_failed.length ? `Could not reach: ${q.data.sources_failed.join(", ")}.` : "News feeds are turned off."}
+          {q.data.sources_failed.length
+            ? `Could not reach: ${q.data.sources_failed.join(", ")}.`
+            : "News feeds are turned off."}
         </EmptyState>
       ) : (
         <>
@@ -237,7 +252,9 @@ export function NewsPanel({ className, limit = 14 }: { className?: string; limit
                   <p className="mt-0.5 flex items-center gap-1.5 text-2xs text-faint">
                     <span className="text-muted">{n.publisher}</span>
                     <span>·</span>
-                    <span title={fmtStamp(n.published_at)}>{n.published_at ? fmtAgo(n.published_at) : "time not given"}</span>
+                    <span title={fmtStamp(n.published_at)}>
+                      {n.published_at ? fmtAgo(n.published_at) : "time not given"}
+                    </span>
                     <IconExternal width={11} height={11} className="ml-auto opacity-0 group-hover:opacity-100" />
                   </p>
                 </a>

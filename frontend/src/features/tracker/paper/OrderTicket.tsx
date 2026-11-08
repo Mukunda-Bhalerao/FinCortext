@@ -1,3 +1,4 @@
+import { toast } from "../../../lib/toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Term } from "../../../components/Term";
@@ -162,7 +163,21 @@ export function OrderTicket({
   });
   const place = useMutation({
     mutationFn: () => api.placeOrder(pid, body!),
-    onSuccess: () => {
+    onSuccess: (o) => {
+      const what = `${o.side === "BUY" ? "Buy" : "Sell"} ${o.quantity} ${o.symbol}`;
+      if (o.status === "FILLED")
+        toast(`${o.side === "BUY" ? "Bought" : "Sold"} ${o.quantity} ${o.symbol} at ${fmtPrice(o.fill_price)}`, {
+          body: o.reason ? `Saved to your journal: “${o.reason}”` : "Filled at the live price.",
+        });
+      else if (o.status === "OPEN")
+        toast(`${what} placed`, {
+          tone: "info",
+          body:
+            o.kind === "MARKET"
+              ? "The market is closed, so it fills at the first trade after the next open."
+              : "It waits for its price. You'll get a note here when it fills.",
+        });
+      else toast(`${what} was ${o.status.toLowerCase()}`, { tone: "warning", body: o.message ?? undefined });
       for (const k of [["tracked", pid], ["activity", pid], ["tracked-review", pid], ["tracked"]])
         void qc.invalidateQueries({ queryKey: k });
       setSize("");

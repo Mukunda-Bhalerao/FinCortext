@@ -1,3 +1,7 @@
+import { secStyle } from "../../components/PageHeader";
+import { AnimatedNumber, StockAvatar } from "../../components/ui/visual";
+import { PageHeader } from "../../components/PageHeader";
+import { toast } from "../../lib/toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -58,33 +62,76 @@ function PortfolioCard({ p }: { p: TrackedPortfolioRow }) {
   return (
     <Link
       to={`/portfolios/${p.id}`}
-      className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4 transition-colors hover:border-line-strong hover:bg-surface-2"
+      style={secStyle("portfolios")}
+      className="fc-card group relative flex flex-col gap-3 overflow-hidden rounded-xl border border-line bg-surface p-4 hover:border-line-strong"
     >
-      <div className="flex items-center gap-2">
-        <h2 className="truncate text-sm font-semibold text-fg">{p.name}</h2>
-        <KindBadge kind={p.kind} />
-        <span className="ml-auto shrink-0 text-2xs text-faint">
-          {p.positions} {p.positions === 1 ? "stock" : "stocks"}
-        </span>
+      <div
+        className={cx(
+          "absolute inset-x-0 top-0 h-0.5",
+          (paper ? p.account_return : p.pnl) == null || (paper ? p.account_return : p.pnl) === 0
+            ? "bg-line-strong"
+            : (paper ? p.account_return! : p.pnl!) > 0
+              ? "bg-up"
+              : "bg-down",
+        )}
+      />
+      <div className="flex items-center gap-2.5">
+        <StockAvatar symbol={p.name} size={34} />
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-semibold text-fg group-hover:text-[var(--sec)]">{p.name}</h2>
+          <div className="flex items-center gap-1.5 text-2xs text-faint">
+            <KindBadge kind={p.kind} />
+            <span>
+              {p.positions} {p.positions === 1 ? "stock" : "stocks"}
+            </span>
+          </div>
+        </div>
       </div>
       {paper ? (
-        <div className="grid grid-cols-3 gap-3">
-          <Cell label="Account">
-            <span className="num text-fg">{rupees(p.account_value)}</span>
-          </Cell>
-          <Cell label="Return">
-            <Signed v={p.account_return}>{pct(p.account_return, 2, true)}</Signed>
-          </Cell>
-          <Cell label="Cash">
-            <span className="num text-fg">{rupees(p.cash)}</span>
-          </Cell>
-        </div>
+        <>
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <div className="text-2xs tracking-wide text-faint uppercase">Account value</div>
+              <div className="num text-2xl font-semibold tracking-tight text-fg">
+                <AnimatedNumber value={p.account_value} format={(v) => rupees(v)} />
+              </div>
+            </div>
+            <span
+              className={cx(
+                "num rounded-full px-2 py-0.5 text-xs font-semibold",
+                (p.account_return ?? 0) > 0
+                  ? "bg-up-soft text-up"
+                  : (p.account_return ?? 0) < 0
+                    ? "bg-down-soft text-down"
+                    : "bg-surface-3 text-muted",
+              )}
+            >
+              {pct(p.account_return, 2, true)}
+            </span>
+          </div>
+          {p.account_value ? (
+            <div>
+              <div className="flex h-1.5 overflow-hidden rounded-full bg-surface-3">
+                <div
+                  className="fc-grow h-full bg-[var(--sec)]"
+                  style={{ width: `${Math.max(0, 1 - (p.cash ?? 0) / p.account_value) * 100}%` }}
+                />
+              </div>
+              <div className="mt-1 flex justify-between text-2xs text-faint">
+                <span>Invested {pct(Math.max(0, 1 - (p.cash ?? 0) / p.account_value), 0)}</span>
+                <span>Cash {rupees(p.cash)}</span>
+              </div>
+            </div>
+          ) : null}
+        </>
       ) : p.positions === 0 ? (
         <p className="text-xs text-faint">No stocks yet. Open it to add some.</p>
       ) : (
         <div className="grid grid-cols-3 gap-3">
           <Cell label="Value">
-            <span className="num text-fg">{rupees(p.value)}</span>
+            <span className="num text-fg">
+              <AnimatedNumber value={p.value} format={(v) => rupees(v)} />
+            </span>
           </Cell>
           <Cell label="Gain">
             <Signed v={p.pnl}>{pct(p.pnl_pct, 1, true)}</Signed>
@@ -121,6 +168,12 @@ function CreateForm({ onDone }: { onDone: () => void }) {
       }),
     onSuccess: (p) => {
       void qc.invalidateQueries({ queryKey: ["tracked"] });
+      toast(p.kind === "paper" ? `${p.name} is ready` : `Created ${p.name}`, {
+        body:
+          p.kind === "paper"
+            ? `${rupees(p.cash)} of virtual cash to practise with. Search a stock to place your first order.`
+            : "Add the stocks you own and come back in a few days to see what happened.",
+      });
       onDone();
       navigate(`/portfolios/${p.id}`);
     },
@@ -207,22 +260,21 @@ export function PortfoliosPage() {
 
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-4 p-3 sm:p-4">
-      <div className="flex flex-wrap items-end gap-3">
-        <div>
-          <h1 className="text-lg font-semibold text-fg">Portfolios</h1>
-          <p className="text-xs text-muted">
-            Practise with paper trading accounts, or track stocks you own. Each visit explains what changed and why.
-          </p>
-        </div>
+      <PageHeader
+        section="portfolios"
+        eyebrow="Practice"
+        title="Portfolios"
+        subtitle="Practise with virtual cash at live prices, or track stocks you own. Every visit explains what changed and why."
+      >
         {!creating && (
           <button
             onClick={() => setCreating(true)}
-            className="ml-auto h-8 rounded-md bg-accent px-3 text-sm font-medium text-white"
+            className="h-9 rounded-lg bg-accent px-4 text-sm font-medium text-white shadow-sm hover:brightness-110"
           >
-            New portfolio
+            + New portfolio
           </button>
         )}
-      </div>
+      </PageHeader>
       {creating && <CreateForm onDone={() => setCreating(false)} />}
       {list.isPending ? (
         <Panel>
@@ -247,8 +299,8 @@ export function PortfoliosPage() {
           ([title, items]) =>
             (items as TrackedPortfolioRow[]).length > 0 && (
               <section key={title as string} className="flex flex-col gap-2">
-                <h2 className="text-xs font-semibold tracking-wide text-fg uppercase">{title as string}</h2>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <h2 className="text-sm font-semibold tracking-tight text-fg">{title as string}</h2>
+                <div className="fc-stagger grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {(items as TrackedPortfolioRow[]).map((p) => (
                     <PortfolioCard key={p.id} p={p} />
                   ))}

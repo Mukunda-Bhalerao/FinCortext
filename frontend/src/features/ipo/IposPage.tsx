@@ -1,3 +1,5 @@
+import { Ring, StockAvatar } from "../../components/ui/visual";
+import { HeaderStat, PageHeader } from "../../components/PageHeader";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
@@ -21,9 +23,12 @@ function MoodCard({ m }: { m: IpoMood }) {
             <div className="num text-base font-semibold text-fg">{m.listed}</div>
             <div className="text-2xs text-faint">mainboard listings</div>
           </div>
-          <div>
-            <div className="num text-base font-semibold text-fg">{pct(m.above_issue_at_open, 0)}</div>
-            <div className="text-2xs text-faint">opened above issue</div>
+          <div className="flex items-center gap-2">
+            <Ring value={m.above_issue_at_open} size={36} stroke={4} tone="up" />
+            <div>
+              <div className="num text-base font-semibold text-fg">{pct(m.above_issue_at_open, 0)}</div>
+              <div className="text-2xs text-faint">opened above issue</div>
+            </div>
           </div>
           <div>
             <div className="text-base font-semibold">
@@ -46,7 +51,7 @@ function Section({ title, meta, children }: { title: string; meta?: string; chil
   return (
     <section className="flex flex-col gap-2.5">
       <div className="flex flex-wrap items-baseline gap-x-3">
-        <h2 className="text-xs font-semibold tracking-wide text-fg uppercase">{title}</h2>
+        <h2 className="text-sm font-semibold tracking-tight text-fg">{title}</h2>
         {meta && <span className="text-2xs text-faint">{meta}</span>}
       </div>
       {children}
@@ -56,7 +61,7 @@ function Section({ title, meta, children }: { title: string; meta?: string; chil
 
 function Cards({ items, ranked }: { items: IpoIssue[]; ranked?: boolean }) {
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <div className="fc-stagger grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
       {items.map((i, k) => (
         <IssueCard key={i.symbol} i={i} rank={ranked ? k + 1 : undefined} />
       ))}
@@ -93,8 +98,13 @@ function RecentListings({ items }: { items: IpoIssue[] }) {
               className="cursor-pointer border-t border-line hover:bg-surface-2"
             >
               <td className="max-w-64 px-3 py-2">
-                <div className="truncate font-medium text-fg">{i.company}</div>
-                <div className="text-2xs text-faint">{i.symbol}</div>
+                <div className="flex items-center gap-2.5">
+                  <StockAvatar symbol={i.symbol} size={28} />
+                  <div className="min-w-0">
+                    <div className="truncate font-medium text-fg">{i.company}</div>
+                    <div className="text-2xs text-faint">{i.symbol}</div>
+                  </div>
+                </div>
               </td>
               <td className="px-3 py-2 whitespace-nowrap text-muted">{fmtDay(i.listing_date)}</td>
               <td className="num px-3 py-2 text-right">{band(i)}</td>
@@ -177,13 +187,17 @@ export function IposPage() {
 
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-5 p-3 sm:p-4">
-      <div>
-        <h1 className="text-lg font-semibold text-fg">IPOs</h1>
-        <p className="text-xs text-muted">
-          Live NSE subscription data, how recent listings performed, and IPO news.
-          {o && ` Updated ${fmtStamp(o.as_of)}.`}
-        </p>
-      </div>
+      <PageHeader
+        section="ipos"
+        eyebrow={o ? `Updated ${fmtStamp(o.as_of)}` : "From NSE"}
+        title="IPOs"
+        subtitle="Who is bidding for each new issue, how recent listings actually did, and what similar issues did before."
+      >
+        {o && <HeaderStat label="Open now">{o.open.length}</HeaderStat>}
+        {o?.mood[0]?.above_issue_at_open != null && (
+          <HeaderStat label="Listed higher · 30d">{Math.round(o.mood[0].above_issue_at_open * 100)}%</HeaderStat>
+        )}
+      </PageHeader>
       {q.isPending ? (
         <Panel>
           <SkeletonRows rows={6} />
