@@ -107,11 +107,13 @@ export function EquityChart({
         lastValueVisible: true,
         title: line.label,
       });
+      // The chart library requires strictly increasing times: keep the last value per time.
+      const byTime = new Map<number, number>();
+      for (const p of line.points) byTime.set(p.time, unit === "rupees" ? p.value : p.value * 100);
       s.setData(
-        line.points.map((p) => ({
-          time: p.time as UTCTimestamp,
-          value: unit === "rupees" ? p.value : p.value * 100,
-        })),
+        [...byTime.entries()]
+          .sort((a, b) => a[0] - b[0])
+          .map(([time, value]) => ({ time: time as UTCTimestamp, value })),
       );
       return s;
     });

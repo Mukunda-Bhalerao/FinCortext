@@ -635,14 +635,6 @@ export interface HoldingRow {
   weight: number | null;
 }
 
-export interface BrokerStatus {
-  connected: boolean;
-  can_sync: boolean | null;
-  detail: string;
-  last_sync: string | null;
-  synced_count: number;
-}
-
 export interface PortfolioSummary {
   holdings: HoldingRow[];
   total_value: number | null;
@@ -652,7 +644,6 @@ export interface PortfolioSummary {
   day_change: number | null;
   cost_coverage: number;
   priced_at: string;
-  broker: BrokerStatus;
   notes: string[];
 }
 
@@ -854,11 +845,24 @@ export interface TrackedPosition {
   day_change: number | null;
   day_change_pct: number | null;
   weight: number | null;
+  charges: number;
+  reason: string | null;
+  tag: string | null;
+  break_even: number | null;
 }
 
 export interface TrackedPortfolio {
   id: string;
   name: string;
+  kind: "paper" | "tracking";
+  plan: string;
+  starting_cash: number | null;
+  cash: number | null;
+  reserved: number;
+  account_value: number | null;
+  account_return: number | null;
+  realized: number;
+  charges_paid: number;
   created_at: string;
   last_viewed_at: string | null;
   positions: TrackedPosition[];
@@ -874,6 +878,10 @@ export interface TrackedPortfolio {
 export interface TrackedPortfolioRow {
   id: string;
   name: string;
+  kind: "paper" | "tracking";
+  cash: number | null;
+  account_value: number | null;
+  account_return: number | null;
   created_at: string;
   last_viewed_at: string | null;
   positions: number;
@@ -1054,4 +1062,239 @@ export interface IpoDetail {
   news: ReviewHeadline[];
   as_of: string;
   gaps: string[];
+}
+
+// --- paper trading ---------------------------------------------------------------------------
+
+export type OrderSide = "BUY" | "SELL";
+export type OrderKind = "MARKET" | "LIMIT" | "SL";
+
+export interface OrderInput {
+  symbol: string;
+  side: OrderSide;
+  kind: OrderKind;
+  validity: "DAY" | "GTC";
+  quantity?: number | null;
+  amount?: number | null;
+  limit_price?: number | null;
+  trigger_price?: number | null;
+  reason?: string | null;
+  tag?: string | null;
+  target_price?: number | null;
+  stop_price?: number | null;
+}
+
+export interface Charges {
+  brokerage: number;
+  stt: number;
+  exchange: number;
+  sebi: number;
+  stamp: number;
+  gst: number;
+  dp: number;
+  total: number;
+}
+
+export interface OrderPreview {
+  symbol: string;
+  side: OrderSide;
+  quantity: number;
+  price: number;
+  price_basis: string;
+  value: number;
+  charges: Charges;
+  total: number;
+  break_even: number | null;
+  cash_after: number;
+  market_open: boolean;
+  fills: string;
+  warnings: string[];
+}
+
+export interface PaperOrder {
+  id: string;
+  symbol: string;
+  instrument_key: string;
+  side: OrderSide;
+  kind: OrderKind;
+  validity: "DAY" | "GTC";
+  quantity: number;
+  limit_price: number | null;
+  trigger_price: number | null;
+  status: "OPEN" | "FILLED" | "CANCELLED" | "EXPIRED" | "REJECTED";
+  created_at: string;
+  session: string;
+  fill_price: number | null;
+  filled_at: string | null;
+  fill_basis: string | null;
+  charges: Charges | null;
+  reason: string | null;
+  tag: string | null;
+  target_price: number | null;
+  stop_price: number | null;
+  parent_id: string | null;
+  source: string;
+  message: string | null;
+}
+
+export interface ClosedTrade {
+  id: string;
+  symbol: string;
+  quantity: number;
+  buy_price: number;
+  buy_at: string;
+  sell_price: number;
+  sell_at: string;
+  charges: number;
+  gross: number;
+  net: number;
+  return_pct: number;
+  holding_days: number;
+  term: "short" | "long";
+  buy_reason: string | null;
+  buy_tag: string | null;
+  sell_reason: string | null;
+  index_return: number | null;
+  beat_index: boolean | null;
+  source: string | null;
+}
+
+export interface JournalEntry {
+  kind: "open" | "closed";
+  symbol: string;
+  at: string;
+  quantity: number;
+  price: number;
+  reason: string | null;
+  tag: string | null;
+  outcome_pct: number | null;
+  outcome: number | null;
+  index_return: number | null;
+  verdict: string;
+  source: string | null;
+}
+
+export interface Scorecard {
+  closed_trades: number;
+  open_positions: number;
+  wins: number;
+  losses: number;
+  win_rate: number | null;
+  average_win: number | null;
+  average_loss: number | null;
+  best: ClosedTrade | null;
+  worst: ClosedTrade | null;
+  profit_factor: number | null;
+  realized_net: number;
+  charges_paid: number;
+  charges_share_of_gross: number | null;
+  days_held_winners: number | null;
+  days_held_losers: number | null;
+  beat_index: number;
+  compared: number;
+  index_equivalent: number | null;
+  by_tag: { tag: string; trades: number; wins: number; net: number; average_return: number }[];
+  tax: {
+    year: string;
+    short_term_gain: number;
+    long_term_gain: number;
+    estimated_tax: number;
+    note: string;
+  }[];
+  lessons: string[];
+}
+
+export interface AccountActivity {
+  orders: PaperOrder[];
+  trades: ClosedTrade[];
+  journal: JournalEntry[];
+  scorecard: Scorecard;
+}
+
+// --- strategy lab ----------------------------------------------------------------------------
+
+export type ConditionKind = "price_vs_sma" | "sma_cross" | "rsi" | "return" | "from_high";
+export type ConditionOp = "above" | "below" | "crosses_above" | "crosses_below";
+
+export interface RuleCondition {
+  kind: ConditionKind;
+  op: ConditionOp;
+  n: number;
+  m?: number | null;
+  value?: number | null;
+}
+
+export interface StrategyRules {
+  entry: RuleCondition[];
+  exit: RuleCondition[];
+  stop_loss: number | null;
+  take_profit: number | null;
+  max_days: number | null;
+}
+
+export interface BacktestTrade {
+  entry_date: string;
+  entry_price: number;
+  exit_date: string;
+  exit_price: number;
+  exit_reason: string;
+  quantity: number;
+  net: number;
+  return_pct: number;
+  days: number;
+}
+
+export interface BacktestSymbol {
+  symbol: string;
+  start: string;
+  end: string;
+  final_value: number;
+  total_return: number;
+  cagr: number | null;
+  max_drawdown: number;
+  trades: BacktestTrade[];
+  win_rate: number | null;
+  average_win: number | null;
+  average_loss: number | null;
+  exposure: number;
+  charges: number;
+  hold_return: number;
+  index_return: number | null;
+  equity: CurvePoint[];
+  hold: CurvePoint[];
+  index: CurvePoint[];
+  segments: {
+    label: string;
+    start: string;
+    end: string;
+    strategy_return: number;
+    hold_return: number;
+    trades: number;
+  }[];
+  verdict: string;
+  open_trade: boolean;
+}
+
+export interface BacktestResult {
+  rules_text: string[];
+  results: BacktestSymbol[];
+  skipped: string[];
+  summary: string;
+  assumptions: string[];
+  computed_at: string;
+}
+
+export interface SavedStrategy {
+  id: string;
+  name: string;
+  rules: StrategyRules;
+  rules_text: string[];
+  symbols: string[];
+  created_at: string;
+  portfolio_id: string | null;
+  portfolio_name: string | null;
+  per_trade: number | null;
+  active: boolean;
+  last_run: string | null;
+  last_note: string | null;
 }

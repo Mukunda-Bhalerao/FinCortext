@@ -9,6 +9,7 @@ from app.schemas.tracker import (
     PortfolioSummaryRow,
     PositionIn,
     QuantityIn,
+    RenameIn,
     Review,
     TrackedPortfolio,
 )
@@ -24,7 +25,8 @@ async def list_portfolios(svc: Svc) -> list[PortfolioSummaryRow]:
 
 @router.post("", status_code=201)
 async def create(svc: Svc, req: Annotated[PortfolioIn, Body()]) -> TrackedPortfolio:
-    return await svc.tracker.portfolio(svc.tracker.create(req.name))
+    pid = svc.tracker.create(req.name, req.kind, req.starting_cash, req.plan)
+    return await svc.tracker.portfolio(pid)
 
 
 @router.get("/{pid}")
@@ -33,7 +35,7 @@ async def get_portfolio(svc: Svc, pid: str) -> TrackedPortfolio:
 
 
 @router.patch("/{pid}")
-async def rename(svc: Svc, pid: str, req: Annotated[PortfolioIn, Body()]) -> TrackedPortfolio:
+async def rename(svc: Svc, pid: str, req: Annotated[RenameIn, Body()]) -> TrackedPortfolio:
     svc.tracker.rename(pid, req.name)
     return await svc.tracker.portfolio(pid)
 

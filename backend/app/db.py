@@ -150,6 +150,72 @@ CREATE TABLE IF NOT EXISTS tracked_positions (
     entry_at        TIMESTAMPTZ NOT NULL,
     entry_basis     VARCHAR NOT NULL
 );
+ALTER TABLE tracked_portfolios ADD COLUMN IF NOT EXISTS kind VARCHAR DEFAULT 'tracking';
+ALTER TABLE tracked_portfolios ADD COLUMN IF NOT EXISTS starting_cash DOUBLE;
+ALTER TABLE tracked_portfolios ADD COLUMN IF NOT EXISTS cash DOUBLE;
+ALTER TABLE tracked_portfolios ADD COLUMN IF NOT EXISTS plan VARCHAR DEFAULT 'zero';
+ALTER TABLE tracked_positions ADD COLUMN IF NOT EXISTS charges DOUBLE DEFAULT 0;
+ALTER TABLE tracked_positions ADD COLUMN IF NOT EXISTS reason VARCHAR;
+ALTER TABLE tracked_positions ADD COLUMN IF NOT EXISTS tag VARCHAR;
+ALTER TABLE tracked_positions ADD COLUMN IF NOT EXISTS index_at_entry DOUBLE;
+ALTER TABLE tracked_positions ADD COLUMN IF NOT EXISTS order_id VARCHAR;
+CREATE TABLE IF NOT EXISTS paper_orders (
+    id              VARCHAR PRIMARY KEY,
+    portfolio_id    VARCHAR NOT NULL,
+    instrument_key  VARCHAR NOT NULL,
+    side            VARCHAR NOT NULL,      -- BUY or SELL
+    kind            VARCHAR NOT NULL,      -- MARKET, LIMIT or SL (stop-loss market)
+    validity        VARCHAR NOT NULL,      -- DAY or GTC
+    quantity        DOUBLE NOT NULL,
+    limit_price     DOUBLE,
+    trigger_price   DOUBLE,
+    est_price       DOUBLE,                -- price used to set cash aside for a buy
+    status          VARCHAR NOT NULL,      -- OPEN, FILLED, CANCELLED, EXPIRED, REJECTED
+    created_at      TIMESTAMPTZ NOT NULL,
+    session         DATE NOT NULL,         -- trading day a DAY order belongs to
+    updated_at      TIMESTAMPTZ NOT NULL,
+    fill_price      DOUBLE,
+    filled_at       TIMESTAMPTZ,
+    fill_basis      VARCHAR,
+    charges         JSON,
+    reason          VARCHAR,
+    tag             VARCHAR,
+    target_price    DOUBLE,                -- on a buy: sell order placed once it fills
+    stop_price      DOUBLE,
+    parent_id       VARCHAR,               -- exits created by a filled buy (one cancels other)
+    source          VARCHAR NOT NULL,      -- 'you' or 'strategy:<id>'
+    message         VARCHAR
+);
+CREATE TABLE IF NOT EXISTS paper_trades (
+    id              VARCHAR PRIMARY KEY,
+    portfolio_id    VARCHAR NOT NULL,
+    instrument_key  VARCHAR NOT NULL,
+    quantity        DOUBLE NOT NULL,
+    buy_price       DOUBLE NOT NULL,
+    buy_at          TIMESTAMPTZ NOT NULL,
+    buy_charges     DOUBLE NOT NULL,
+    sell_price      DOUBLE NOT NULL,
+    sell_at         TIMESTAMPTZ NOT NULL,
+    sell_charges    DOUBLE NOT NULL,
+    buy_reason      VARCHAR,
+    buy_tag         VARCHAR,
+    sell_reason     VARCHAR,
+    index_at_buy    DOUBLE,
+    index_at_sell   DOUBLE,
+    source          VARCHAR
+);
+CREATE TABLE IF NOT EXISTS strategies (
+    id              VARCHAR PRIMARY KEY,
+    name            VARCHAR NOT NULL,
+    rules           JSON NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL,
+    portfolio_id    VARCHAR,               -- paper account it trades forward in, if any
+    symbols         JSON,
+    per_trade       DOUBLE,
+    active          BOOLEAN DEFAULT FALSE,
+    last_run        DATE,
+    last_note       VARCHAR
+);
 CREATE TABLE IF NOT EXISTS ipo_history (
     symbol          VARCHAR PRIMARY KEY,
     company         VARCHAR NOT NULL,

@@ -4,6 +4,8 @@ import { EmptyState } from "../components/ui/primitives";
 import { Dashboard } from "../features/dashboard/Dashboard";
 import { IpoDetailPage } from "../features/ipo/IpoDetailPage";
 import { IposPage } from "../features/ipo/IposPage";
+import { LabPage } from "../features/lab/LabPage";
+import { LearnPage } from "../features/learn/LearnPage";
 import { MarketsPage } from "../features/markets/MarketsPage";
 import { PortfolioPage } from "../features/portfolio/PortfolioPage";
 import { ResearchPage } from "../features/research/ResearchPage";
@@ -27,6 +29,8 @@ export function App() {
           <Route path="/portfolios/:id" element={<TrackedPortfolioPage />} />
           <Route path="/ipos" element={<IposPage />} />
           <Route path="/ipos/:symbol" element={<IpoDetailPage />} />
+          <Route path="/lab" element={<LabPage />} />
+          <Route path="/learn" element={<LearnPage />} />
           <Route path="/research" element={<ResearchPage />} />
           <Route path="/portfolio" element={<PortfolioPage />} />
           <Route path="/stock/:symbol" element={<StockPage />} />

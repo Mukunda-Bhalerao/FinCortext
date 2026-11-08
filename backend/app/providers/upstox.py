@@ -15,7 +15,6 @@ import json
 import logging
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Any
 from urllib.parse import quote, urlencode
@@ -48,33 +47,6 @@ _EQUITY_TYPES = {"EQ", "BE", "SM", "ST"}
 _INDEX_SEGMENTS = {"NSE_INDEX", "BSE_INDEX"}
 
 TokenGetter = Callable[[], str | None]
-
-
-@dataclass(frozen=True)
-class BrokerHolding:
-    instrument_key: str | None
-    symbol: str | None
-    isin: str | None
-    quantity: float  # settled plus T1 (bought, not yet in the demat account)
-    average_price: float | None
-    last_price: float | None
-    pnl: float | None
-
-
-def parse_holding(row: dict[str, Any]) -> BrokerHolding:
-    """One row of /v2/portfolio/long-term-holdings. Missing fields stay None."""
-    qty = (_num(row.get("quantity")) or 0.0) + (_num(row.get("t1_quantity")) or 0.0)
-    avg = _num(row.get("average_price"))
-    key = row.get("instrument_token") or row.get("instrument_key")
-    return BrokerHolding(
-        instrument_key=key if isinstance(key, str) and "|" in key else None,
-        symbol=row.get("trading_symbol") or row.get("tradingsymbol"),
-        isin=row.get("isin"),
-        quantity=qty,
-        average_price=avg if avg and avg > 0 else None,
-        last_price=_num(row.get("last_price")),
-        pnl=_num(row.get("pnl")),
-    )
 
 
 def authorization_url(api_key: str, redirect_uri: str, state: str) -> str:
@@ -291,11 +263,6 @@ class UpstoxProvider:
         body = await self._get("/v2/user/profile", reject_on_401=False)
         data = body.get("data") or {}
         return Profile(user_id=data.get("user_id"), user_name=data.get("user_name"))
-
-    async def get_holdings_raw(self) -> list[dict[str, Any]]:
-        """Long-term (delivery) holdings, read-only. Analytics tokens are not permitted."""
-        body = await self._get("/v2/portfolio/long-term-holdings", reject_on_401=False)
-        return [h for h in body.get("data") or [] if isinstance(h, dict)]
 
     # --- market data -------------------------------------------------------------
 

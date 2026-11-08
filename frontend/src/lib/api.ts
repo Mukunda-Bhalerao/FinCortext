@@ -1,6 +1,5 @@
 import type {
   AskAnswer,
-  BrokerStatus,
   PortfolioSummary,
   FeedEvent,
   GoalProjection,
@@ -26,6 +25,13 @@ import type {
   Timeframe,
   PortfolioReview,
   IpoDetail,
+  AccountActivity,
+  BacktestResult,
+  OrderInput,
+  OrderPreview,
+  PaperOrder,
+  SavedStrategy,
+  StrategyRules,
   IpoOverview,
   PositionInput,
   ReviewPeriod,
@@ -110,7 +116,6 @@ export const api = {
   plan: (prefs: Preferences) => request<PortfolioPlan>("/api/portfolio/plan", json("POST", prefs)),
   holdings: () => request<HoldingRow[]>("/api/portfolio/holdings"),
   summary: () => request<PortfolioSummary>("/api/portfolio/summary"),
-  syncHoldings: () => request<BrokerStatus>("/api/portfolio/holdings/sync", { method: "POST" }),
   saveHoldings: (items: { symbol: string; quantity: number; avg_cost: number | null }[]) =>
     request<HoldingRow[]>("/api/portfolio/holdings", json("PUT", items)),
   brief: () => request<Brief>("/api/portfolio/brief"),
@@ -123,7 +128,8 @@ export const api = {
   ask: (question: string, history: { role: "user" | "assistant"; content: string }[]) =>
     request<AskAnswer>("/api/assistant/ask", json("POST", { question, history })),
   tracked: () => request<TrackedPortfolioRow[]>("/api/tracker"),
-  createTracked: (name: string) => request<TrackedPortfolio>("/api/tracker", json("POST", { name })),
+  createTracked: (body: { name: string; kind: "paper" | "tracking"; starting_cash?: number | null; plan?: string }) =>
+    request<TrackedPortfolio>("/api/tracker", json("POST", body)),
   trackedPortfolio: (id: string) => request<TrackedPortfolio>(`/api/tracker/${q(id)}`),
   renameTracked: (id: string, name: string) =>
     request<TrackedPortfolio>(`/api/tracker/${q(id)}`, json("PATCH", { name })),
@@ -138,6 +144,21 @@ export const api = {
     request<PortfolioReview>(`/api/tracker/${q(id)}/review?period=${period}&narrate=${narrate}`),
   markViewed: (id: string) => request<void>(`/api/tracker/${q(id)}/viewed`, { method: "POST" }),
   ipos: () => request<IpoOverview>("/api/ipo"),
+  previewOrder: (id: string, body: OrderInput) =>
+    request<OrderPreview>(`/api/tracker/${q(id)}/orders/preview`, json("POST", body)),
+  placeOrder: (id: string, body: OrderInput) => request<PaperOrder>(`/api/tracker/${q(id)}/orders`, json("POST", body)),
+  cancelOrder: (id: string, orderId: string) =>
+    request<PaperOrder>(`/api/tracker/${q(id)}/orders/${q(orderId)}`, { method: "DELETE" }),
+  activity: (id: string) => request<AccountActivity>(`/api/tracker/${q(id)}/activity`),
+  backtest: (body: { symbols: string[]; rules: StrategyRules; years: number; capital: number; plan: string }) =>
+    request<BacktestResult>("/api/lab/backtest", json("POST", body)),
+  strategies: () => request<SavedStrategy[]>("/api/lab/strategies"),
+  saveStrategy: (body: { name: string; rules: StrategyRules; symbols: string[] }) =>
+    request<SavedStrategy>("/api/lab/strategies", json("POST", body)),
+  deleteStrategy: (sid: string) => request<void>(`/api/lab/strategies/${q(sid)}`, { method: "DELETE" }),
+  startStrategy: (sid: string, body: { portfolio_id: string; per_trade: number }) =>
+    request<SavedStrategy>(`/api/lab/strategies/${q(sid)}/start`, json("POST", body)),
+  stopStrategy: (sid: string) => request<SavedStrategy>(`/api/lab/strategies/${q(sid)}/stop`, { method: "POST" }),
   ipo: (symbol: string) => request<IpoDetail>(`/api/ipo/${encodeURIComponent(symbol)}`),
 };
 

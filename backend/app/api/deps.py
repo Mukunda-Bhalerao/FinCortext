@@ -14,11 +14,13 @@ from app.services.live import LiveHub
 from app.services.market import MarketService
 from app.services.monitor import SourceMonitor
 from app.services.news import NewsService
+from app.services.paper import PaperService
 from app.services.portfolio import PortfolioService
 from app.services.quotes import QuoteService
 from app.services.research import ResearchService
 from app.services.session import SessionClock
 from app.services.signal_lab import SignalLab
+from app.services.strategy import StrategyService
 from app.services.tracker import TrackerService
 from app.services.watcher import Watcher
 
@@ -44,6 +46,8 @@ class Services:
     watcher: Watcher
     tracker: TrackerService
     ipo: IpoService
+    paper: PaperService
+    lab_rules: StrategyService
 
 
 def services(request: Request) -> Services:

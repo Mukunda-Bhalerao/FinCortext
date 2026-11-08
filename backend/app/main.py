@@ -13,8 +13,10 @@ from app.api.routes import (
     events,
     ipo,
     market,
+    paper,
     portfolio,
     research,
+    strategy,
     system,
     tracker,
     ws,
@@ -23,7 +25,7 @@ from app.config import Settings, get_settings
 from app.db import Database
 from app.errors import AppError, app_error_handler
 from app.providers.ollama import OllamaClient
-from app.providers.upstox import UpstoxProvider, parse_holding
+from app.providers.upstox import UpstoxProvider
 from app.providers.upstox_feed import UpstoxFeed
 from app.providers.yahoo import YahooProvider
 from app.services.assistant import Assistant
@@ -36,12 +38,14 @@ from app.services.llm_budget import LLMBudget
 from app.services.market import MarketService
 from app.services.monitor import SourceMonitor
 from app.services.news import NewsService
+from app.services.paper import PaperService
 from app.services.portfolio import PortfolioService
 from app.services.quotes import QuoteService
 from app.services.research import ResearchService
 from app.services.research_data import ResearchData
 from app.services.session import SessionClock
 from app.services.signal_lab import SignalLab
+from app.services.strategy import StrategyService
 from app.services.tracker import TrackerService
 from app.services.watcher import Watcher
 
@@ -93,7 +97,11 @@ def build_services(settings: Settings, db: Database | None = None) -> Services:
     def followed_keys() -> list[str]:
         """Watchlist plus every stock held in a tracked portfolio: kept researched and watched."""
         tracked = [
-            r[0] for r in db.fetchall("SELECT DISTINCT instrument_key FROM tracked_positions")
+            r[0]
+            for r in db.fetchall(
+                "SELECT DISTINCT instrument_key FROM tracked_positions UNION "
+                "SELECT DISTINCT instrument_key FROM paper_orders WHERE status = 'OPEN'"
+            )
         ]
         return list(dict.fromkeys(market.watchlist_keys() + tracked))
 
@@ -102,9 +110,6 @@ def build_services(settings: Settings, db: Database | None = None) -> Services:
     )
     lab = SignalLab(db, instruments, data)
 
-    async def broker_holdings():
-        return [parse_holding(r) for r in await provider.get_holdings_raw()]
-
     portfolio = PortfolioService(
         db,
         instruments,
@@ -112,10 +117,10 @@ def build_services(settings: Settings, db: Database | None = None) -> Services:
         research,
         market.watchlist_keys,
         lab.verdicts,
-        broker_holdings,
-        lambda: auth.status().connected,
     )
     assistant = Assistant(db, portfolio, research, instruments, llm, monitor, budget, lab)
+    tracker = TrackerService(db, instruments, data, portfolio, research, assistant.narrate)
+    paper = PaperService(db, instruments, data, tracker, clock, research.enqueue)
     return Services(
         settings=settings,
         db=db,
@@ -131,7 +136,9 @@ def build_services(settings: Settings, db: Database | None = None) -> Services:
         research=research,
         portfolio=portfolio,
         assistant=assistant,
-        tracker=TrackerService(db, instruments, data, portfolio, research, assistant.narrate),
+        tracker=tracker,
+        paper=paper,
+        lab_rules=StrategyService(db, instruments, candles, paper, tracker, clock),
         ipo=IpoService(db, instruments, candles, monitor),
         monitor=monitor,
         lab=lab,
@@ -165,9 +172,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     svc.research.start()
     svc.watcher.start()
     loader = asyncio.create_task(_reference_data_loop(svc))
+    background = [asyncio.create_task(svc.paper.run()), asyncio.create_task(svc.lab_rules.run())]
     try:
         yield
     finally:
+        for task in background:
+            task.cancel()
         loader.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await loader
@@ -187,7 +197,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=get_settings().allowed_origins,
-        allow_methods=["GET", "PUT", "POST", "DELETE"],
+        allow_methods=["GET", "PUT", "POST", "PATCH", "DELETE"],
         allow_headers=["Content-Type"],
     )
     app.add_exception_handler(AppError, app_error_handler)
@@ -199,6 +209,8 @@ def create_app() -> FastAPI:
     app.include_router(events.router)
     app.include_router(tracker.router)
     app.include_router(ipo.router)
+    app.include_router(paper.router)
+    app.include_router(strategy.router)
     app.include_router(ws.router)
     return app
 

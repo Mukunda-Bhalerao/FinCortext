@@ -16,16 +16,14 @@ import random
 import statistics
 import time
 from collections import OrderedDict
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from app.db import Database, _as_utc
-from app.errors import AppError, NotConnected, NotFound, ProviderRequestError
-from app.providers.upstox import BrokerHolding
+from app.errors import AppError, NotFound
 from app.schemas.market import Instrument
 from app.schemas.plan import (
-    BrokerStatus,
     GoalPoint,
     GoalProjection,
     GoalRequest,
@@ -158,11 +156,7 @@ class PortfolioService:
         research: ResearchService,
         watchlist_keys: Callable[[], list[str]],
         research_verdicts: Callable[[], dict[str, str]] | None = None,
-        broker: Callable[[], Awaitable[list[BrokerHolding]]] | None = None,
-        broker_connected: Callable[[], bool] | None = None,
     ):
-        self._broker = broker
-        self._broker_connected = broker_connected or (lambda: False)
         self._research_verdicts = research_verdicts or (lambda: {})
         self._db = db
         self._instruments = instruments
@@ -1120,113 +1114,19 @@ class PortfolioService:
             day_change=day_change if day_known else None,
             cost_coverage=known_value / total if total else 0.0,
             priced_at=datetime.now(UTC),
-            broker=self.broker_status(),
             notes=notes,
         )
 
-    def broker_status(self) -> BrokerStatus:
-        row = self._db.fetchone("SELECT v FROM meta WHERE k = 'broker.sync'")
-        last = json.loads(row[0]) if row else None
-        connected = self._broker_connected()
-        if last is None:
-            detail = (
-                "Not synced yet."
-                if connected
-                else "Upstox is not connected; enter holdings by hand."
-            )
-        else:
-            detail = last["detail"]
-        return BrokerStatus(
-            connected=connected,
-            can_sync=last["ok"] if last else None,
-            detail=detail,
-            last_sync=datetime.fromisoformat(last["at"]) if last else None,
-            synced_count=last.get("count", 0) if last else 0,
-        )
-
-    def _record_sync(self, ok: bool, detail: str, count: int = 0) -> None:
-        self._db.execute(
-            "INSERT OR REPLACE INTO meta VALUES ('broker.sync', ?, ?)",
-            [
-                json.dumps(
-                    {
-                        "ok": ok,
-                        "detail": detail,
-                        "count": count,
-                        "at": datetime.now(UTC).isoformat(),
-                    }
-                ),
-                datetime.now(UTC),
-            ],
-        )
-
-    async def sync_broker(self) -> BrokerStatus:
-        """Replace the broker-sourced holdings with Upstox's read-only holdings list."""
-        if self._broker is None:
-            self._record_sync(False, "No broker connection is configured.")
-            return self.broker_status()
-        try:
-            rows = await self._broker()
-        except ProviderRequestError:
-            self._record_sync(
-                False,
-                "This Upstox token cannot read holdings. Analytics tokens are market-data only; "
-                "connect through the Upstox login (UPSTOX_API_KEY and UPSTOX_API_SECRET in .env) "
-                "to sync, or enter holdings by hand.",
-            )
-            return self.broker_status()
-        except NotConnected:
-            self._record_sync(False, "Upstox is not connected.")
-            return self.broker_status()
-        except AppError as exc:
-            self._record_sync(False, f"Sync failed: {exc.message}")
-            return self.broker_status()
-        now = datetime.now(UTC)
-        resolved = []
-        skipped = []
-        for h in rows:
-            if h.quantity <= 0:
-                continue
-            inst = None
-            with contextlib.suppress(NotFound):
-                if h.instrument_key:
-                    inst = self._instruments.get(h.instrument_key)
-                elif h.symbol:
-                    inst = self._instruments.by_symbol(h.symbol)
-            if inst is None:
-                skipped.append(h.symbol or h.isin or "unknown")
-                continue
-            resolved.append((inst.instrument_key, h.quantity, h.average_price, h.pnl))
-        self._db.execute("DELETE FROM holdings WHERE source = 'upstox'")
-        for key, qty, cost, pnl in resolved:
-            self._db.execute(
-                "INSERT OR REPLACE INTO holdings (instrument_key, quantity, avg_cost, updated_at, "
-                "source, broker_pnl) VALUES (?, ?, ?, ?, 'upstox', ?)",
-                [key, qty, cost, now, pnl],
-            )
-        detail = f"Synced {len(resolved)} holding(s) from Upstox."
-        if skipped:
-            detail += f" Not matched to an NSE equity: {', '.join(skipped[:5])}."
-        self._record_sync(True, detail, len(resolved))
-        self._plans.clear()
-        return self.broker_status()
-
     def set_holdings(self, items: list[HoldingIn]) -> None:
-        """Replace the hand-entered holdings; broker-synced rows are left as they are."""
+        """Replace the holdings the planner analyses (entered by hand)."""
         resolved = []
         for item in items:
             inst = self._instruments.by_symbol(item.symbol.upper())
             resolved.append((inst.instrument_key, item.quantity, item.avg_cost))
-        broker = {
-            r[0]
-            for r in self._db.fetchall(
-                "SELECT instrument_key FROM holdings WHERE source = 'upstox'"
-            )
-        }
         now = datetime.now(UTC)
-        self._db.execute("DELETE FROM holdings WHERE source = 'manual' OR source IS NULL")
+        self._db.execute("DELETE FROM holdings")
         for key, qty, cost in resolved:
-            if qty > 0 and key not in broker:
+            if qty > 0:
                 self._db.execute(
                     "INSERT OR REPLACE INTO holdings (instrument_key, quantity, avg_cost, "
                     "updated_at, source) VALUES (?, ?, ?, ?, 'manual')",

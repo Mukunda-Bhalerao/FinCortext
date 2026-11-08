@@ -41,6 +41,7 @@ from app.services.research import ResearchService
 from app.services.research_data import SECTOR_INDEX, ResearchData
 from app.tools import tracking as T
 from app.tools.backtest import session_date
+from app.tools.charges import break_even
 from app.tools.headlines import score_headline
 from app.tools.market_hours import to_ist
 from app.tools.research_diff import SIGNAL_LABEL, diff_reports
@@ -48,6 +49,7 @@ from app.tools.research_diff import SIGNAL_LABEL, diff_reports
 log = logging.getLogger(__name__)
 
 MAX_PORTFOLIOS = 20
+DEFAULT_CASH = 100_000.0
 MAX_POSITIONS = 40
 SOURCE = "FinCortext portfolio tracker"
 PERIOD_LABEL = {
@@ -122,6 +124,24 @@ class TrackerService:
             raise NotFound("Portfolio not found.")
         return row
 
+    def account(self, pid: str) -> tuple[str, float | None, float | None, str]:
+        """(kind, starting cash, cash, brokerage plan)."""
+        row = self._db.fetchone(
+            "SELECT coalesce(kind, 'tracking'), starting_cash, cash, coalesce(plan, 'zero') "
+            "FROM tracked_portfolios WHERE id = ?",
+            [pid],
+        )
+        if row is None:
+            raise NotFound("Portfolio not found.")
+        return row
+
+    def _require_tracking(self, pid: str) -> None:
+        if self.account(pid)[0] == "paper":
+            raise AppError(
+                "This is a paper trading account: buy and sell through orders instead.",
+                status_code=422,
+            )
+
     def _positions(self, pid: str) -> list[tuple]:
         return self._db.fetchall(
             "SELECT id, instrument_key, quantity, entry_price, entry_at, entry_basis "
@@ -129,14 +149,22 @@ class TrackerService:
             [pid],
         )
 
-    def create(self, name: str) -> str:
+    def create(
+        self,
+        name: str,
+        kind: str = "tracking",
+        starting_cash: float | None = None,
+        plan: str = "zero",
+    ) -> str:
         count = self._db.fetchone("SELECT count(*) FROM tracked_portfolios")
         if count and count[0] >= MAX_PORTFOLIOS:
             raise AppError(f"At most {MAX_PORTFOLIOS} portfolios.", status_code=422)
+        cash = (starting_cash or DEFAULT_CASH) if kind == "paper" else None
         pid = uuid.uuid4().hex[:12]
         self._db.execute(
-            "INSERT INTO tracked_portfolios VALUES (?, ?, ?, NULL)",
-            [pid, name.strip(), datetime.now(UTC)],
+            "INSERT INTO tracked_portfolios (id, name, created_at, last_viewed_at, kind, "
+            "starting_cash, cash, plan) VALUES (?, ?, ?, NULL, ?, ?, ?, ?)",
+            [pid, name.strip(), datetime.now(UTC), kind, cash, cash, plan],
         )
         return pid
 
@@ -146,6 +174,12 @@ class TrackerService:
 
     def delete(self, pid: str) -> None:
         self._row(pid)
+        for table in ("paper_orders", "paper_trades"):
+            self._db.execute(f"DELETE FROM {table} WHERE portfolio_id = ?", [pid])
+        self._db.execute(
+            "UPDATE strategies SET active = FALSE, portfolio_id = NULL WHERE portfolio_id = ?",
+            [pid],
+        )
         self._db.execute("DELETE FROM tracked_positions WHERE portfolio_id = ?", [pid])
         self._db.execute("DELETE FROM tracked_portfolios WHERE id = ?", [pid])
 
@@ -157,11 +191,13 @@ class TrackerService:
         )
 
     def remove_position(self, pid: str, position_id: str) -> None:
+        self._require_tracking(pid)
         self._db.execute(
             "DELETE FROM tracked_positions WHERE portfolio_id = ? AND id = ?", [pid, position_id]
         )
 
     def set_quantity(self, pid: str, position_id: str, quantity: float) -> None:
+        self._require_tracking(pid)
         self._db.execute(
             "UPDATE tracked_positions SET quantity = ? WHERE portfolio_id = ? AND id = ?",
             [quantity, pid, position_id],
@@ -169,6 +205,7 @@ class TrackerService:
 
     async def add_position(self, pid: str, req: PositionIn) -> None:
         self._row(pid)
+        self._require_tracking(pid)
         if len(self._positions(pid)) >= MAX_POSITIONS:
             raise AppError(f"At most {MAX_POSITIONS} stocks per portfolio.", status_code=422)
         inst = self._instruments.by_symbol(req.symbol.upper().strip())
@@ -220,7 +257,8 @@ class TrackerService:
         else:
             raise AppError("Give a quantity or an amount.", status_code=422)
         self._db.execute(
-            "INSERT INTO tracked_positions VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO tracked_positions (id, portfolio_id, instrument_key, quantity, "
+            "entry_price, entry_at, entry_basis) VALUES (?, ?, ?, ?, ?, ?, ?)",
             [uuid.uuid4().hex[:12], pid, inst.instrument_key, qty, price, entry_at, basis],
         )
         # Keep the stock researched so later reviews can show what changed.
@@ -262,13 +300,26 @@ class TrackerService:
                     pnl=p.pnl,
                     pnl_pct=p.pnl_pct,
                     day_change_pct=p.day_change_pct,
+                    kind=p.kind,
+                    cash=p.cash,
+                    account_value=p.account_value,
+                    account_return=p.account_return,
                 )
             )
         return out
 
     async def portfolio(self, pid: str) -> TrackedPortfolio:
         pid_, name, created, viewed = self._row(pid)
+        kind, starting_cash, cash, plan = self.account(pid)
         rows = self._positions(pid)
+        extra = {
+            r[0]: r[1:]
+            for r in self._db.fetchall(
+                "SELECT id, coalesce(charges, 0), reason, tag FROM tracked_positions "
+                "WHERE portfolio_id = ?",
+                [pid],
+            )
+        }
         found = self._instruments.get_many([r[1] for r in rows])
         insts = [found[r[1]] for r in rows if r[1] in found]
         live = await self._live(insts) if insts else {}
@@ -314,6 +365,12 @@ class TrackerService:
                     day_change=qty * change if change is not None else None,
                     day_change_pct=change / prev if change is not None and prev else None,
                     weight=None,
+                    charges=float(extra.get(row_id, (0.0,))[0] or 0.0),
+                    reason=extra.get(row_id, (0, None))[1],
+                    tag=extra.get(row_id, (0, None, None))[2],
+                    break_even=(
+                        break_even(float(entry), float(qty), plan) if kind == "paper" else None
+                    ),
                 )
             )
         total = sum(p.value for p in positions if p.value is not None) or None
@@ -323,6 +380,19 @@ class TrackerService:
         priced_cost = sum(p.cost for p in positions if p.value is not None)
         pnl = total - priced_cost if total is not None else None
         base = (total or 0) - day_total
+        account_value = account_return = None
+        reserved = realized = charges_paid = 0.0
+        if kind == "paper":
+            reserved = self.reserved_cash(pid)
+            realized, sell_charges = self._db.fetchone(
+                "SELECT coalesce(sum((sell_price - buy_price) * quantity - buy_charges - "
+                "sell_charges), 0), coalesce(sum(sell_charges + buy_charges), 0) "
+                "FROM paper_trades WHERE portfolio_id = ?",
+                [pid],
+            )
+            charges_paid = float(sell_charges) + sum(p.charges for p in positions)
+            account_value = float(cash or 0) + (total or 0.0)
+            account_return = account_value / starting_cash - 1 if starting_cash else None
         return TrackedPortfolio(
             id=pid_,
             name=name,
@@ -336,7 +406,27 @@ class TrackerService:
             day_change=day_total if day_known else None,
             day_change_pct=day_total / base if day_known and base > 0 else None,
             priced_at=datetime.now(UTC),
+            kind=kind,
+            plan=plan,
+            starting_cash=starting_cash,
+            cash=cash,
+            reserved=reserved,
+            account_value=account_value,
+            account_return=account_return,
+            realized=float(realized),
+            charges_paid=charges_paid,
         )
+
+    def reserved_cash(self, pid: str) -> float:
+        """Cash set aside for open buy orders: their value at the limit (or last known) price
+        plus charges, so two orders cannot spend the same money."""
+        row = self._db.fetchone(
+            "SELECT coalesce(sum(quantity * coalesce(limit_price, trigger_price, est_price, 0)), "
+            "0) FROM paper_orders WHERE portfolio_id = ? AND side = 'BUY' AND status = 'OPEN'",
+            [pid],
+        )
+        value = float(row[0]) if row else 0.0
+        return value * 1.002  # charges on a delivery buy stay below 0.2%
 
     # --- review: what happened and why --------------------------------------------------
 

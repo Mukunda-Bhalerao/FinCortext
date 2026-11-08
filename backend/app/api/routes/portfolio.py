@@ -5,7 +5,6 @@ from fastapi import APIRouter, Body, Depends, Query
 from app.api.deps import Services, services
 from app.schemas.insights import Brief
 from app.schemas.plan import (
-    BrokerStatus,
     GoalProjection,
     GoalRequest,
     HoldingIn,
@@ -73,14 +72,8 @@ async def goal(svc: Svc, req: GoalRequest) -> GoalProjection:
 
 @router.get("/summary")
 async def summary(svc: Svc) -> PortfolioSummary:
-    """Holdings with value, cost, P&L, weights and the broker sync status."""
+    """Holdings with value, cost, P&L and weights."""
     return await svc.portfolio.summary()
-
-
-@router.post("/holdings/sync")
-async def sync_holdings(svc: Svc) -> BrokerStatus:
-    """Read holdings from Upstox (read-only; FinCortext never places orders)."""
-    return await svc.portfolio.sync_broker()
 
 
 @router.get("/holdings")

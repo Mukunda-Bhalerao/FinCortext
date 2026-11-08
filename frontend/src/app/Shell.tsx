@@ -3,9 +3,11 @@ import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { SearchBox } from "../components/SearchBox";
 import {
+  IconBook,
   IconBriefcase,
   IconClose,
   IconDashboard,
+  IconFlask,
   IconMarkets,
   IconMenu,
   IconMoon,
@@ -28,10 +30,12 @@ const NAV = [
   { to: "/", label: "Dashboard", icon: IconDashboard },
   { to: "/markets", label: "Markets", icon: IconMarkets },
   { to: "/watchlist", label: "Watchlist", icon: IconWatchlist },
-  { to: "/portfolios", label: "My Portfolios", icon: IconBriefcase },
+  { to: "/portfolios", label: "Portfolios", icon: IconBriefcase },
+  { to: "/lab", label: "Strategy Lab", icon: IconFlask },
   { to: "/ipos", label: "IPOs", icon: IconRocket },
   { to: "/research", label: "Research", icon: IconResearch },
-  { to: "/portfolio", label: "Portfolio", icon: IconPortfolio },
+  { to: "/portfolio", label: "Planner", icon: IconPortfolio },
+  { to: "/learn", label: "Learn", icon: IconBook },
 ];
 
 function useTheme(): [string, () => void] {

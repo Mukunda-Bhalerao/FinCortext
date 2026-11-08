@@ -7,10 +7,13 @@ import { api } from "../../lib/api";
 import { fmtAgo, fmtPrice, fmtStamp } from "../../lib/format";
 import { useLiveSubscription, useTick } from "../../lib/live";
 import { useMarketOpen } from "../../lib/queries";
-import type { PortfolioReview, ReviewPeriod, TrackedPortfolio, TrackedPosition } from "../../lib/types";
+import { Term } from "../../components/Term";
+import type { OrderSide, PortfolioReview, ReviewPeriod, TrackedPortfolio, TrackedPosition } from "../../lib/types";
 import { pct, rupees } from "../portfolio/format";
 import { AddStock } from "./AddStock";
 import { Signed } from "./PortfoliosPage";
+import { Journal, OrdersList, ScorecardView } from "./paper/Activity";
+import { OrderTicket } from "./paper/OrderTicket";
 import { inr, StockStory } from "./StockStory";
 
 const PERIODS: { value: ReviewPeriod; label: string }[] = [
@@ -71,7 +74,7 @@ function Header({ p }: { p: TrackedPortfolio }) {
     <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
       <div className="min-w-0">
         <Link to="/portfolios" className="text-2xs text-faint hover:text-fg">
-          ← My Portfolios
+          ← Portfolios
         </Link>
         {editing ? (
           <form
@@ -114,7 +117,39 @@ function Header({ p }: { p: TrackedPortfolio }) {
           </h1>
         )}
       </div>
-      {p.positions.length > 0 && (
+      {p.kind === "paper" && (
+        <div className="ml-auto flex flex-wrap gap-x-6 gap-y-2">
+          <div>
+            <div className="text-2xs tracking-wide text-faint uppercase">Account value</div>
+            <div className="num text-lg font-semibold text-fg">{rupees(p.account_value)}</div>
+          </div>
+          <div>
+            <div className="text-2xs tracking-wide text-faint uppercase">Return</div>
+            <Signed v={p.account_return} className="text-lg">
+              {pct(p.account_return, 2, true)}
+            </Signed>
+            <div className="text-2xs text-faint">on {rupees(p.starting_cash)} start</div>
+          </div>
+          <div>
+            <div className="text-2xs tracking-wide text-faint uppercase">Free cash</div>
+            <div className="num text-lg text-fg">{rupees((p.cash ?? 0) - p.reserved)}</div>
+            {p.reserved > 0 && <div className="text-2xs text-faint">{rupees(p.reserved)} held for open orders</div>}
+          </div>
+          <div>
+            <div className="text-2xs tracking-wide text-faint uppercase">
+              <Term k="realised P&L">Realised</Term>
+            </div>
+            <Signed v={p.realized} className="text-lg">
+              {rupees(p.realized)}
+            </Signed>
+          </div>
+          <div>
+            <div className="text-2xs tracking-wide text-faint uppercase">Charges paid</div>
+            <div className="num text-lg text-muted">₹{p.charges_paid.toFixed(0)}</div>
+          </div>
+        </div>
+      )}
+      {p.kind !== "paper" && p.positions.length > 0 && (
         <div className="ml-auto flex flex-wrap gap-x-6 gap-y-2">
           <div>
             <div className="text-2xs tracking-wide text-faint uppercase">Value</div>
@@ -304,7 +339,7 @@ function ReviewSection({
   );
 }
 
-function PositionRow({ pid, p }: { pid: string; p: TrackedPosition }) {
+function PositionRow({ pid, p, onSell }: { pid: string; p: TrackedPosition; onSell?: (p: TrackedPosition) => void }) {
   const qc = useQueryClient();
   const tick = useTick(p.instrument_key);
   const marketOpen = useMarketOpen();
@@ -362,9 +397,13 @@ function PositionRow({ pid, p }: { pid: string; p: TrackedPosition }) {
           p.quantity
         )}
       </td>
-      <td className="num px-3 py-2 text-right" title={p.entry_basis}>
+      <td
+        className="num px-3 py-2 text-right"
+        title={[p.entry_basis, p.reason && `Why: ${p.reason}`].filter(Boolean).join("\n")}
+      >
         {fmtPrice(p.entry_price)}
         <div className="text-2xs text-faint">{fmtAgo(p.entry_at)}</div>
+        {p.break_even != null && <div className="text-2xs text-faint">break-even {fmtPrice(p.break_even)}</div>}
       </td>
       <td className="num px-3 py-2 text-right" title={p.price_basis ?? undefined}>
         {fmtPrice(price)}
@@ -380,23 +419,34 @@ function PositionRow({ pid, p }: { pid: string; p: TrackedPosition }) {
         <Signed v={dayPct}>{pct(dayPct, 2, true)}</Signed>
       </td>
       <td className="px-3 py-2 text-right whitespace-nowrap">
-        <button onClick={() => setEditing((v) => !v)} className="text-2xs text-faint hover:text-fg">
-          {editing ? "Cancel" : "Edit"}
-        </button>
-        <button
-          onClick={() => {
-            if (window.confirm(`Remove ${p.symbol} from this portfolio?`)) remove.mutate();
-          }}
-          className="ml-2 text-2xs text-faint hover:text-down"
-        >
-          Remove
-        </button>
+        {onSell ? (
+          <button
+            onClick={() => onSell(p)}
+            className="rounded border border-down/50 px-2 py-0.5 text-2xs font-medium text-down hover:bg-down/10"
+          >
+            Sell
+          </button>
+        ) : (
+          <>
+            <button onClick={() => setEditing((v) => !v)} className="text-2xs text-faint hover:text-fg">
+              {editing ? "Cancel" : "Edit"}
+            </button>
+            <button
+              onClick={() => {
+                if (window.confirm(`Remove ${p.symbol} from this portfolio?`)) remove.mutate();
+              }}
+              className="ml-2 text-2xs text-faint hover:text-down"
+            >
+              Remove
+            </button>
+          </>
+        )}
       </td>
     </tr>
   );
 }
 
-function Positions({ p }: { p: TrackedPortfolio }) {
+function Positions({ p, onSell }: { p: TrackedPortfolio; onSell?: (p: TrackedPosition) => void }) {
   const marketOpen = useMarketOpen();
   useLiveSubscription(p.positions.map((x) => x.instrument_key));
   return (
@@ -416,11 +466,129 @@ function Positions({ p }: { p: TrackedPortfolio }) {
         </thead>
         <tbody>
           {p.positions.map((x) => (
-            <PositionRow key={x.id} pid={p.id} p={x} />
+            <PositionRow key={x.id} pid={p.id} p={x} onSell={onSell} />
           ))}
         </tbody>
       </table>
     </div>
+  );
+}
+
+type Tab = "overview" | "orders" | "journal" | "scorecard";
+type Ticket = { symbol?: string; side?: OrderSide; quantity?: number; key: number };
+
+function PaperAccount({
+  p,
+  period,
+  setPeriod,
+}: {
+  p: TrackedPortfolio;
+  period: ReviewPeriod;
+  setPeriod: (v: ReviewPeriod) => void;
+}) {
+  const [tab, setTab] = useState<Tab>("overview");
+  const [ticket, setTicket] = useState<Ticket | null>(p.positions.length === 0 ? { key: 0 } : null);
+  const activity = useQuery({
+    queryKey: ["activity", p.id],
+    queryFn: () => api.activity(p.id),
+    refetchInterval: 15_000,
+  });
+  const openOrders = activity.data?.orders.filter((o) => o.status === "OPEN").length ?? 0;
+  const tabs: { value: Tab; label: string }[] = [
+    { value: "overview", label: "Overview" },
+    { value: "orders", label: openOrders ? `Orders (${openOrders} open)` : "Orders" },
+    { value: "journal", label: "Journal" },
+    { value: "scorecard", label: "Scorecard" },
+  ];
+  const sell = (x: TrackedPosition) => {
+    const sameStock = p.positions.filter((y) => y.symbol === x.symbol).reduce((n, y) => n + y.quantity, 0);
+    setTicket({ symbol: x.symbol, side: "SELL", quantity: sameStock, key: Date.now() });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  return (
+    <>
+      <Panel
+        title="Trade"
+        meta="Virtual money, live prices, real charges"
+        actions={
+          <button
+            onClick={() => setTicket(ticket ? null : { key: Date.now() })}
+            className={cx(
+              "h-7 rounded-md px-3 text-xs font-medium",
+              ticket ? "border border-line text-muted" : "bg-accent text-white",
+            )}
+          >
+            {ticket ? "Close" : "New order"}
+          </button>
+        }
+      >
+        {ticket ? (
+          <div className="p-3.5">
+            <OrderTicket
+              key={ticket.key}
+              pid={p.id}
+              initial={ticket}
+              onDone={() => {
+                setTicket(null);
+                setTab("orders");
+              }}
+            />
+          </div>
+        ) : (
+          <p className="px-3.5 py-2.5 text-xs text-muted">
+            Buy with a written reason, an optional target and stop-loss, and see the exact charges before you place it.
+          </p>
+        )}
+      </Panel>
+      <div className="overflow-x-auto">
+        <Segmented value={tab} onChange={setTab} options={tabs} />
+      </div>
+      {tab === "overview" &&
+        (p.positions.length === 0 ? (
+          <Panel>
+            <EmptyState title="No holdings yet">
+              {p.cash != null && `You have ${rupees(p.cash)} of virtual cash. `}Search a stock above and place your
+              first order; orders placed while the market is closed fill when it opens.
+            </EmptyState>
+          </Panel>
+        ) : (
+          <>
+            <ReviewSection id={p.id} period={period} setPeriod={setPeriod} />
+            <Panel title="Holdings" meta={`Priced ${fmtStamp(p.priced_at)}`}>
+              <Positions p={p} onSell={sell} />
+            </Panel>
+          </>
+        ))}
+      {tab !== "overview" &&
+        (activity.isPending ? (
+          <Panel>
+            <SkeletonRows rows={4} />
+          </Panel>
+        ) : activity.isError ? (
+          <Panel>
+            <ErrorState error={activity.error} />
+          </Panel>
+        ) : (
+          <Panel
+            title={tab === "orders" ? "Orders" : tab === "journal" ? "Decision journal" : "Your scorecard"}
+            meta={
+              tab === "journal"
+                ? "Why you bought, and what came of it against the NIFTY 50"
+                : tab === "scorecard"
+                  ? "From your closed trades, net of every charge"
+                  : undefined
+            }
+          >
+            {tab === "orders" && <OrdersList pid={p.id} orders={activity.data.orders} />}
+            {tab === "journal" && <Journal entries={activity.data.journal} />}
+            {tab === "scorecard" && <ScorecardView a={activity.data} />}
+          </Panel>
+        ))}
+      <p className="text-2xs text-faint">
+        Paper trading with virtual money: orders fill against live NSE prices and are never sent to a broker. Charges
+        follow the NSE delivery schedule. Research and education only; not investment advice.
+      </p>
+    </>
   );
 }
 
@@ -462,7 +630,9 @@ export function TrackedPortfolioPage() {
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-4 p-3 sm:p-4">
       <Header p={p} />
-      {empty ? (
+      {p.kind === "paper" ? (
+        <PaperAccount p={p} period={shown} setPeriod={setPeriod} />
+      ) : empty ? (
         <Panel title="Add your first stock">
           <div className="p-3.5">
             <AddStock portfolioId={p.id} />
@@ -495,13 +665,13 @@ export function TrackedPortfolioPage() {
           </Panel>
         </>
       )}
-      {empty || (
+      {p.kind !== "paper" && !empty && (
         <p className="text-2xs text-faint">
           Explanations split each stock's move into the market, its sector and the stock itself, and list what was
           reported around its big days. Research and education only; not investment advice.
         </p>
       )}
-      {empty && (
+      {p.kind !== "paper" && empty && (
         <EmptyState title="Nothing to review yet">
           Once the portfolio has stocks, this page explains each visit what changed and why.
         </EmptyState>

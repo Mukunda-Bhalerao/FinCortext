@@ -11,6 +11,13 @@ Period = Literal["last_visit", "today", "1w", "1m", "start"]
 
 class PortfolioIn(BaseModel):
     name: str = Field(min_length=1, max_length=60)
+    kind: Literal["paper", "tracking"] = "tracking"
+    starting_cash: float | None = Field(None, ge=10_000, le=1e9)  # paper accounts
+    plan: Literal["zero", "flat20"] = "zero"  # brokerage plan for paper accounts
+
+
+class RenameIn(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
 
 
 class PositionIn(BaseModel):
@@ -44,6 +51,10 @@ class Position(BaseModel):
     day_change: float | None
     day_change_pct: float | None
     weight: float | None
+    charges: float = 0.0  # buy charges paid on this lot (paper accounts)
+    reason: str | None = None
+    tag: str | None = None
+    break_even: float | None = None  # sell price that returns the money put in, after charges
 
 
 class TrackedPortfolio(BaseModel):
@@ -59,6 +70,15 @@ class TrackedPortfolio(BaseModel):
     day_change: float | None
     day_change_pct: float | None
     priced_at: datetime
+    kind: Literal["paper", "tracking"] = "tracking"
+    plan: str = "zero"
+    starting_cash: float | None = None
+    cash: float | None = None
+    reserved: float = 0.0  # cash set aside for open buy orders
+    account_value: float | None = None  # cash plus holdings at current prices
+    account_return: float | None = None  # account value against the starting cash
+    realized: float = 0.0  # net profit locked in by sells
+    charges_paid: float = 0.0
 
 
 class PortfolioSummaryRow(BaseModel):
@@ -72,6 +92,10 @@ class PortfolioSummaryRow(BaseModel):
     pnl: float | None
     pnl_pct: float | None
     day_change_pct: float | None
+    kind: Literal["paper", "tracking"] = "tracking"
+    cash: float | None = None
+    account_value: float | None = None
+    account_return: float | None = None
 
 
 class Move(BaseModel):

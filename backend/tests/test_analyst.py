@@ -1,6 +1,5 @@
 from datetime import date
 
-from app.providers.upstox import parse_holding
 from app.services import analyst as C
 from app.services.planner import apply_custom
 
@@ -54,21 +53,6 @@ def test_custom_weights_fix_some_and_share_the_rest():
     assert note is None
     w, note = apply_custom([0.5, 0.5], ["A", "B"], {"A": 0.9, "B": 0.6})
     assert abs(sum(w) - 1) < 1e-12 and note
-
-
-def test_parse_broker_holding_adds_t1_and_keeps_gaps():
-    h = parse_holding(
-        {
-            "instrument_token": "NSE_EQ|INE009A01021",
-            "trading_symbol": "INFY",
-            "quantity": 10,
-            "t1_quantity": 2,
-            "average_price": 0,
-            "last_price": 1500,
-        }
-    )
-    assert h.quantity == 12 and h.average_price is None and h.pnl is None
-    assert h.instrument_key == "NSE_EQ|INE009A01021"
 
 
 def test_candidates_can_be_added_in_lower_case():

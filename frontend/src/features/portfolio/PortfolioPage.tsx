@@ -259,7 +259,7 @@ export function PortfolioPage() {
     <div className="mx-auto flex max-w-[1680px] flex-col gap-4 p-3 sm:p-4">
       <div className="flex flex-wrap items-start gap-x-6 gap-y-2">
         <div className="min-w-0">
-          <h1 className="text-lg font-semibold text-fg">Portfolio</h1>
+          <h1 className="text-lg font-semibold text-fg">Planner</h1>
           <p className="mt-0.5 max-w-3xl text-sm text-muted">
             What matters in your watchlist as a portfolio, the options worth considering, and how each would have
             behaved. Every number links back to its data.

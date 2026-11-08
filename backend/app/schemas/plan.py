@@ -243,14 +243,6 @@ class HoldingOut(BaseModel):
     weight: float | None = None
 
 
-class BrokerStatus(BaseModel):
-    connected: bool
-    can_sync: bool | None  # None until a sync has been attempted
-    detail: str
-    last_sync: datetime | None
-    synced_count: int
-
-
 class PortfolioSummary(BaseModel):
     holdings: list[HoldingOut]
     total_value: float | None
@@ -260,5 +252,4 @@ class PortfolioSummary(BaseModel):
     day_change: float | None
     cost_coverage: float  # share of value whose average cost is known
     priced_at: datetime
-    broker: BrokerStatus
     notes: list[str]

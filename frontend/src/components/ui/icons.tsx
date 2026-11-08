@@ -57,6 +57,18 @@ export const IconRocket = (p: P) => (
     <path d="M6.5 17.5c-1 1-1.5 3-1.5 3s2-.5 3-1.5" />
   </svg>
 );
+export const IconFlask = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M9 3h6M10 3v6l-5.5 9.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3" />
+    <path d="M7.5 15h9" />
+  </svg>
+);
+export const IconBook = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z" />
+    <path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5" />
+  </svg>
+);
 export const IconSearch = (p: P) => (
   <svg {...base} {...p}>
     <circle cx="11" cy="11" r="7" />

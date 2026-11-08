@@ -1,10 +1,9 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { cx, Skeleton } from "../../components/ui/primitives";
 import { api } from "../../lib/api";
-import { fmtAgo, fmtPrice } from "../../lib/format";
-import type { PortfolioPlan, PortfolioSummary } from "../../lib/types";
+import { fmtPrice } from "../../lib/format";
+import type { PortfolioPlan } from "../../lib/types";
 import { pct, rupees } from "./format";
 
 function Signed({ v, children }: { v: number | null | undefined; children: React.ReactNode }) {
@@ -34,48 +33,9 @@ function Drift({ now, target }: { now: number; target: number | null }) {
   );
 }
 
-function BrokerLine({ s, onSync, syncing }: { s: PortfolioSummary; onSync: () => void; syncing: boolean }) {
-  const b = s.broker;
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-faint">
-      <span
-        className={cx(
-          "h-1.5 w-1.5 rounded-full",
-          b.can_sync ? "bg-up" : b.can_sync === false ? "bg-caution" : "bg-faint",
-        )}
-      />
-      <span className="max-w-3xl">
-        {b.can_sync && b.last_sync ? `Synced from Upstox ${fmtAgo(b.last_sync)}. ` : ""}
-        {b.can_sync ? b.detail.replace(/^Synced .*?\.\s*/, "") : b.detail}
-      </span>
-      {b.connected && (
-        <button
-          onClick={onSync}
-          disabled={syncing}
-          className="font-medium text-accent hover:underline disabled:opacity-50"
-        >
-          {syncing ? "Syncing…" : "Sync from Upstox"}
-        </button>
-      )}
-      <span>Read-only: FinCortext never places orders.</span>
-    </div>
-  );
-}
-
 /** The real portfolio: value, cost, P&L, today's move and drift from the chosen plan. */
 export function MyPortfolio({ plan, onEdit }: { plan: PortfolioPlan | undefined; onEdit: () => void }) {
-  const qc = useQueryClient();
   const q = useQuery({ queryKey: ["summary"], queryFn: api.summary, refetchInterval: 60_000 });
-  const [syncing, setSyncing] = useState(false);
-  const sync = async () => {
-    setSyncing(true);
-    try {
-      await api.syncHoldings();
-      await Promise.all(["summary", "plan", "brief", "holdings"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
-    } finally {
-      setSyncing(false);
-    }
-  };
   if (q.isPending) return <Skeleton className="h-24 rounded-lg" />;
   if (q.isError || !q.data) return null;
   const s = q.data;
@@ -95,7 +55,6 @@ export function MyPortfolio({ plan, onEdit }: { plan: PortfolioPlan | undefined;
             Enter holdings
           </button>
         </div>
-        <BrokerLine s={s} onSync={() => void sync()} syncing={syncing} />
       </section>
     );
   }
@@ -187,7 +146,6 @@ export function MyPortfolio({ plan, onEdit }: { plan: PortfolioPlan | undefined;
         </table>
       </div>
       <div className="space-y-1 border-t border-line px-4 py-2.5">
-        <BrokerLine s={s} onSync={() => void sync()} syncing={syncing} />
         {s.notes.map((n) => (
           <p key={n} className="text-2xs text-faint">
             {n}
