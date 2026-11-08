@@ -254,6 +254,16 @@ class ResearchService:
         )
         return ResearchReport.model_validate(json.loads(row[0])) if row else None
 
+    def report_at(self, key: str, when: datetime) -> ResearchReport | None:
+        """The stored report that was current at ``when`` (point-in-time record)."""
+        row = self._db.fetchone(
+            """SELECT payload FROM research_history
+               WHERE instrument_key = ? AND computed_at <= ?
+               ORDER BY computed_at DESC LIMIT 1""",
+            [key, when],
+        )
+        return ResearchReport.model_validate(json.loads(row[0])) if row else None
+
     def changes(self, key: str, latest: ResearchReport | None = None) -> ResearchChanges | None:
         latest = latest or self.latest(key)
         if latest is None:

@@ -24,6 +24,13 @@ import type {
   ResearchOverview,
   StockSummary,
   Timeframe,
+  PortfolioReview,
+  IpoDetail,
+  IpoOverview,
+  PositionInput,
+  ReviewPeriod,
+  TrackedPortfolio,
+  TrackedPortfolioRow,
 } from "./types";
 
 export class ApiError extends Error {
@@ -115,6 +122,23 @@ export const api = {
   markSeen: (ids?: string[]) => request<void>("/api/events/seen", json("POST", { ids: ids ?? null })),
   ask: (question: string, history: { role: "user" | "assistant"; content: string }[]) =>
     request<AskAnswer>("/api/assistant/ask", json("POST", { question, history })),
+  tracked: () => request<TrackedPortfolioRow[]>("/api/tracker"),
+  createTracked: (name: string) => request<TrackedPortfolio>("/api/tracker", json("POST", { name })),
+  trackedPortfolio: (id: string) => request<TrackedPortfolio>(`/api/tracker/${q(id)}`),
+  renameTracked: (id: string, name: string) =>
+    request<TrackedPortfolio>(`/api/tracker/${q(id)}`, json("PATCH", { name })),
+  deleteTracked: (id: string) => request<void>(`/api/tracker/${q(id)}`, { method: "DELETE" }),
+  addPosition: (id: string, body: PositionInput) =>
+    request<TrackedPortfolio>(`/api/tracker/${q(id)}/positions`, json("POST", body)),
+  setPositionQuantity: (id: string, positionId: string, quantity: number) =>
+    request<TrackedPortfolio>(`/api/tracker/${q(id)}/positions/${q(positionId)}`, json("PATCH", { quantity })),
+  removePosition: (id: string, positionId: string) =>
+    request<TrackedPortfolio>(`/api/tracker/${q(id)}/positions/${q(positionId)}`, { method: "DELETE" }),
+  review: (id: string, period: ReviewPeriod, narrate = false) =>
+    request<PortfolioReview>(`/api/tracker/${q(id)}/review?period=${period}&narrate=${narrate}`),
+  markViewed: (id: string) => request<void>(`/api/tracker/${q(id)}/viewed`, { method: "POST" }),
+  ipos: () => request<IpoOverview>("/api/ipo"),
+  ipo: (symbol: string) => request<IpoDetail>(`/api/ipo/${encodeURIComponent(symbol)}`),
 };
 
 export const LOGIN_URL = "/api/auth/upstox/login";

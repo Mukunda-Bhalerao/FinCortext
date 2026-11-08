@@ -135,6 +135,35 @@ CREATE TABLE IF NOT EXISTS llm_usage (
     output_tokens  BIGINT NOT NULL,
     PRIMARY KEY (day, purpose)
 );
+CREATE TABLE IF NOT EXISTS tracked_portfolios (
+    id              VARCHAR PRIMARY KEY,
+    name            VARCHAR NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL,
+    last_viewed_at  TIMESTAMPTZ
+);
+CREATE TABLE IF NOT EXISTS tracked_positions (
+    id              VARCHAR PRIMARY KEY,
+    portfolio_id    VARCHAR NOT NULL,
+    instrument_key  VARCHAR NOT NULL,
+    quantity        DOUBLE NOT NULL,
+    entry_price     DOUBLE NOT NULL,
+    entry_at        TIMESTAMPTZ NOT NULL,
+    entry_basis     VARCHAR NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ipo_history (
+    symbol          VARCHAR PRIMARY KEY,
+    company         VARCHAR NOT NULL,
+    board           VARCHAR NOT NULL,
+    isin            VARCHAR,
+    issue_price     DOUBLE,
+    listing_date    DATE,
+    qib             DOUBLE,
+    total           DOUBLE,
+    subscription    JSON,
+    listing_open    DOUBLE,
+    listing_close   DOUBLE,
+    fetched_at      TIMESTAMPTZ NOT NULL
+);
 CREATE TABLE IF NOT EXISTS holdings (
     instrument_key  VARCHAR PRIMARY KEY,
     quantity        DOUBLE NOT NULL,

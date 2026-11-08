@@ -8,7 +8,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.deps import Services
-from app.api.routes import assistant, events, market, portfolio, research, system, ws
+from app.api.routes import (
+    assistant,
+    events,
+    ipo,
+    market,
+    portfolio,
+    research,
+    system,
+    tracker,
+    ws,
+)
 from app.config import Settings, get_settings
 from app.db import Database
 from app.errors import AppError, app_error_handler
@@ -20,6 +30,7 @@ from app.services.assistant import Assistant
 from app.services.auth import AuthService
 from app.services.candles import CandleService
 from app.services.instruments import InstrumentService
+from app.services.ipo import IpoService
 from app.services.live import LiveHub
 from app.services.llm_budget import LLMBudget
 from app.services.market import MarketService
@@ -31,6 +42,7 @@ from app.services.research import ResearchService
 from app.services.research_data import ResearchData
 from app.services.session import SessionClock
 from app.services.signal_lab import SignalLab
+from app.services.tracker import TrackerService
 from app.services.watcher import Watcher
 
 REFERENCE_REFRESH_SECONDS = 6 * 3600
@@ -77,8 +89,16 @@ def build_services(settings: Settings, db: Database | None = None) -> Services:
         )
     monitor = SourceMonitor()
     data = ResearchData(db, instruments, candles, quotes, YahooProvider(), monitor)
+
+    def followed_keys() -> list[str]:
+        """Watchlist plus every stock held in a tracked portfolio: kept researched and watched."""
+        tracked = [
+            r[0] for r in db.fetchall("SELECT DISTINCT instrument_key FROM tracked_positions")
+        ]
+        return list(dict.fromkeys(market.watchlist_keys() + tracked))
+
     research = ResearchService(
-        db, instruments, data, market.watchlist_keys, llm if settings.llm_rationales else None
+        db, instruments, data, followed_keys, llm if settings.llm_rationales else None
     )
     lab = SignalLab(db, instruments, data)
 
@@ -95,6 +115,7 @@ def build_services(settings: Settings, db: Database | None = None) -> Services:
         broker_holdings,
         lambda: auth.status().connected,
     )
+    assistant = Assistant(db, portfolio, research, instruments, llm, monitor, budget, lab)
     return Services(
         settings=settings,
         db=db,
@@ -109,12 +130,12 @@ def build_services(settings: Settings, db: Database | None = None) -> Services:
         news=NewsService(db, settings.news_enabled),
         research=research,
         portfolio=portfolio,
-        assistant=Assistant(db, portfolio, research, instruments, llm, monitor, budget, lab),
+        assistant=assistant,
+        tracker=TrackerService(db, instruments, data, portfolio, research, assistant.narrate),
+        ipo=IpoService(db, instruments, candles, monitor),
         monitor=monitor,
         lab=lab,
-        watcher=Watcher(
-            db, instruments, quotes, research, portfolio, lab, monitor, market.watchlist_keys
-        ),
+        watcher=Watcher(db, instruments, quotes, research, portfolio, lab, monitor, followed_keys),
     )
 
 
@@ -155,6 +176,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await svc.portfolio.stop()
         await svc.research.stop()
         await svc.assistant.aclose()
+        await svc.ipo.aclose()
         await svc.hub.stop()
         await svc.provider.aclose()
         svc.db.close()
@@ -175,6 +197,8 @@ def create_app() -> FastAPI:
     app.include_router(portfolio.router)
     app.include_router(assistant.router)
     app.include_router(events.router)
+    app.include_router(tracker.router)
+    app.include_router(ipo.router)
     app.include_router(ws.router)
     return app
 

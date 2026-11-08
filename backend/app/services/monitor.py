@@ -35,6 +35,7 @@ class SourceMonitor:
         "yahoo": "Yahoo Finance fundamentals and dividends",
         "fred": "FRED macro series",
         "news": "Google News search",
+        "nse": "NSE IPO data",
         "llm": "Language model",
     }
 

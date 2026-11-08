@@ -830,3 +830,228 @@ export interface FeedEvent {
   created_at: string;
   seen: boolean;
 }
+
+// --- tracked portfolios ---------------------------------------------------------------------
+
+export type ReviewPeriod = "last_visit" | "today" | "1w" | "1m" | "start";
+
+export interface TrackedPosition {
+  id: string;
+  symbol: string;
+  name: string | null;
+  instrument_key: string;
+  sector: string;
+  quantity: number;
+  entry_price: number;
+  entry_at: string;
+  entry_basis: string;
+  price: number | null;
+  price_basis: string | null;
+  value: number | null;
+  cost: number;
+  pnl: number | null;
+  pnl_pct: number | null;
+  day_change: number | null;
+  day_change_pct: number | null;
+  weight: number | null;
+}
+
+export interface TrackedPortfolio {
+  id: string;
+  name: string;
+  created_at: string;
+  last_viewed_at: string | null;
+  positions: TrackedPosition[];
+  value: number | null;
+  cost: number;
+  pnl: number | null;
+  pnl_pct: number | null;
+  day_change: number | null;
+  day_change_pct: number | null;
+  priced_at: string;
+}
+
+export interface TrackedPortfolioRow {
+  id: string;
+  name: string;
+  created_at: string;
+  last_viewed_at: string | null;
+  positions: number;
+  value: number | null;
+  cost: number;
+  pnl: number | null;
+  pnl_pct: number | null;
+  day_change_pct: number | null;
+}
+
+export interface PositionInput {
+  symbol: string;
+  quantity?: number | null;
+  amount?: number | null;
+  entry_date?: string | null;
+  entry_price?: number | null;
+}
+
+export interface ReviewMove {
+  date: string;
+  change_pct: number;
+  live: boolean;
+}
+
+export interface ReviewHeadline {
+  title: string;
+  link: string;
+  publisher: string;
+  published_at: string | null;
+  tone: "positive" | "negative" | "neutral";
+  near_move: string | null;
+}
+
+export interface StockReview {
+  symbol: string;
+  name: string | null;
+  sector: string;
+  quantity: number;
+  start_price: number;
+  start_basis: string;
+  end_price: number;
+  return_pct: number;
+  contribution: number;
+  contribution_share: number;
+  market_return: number | null;
+  sector_label: string | null;
+  sector_return: number | null;
+  stock_specific: number | null;
+  driver: "market" | "sector" | "stock" | "mixed";
+  moves: ReviewMove[];
+  headlines: ReviewHeadline[];
+  dividends: { ex_date: string; amount: number }[];
+  research: {
+    before_signal: string | null;
+    after_signal: string;
+    before_score: number | null;
+    after_score: number | null;
+    summary: string;
+    since: string | null;
+  } | null;
+  events: string[];
+  explanation: string;
+}
+
+export interface PortfolioReview {
+  portfolio_id: string;
+  period: ReviewPeriod;
+  period_label: string;
+  start: string;
+  start_basis: string;
+  end: string;
+  start_value: number;
+  end_value: number;
+  change: number;
+  change_pct: number | null;
+  benchmark_label: string;
+  benchmark_return: number | null;
+  market_part: number | null;
+  selection_part: number | null;
+  headline: string;
+  points: string[];
+  stocks: StockReview[];
+  value_series: CurvePoint[];
+  cost_series: CurvePoint[];
+  facts: Fact[];
+  narrative: { text: string; cited: string[]; model: string } | null;
+  gaps: string[];
+  computed_at: string;
+}
+
+// --- IPOs -------------------------------------------------------------------------------------
+
+export type IpoStage = "upcoming" | "open" | "closed" | "listed";
+
+export interface IpoSubscription {
+  qib: number | null;
+  nii: number | null;
+  nii_big: number | null;
+  nii_small: number | null;
+  retail: number | null;
+  employee: number | null;
+  shareholder: number | null;
+  total: number | null;
+}
+
+export interface ListingOdds {
+  measure: "qib" | "total";
+  bucket: string;
+  sample: number;
+  above_issue: number;
+  average_gain: number;
+  median_gain: number;
+  worst: number;
+  best: number;
+  text: string;
+}
+
+export interface IpoListing {
+  instrument_key: string | null;
+  listing_open: number | null;
+  listing_close: number | null;
+  listing_gain: number | null;
+  price: number | null;
+  price_basis: string | null;
+  since_issue: number | null;
+}
+
+export interface IpoIssue {
+  symbol: string;
+  company: string;
+  board: "mainboard" | "sme";
+  stage: IpoStage;
+  open_date: string | null;
+  close_date: string | null;
+  listing_date: string | null;
+  price_low: number | null;
+  price_high: number | null;
+  issue_price: number | null;
+  lot_size: number | null;
+  min_investment: number | null;
+  industry: string | null;
+  subscription: IpoSubscription | null;
+  subscription_note: string | null;
+  odds: ListingOdds | null;
+  listing: IpoListing | null;
+  signals: string[];
+}
+
+export interface IpoMood {
+  days: number;
+  listed: number;
+  above_issue_at_open: number | null;
+  median_listing_gain: number | null;
+  above_issue_now: number | null;
+}
+
+export interface IpoOverview {
+  open: IpoIssue[];
+  upcoming: IpoIssue[];
+  awaiting_listing: IpoIssue[];
+  recent_listings: IpoIssue[];
+  strongest: string[];
+  mood: IpoMood[];
+  odds_table: ListingOdds[];
+  history_size: number;
+  history_complete: boolean;
+  news: ReviewHeadline[];
+  as_of: string;
+  gaps: string[];
+}
+
+export interface IpoDetail {
+  issue: IpoIssue;
+  facts: Record<string, string>;
+  lead_managers: string[];
+  documents: Record<string, string>;
+  price_series: CurvePoint[];
+  news: ReviewHeadline[];
+  as_of: string;
+  gaps: string[];
+}

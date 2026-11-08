@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { SearchBox } from "../components/SearchBox";
 import {
+  IconBriefcase,
   IconClose,
   IconDashboard,
   IconMarkets,
@@ -10,6 +11,7 @@ import {
   IconMoon,
   IconPortfolio,
   IconResearch,
+  IconRocket,
   IconSun,
   IconWatchlist,
 } from "../components/ui/icons";
@@ -26,6 +28,8 @@ const NAV = [
   { to: "/", label: "Dashboard", icon: IconDashboard },
   { to: "/markets", label: "Markets", icon: IconMarkets },
   { to: "/watchlist", label: "Watchlist", icon: IconWatchlist },
+  { to: "/portfolios", label: "My Portfolios", icon: IconBriefcase },
+  { to: "/ipos", label: "IPOs", icon: IconRocket },
   { to: "/research", label: "Research", icon: IconResearch },
   { to: "/portfolio", label: "Portfolio", icon: IconPortfolio },
 ];

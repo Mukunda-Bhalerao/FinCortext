@@ -9,6 +9,7 @@ from app.services.assistant import Assistant
 from app.services.auth import AuthService
 from app.services.candles import CandleService
 from app.services.instruments import InstrumentService
+from app.services.ipo import IpoService
 from app.services.live import LiveHub
 from app.services.market import MarketService
 from app.services.monitor import SourceMonitor
@@ -18,6 +19,7 @@ from app.services.quotes import QuoteService
 from app.services.research import ResearchService
 from app.services.session import SessionClock
 from app.services.signal_lab import SignalLab
+from app.services.tracker import TrackerService
 from app.services.watcher import Watcher
 
 
@@ -40,6 +42,8 @@ class Services:
     monitor: SourceMonitor
     lab: SignalLab
     watcher: Watcher
+    tracker: TrackerService
+    ipo: IpoService
 
 
 def services(request: Request) -> Services:

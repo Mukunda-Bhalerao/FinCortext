@@ -27,12 +27,25 @@ const fmt = new Intl.NumberFormat("en-IN", {
   minimumFractionDigits: 1,
 });
 
-/** Growth of 100 for a strategy and its benchmark. Point times are UTC midnight of the session date. */
-export function EquityChart({ lines, height = 260 }: { lines: EquityLine[]; height?: number }) {
+const rupeeFmt = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
+
+/** Growth of 100 for a strategy and its benchmark, or rupee values with `unit="rupees"`.
+ * Point times are UTC midnight of the session date. */
+export function EquityChart({
+  lines,
+  height = 260,
+  unit = "growth",
+}: {
+  lines: EquityLine[];
+  height?: number;
+  unit?: "growth" | "rupees";
+}) {
   const el = useRef<HTMLDivElement>(null);
   const chart = useRef<IChartApi | null>(null);
   const series = useRef<ISeriesApi<"Line">[]>([]);
   const tones = useRef<EquityLine["tone"][]>([]);
+  const unitRef = useRef(unit);
+  unitRef.current = unit;
 
   useEffect(() => {
     if (!el.current) return;
@@ -51,7 +64,9 @@ export function EquityChart({ lines, height = 260 }: { lines: EquityLine[]; heig
       },
       rightPriceScale: { borderColor: token("--border") },
       timeScale: { borderColor: token("--border") },
-      localization: { priceFormatter: (v: number) => fmt.format(v) },
+      localization: {
+        priceFormatter: (v: number) => (unitRef.current === "rupees" ? `₹${rupeeFmt.format(v)}` : fmt.format(v)),
+      },
       handleScroll: false,
       handleScale: false,
     });
@@ -95,13 +110,13 @@ export function EquityChart({ lines, height = 260 }: { lines: EquityLine[]; heig
       s.setData(
         line.points.map((p) => ({
           time: p.time as UTCTimestamp,
-          value: p.value * 100,
+          value: unit === "rupees" ? p.value : p.value * 100,
         })),
       );
       return s;
     });
     c.timeScale().fitContent();
-  }, [lines]);
+  }, [lines, unit]);
 
   return <div ref={el} style={{ height }} className="w-full" />;
 }

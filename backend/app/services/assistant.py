@@ -13,6 +13,7 @@ import re
 import time
 from collections import deque
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 from app.db import Database
 from app.errors import AppError, ProviderUnavailable, RateLimited
@@ -206,6 +207,15 @@ class Assistant:
     @staticmethod
     def _facts_text(facts: list[Fact]) -> str:
         return "\n".join(f"[{f.id}] ({f.basis}) {f.text}" for f in facts)
+
+    async def narrate(
+        self, headline: str, points: list[str], facts: list[Fact]
+    ) -> Narrative | None:
+        """A short written summary of ``facts``; None when the model is off, over budget or its
+        text fails the checks. Cached by the facts it used."""
+        if self._llm is None or not facts:
+            return None
+        return await self._narrative(headline, [SimpleNamespace(title=p) for p in points], facts)
 
     async def _narrative(self, headline, items, facts: list[Fact]) -> Narrative | None:
         assert self._llm is not None

@@ -44,6 +44,19 @@ export const IconPortfolio = (p: P) => (
     <path d="M15 3.5A9 9 0 0 1 20.5 9H15z" />
   </svg>
 );
+export const IconBriefcase = (p: P) => (
+  <svg {...base} {...p}>
+    <rect x="3" y="7" width="18" height="13" rx="2" />
+    <path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 13h18" />
+  </svg>
+);
+export const IconRocket = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M12 15l-3-3c1.5-4.5 4.5-8 10-9-1 5.5-4.5 8.5-9 10z" />
+    <path d="M9 12l-3.5-.5L8 8.5l3 .5M12 15l.5 3.5L15.5 16l-.5-3" />
+    <path d="M6.5 17.5c-1 1-1.5 3-1.5 3s2-.5 3-1.5" />
+  </svg>
+);
 export const IconSearch = (p: P) => (
   <svg {...base} {...p}>
     <circle cx="11" cy="11" r="7" />
