@@ -57,6 +57,22 @@ class Settings(BaseSettings):
         return bool(self.upstox_api_key and self.upstox_api_secret.get_secret_value())
 
 
+def origin_allowed(origin: str | None, host: str | None, allowed: list[str]) -> bool:
+    """Whether a browser socket from ``origin`` may connect.
+
+    Same-origin always passes: when this process also serves the interface (any deployment,
+    or the container run locally) the origin is whatever host the request arrived on, which
+    cannot be listed in advance. A different site must be configured through FRONTEND_URL.
+    No Origin header means the caller is not a browser, where this check does not apply.
+    """
+    if not origin:
+        return True
+    origin = origin.rstrip("/")
+    if origin in allowed:
+        return True
+    return bool(host) and origin in (f"http://{host}", f"https://{host}")
+
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings()

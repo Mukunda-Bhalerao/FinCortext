@@ -1,0 +1,708 @@
+================================================================================
+                                 FINCORTEXT
+     A Real-Data Practice and Research Platform for the Indian Stock Market
+================================================================================
+
+  Final Year Project Report (B.Tech)
+
+  Author        : Mukunda Bhalerao
+  Institute     : [College name]
+  Department    : [Department], [Year]
+  Project guide : [Guide name]
+  Repository    : https://github.com/Mukunda-Bhalerao/FinCortext
+  Contact       : mukundacb.dev@gmail.com
+  Document date : November 2026
+
+--------------------------------------------------------------------------------
+CONTENTS
+--------------------------------------------------------------------------------
+   1. Abstract
+   2. Problem Statement
+   3. Objectives
+   4. Scope and Target Users
+   5. System Overview
+   6. Architecture
+   7. Technology Stack
+   8. Modules in Detail
+   9. Key Algorithms and Methods
+  10. Data Sources and Data Integrity
+  11. Database Design
+  12. Quality Assurance and Testing
+  13. Results and Measured Findings
+  14. Comparison with Existing Solutions
+  15. Engineering Challenges and How They Were Solved
+  16. Limitations
+  17. Future Scope
+  18. Learning Outcomes
+  19. Relevance to Enterprise Software Work
+  20. Conclusion
+  Appendix A. Project Statistics
+  Appendix B. How to Run
+  Appendix C. Glossary of Key Terms
+
+================================================================================
+1. ABSTRACT
+================================================================================
+
+FinCortext is a full-stack web platform that lets a beginner practise, test and
+understand stock-market decisions using real data from the National Stock
+Exchange of India (NSE), without risking real money.
+
+Existing tools fall into two groups. Broker apps (real money) are built to
+execute trades, not to teach. Paper-trading apps (virtual money) let users
+experiment, but usually ignore real costs and taxes, use delayed or simplified
+data, and never explain why a position gained or lost value.
+
+FinCortext fills this gap. It combines:
+  - live and historical NSE market data,
+  - a paper-trading engine with exact Indian charges and capital-gains tax,
+  - a decision journal and a scorecard that measure the user's own habits,
+  - an explanation engine that splits every price move into market, sector and
+    company-specific parts,
+  - a Strategy Lab that backtests rule-based strategies without look-ahead bias
+    and validates them on years they were not tuned on,
+  - an IPO desk built on NSE subscription data and a study of 193 past IPOs,
+  - a research engine with four analysis agents whose predictive value is
+    measured honestly against later returns.
+
+The system is built with FastAPI (Python), DuckDB and React with TypeScript. It
+contains about 32,000 lines of source code, 64 REST endpoints, 24 database
+tables and 134 automated tests. A strict design rule runs through the whole
+project: no value shown to the user is ever invented; when data is missing,
+the system says so.
+
+================================================================================
+2. PROBLEM STATEMENT
+================================================================================
+
+A new investor in India faces three practical problems:
+
+  a) Learning is expensive. The common way to learn is to trade real money and
+     lose some of it. Costs such as Securities Transaction Tax (STT), stamp
+     duty, exchange fees, GST, depository charges and capital-gains tax are
+     invisible until after the trade.
+
+  b) Outcomes are unexplained. When a holding rises or falls, the user cannot
+     tell whether it was the whole market, the sector, or the company itself.
+     Without that, no real learning happens.
+
+  c) Ideas are not tested. Beginners act on tips, news and intuition. Few tools
+     let them write an idea as rules, test it on years of real prices with real
+     costs, and check whether it still works on unseen years.
+
+Popular student projects try to "predict stock prices" with machine-learning
+models and report high accuracy. Such accuracy is usually inflated by testing
+on data that overlaps the training period. FinCortext deliberately takes a
+different path: it does not claim to predict the market; it builds the tools
+that let a person test, measure and learn.
+
+================================================================================
+3. OBJECTIVES
+================================================================================
+
+  O1. Provide live NSE prices, charts and market context through a reliable,
+      monitored data pipeline.
+  O2. Build a paper-trading engine that behaves like a real delivery-trading
+      account: market, limit and stop-loss orders, exact charges, FIFO lot
+      accounting and capital-gains tax.
+  O3. Record why each trade was made and compare its outcome with the NIFTY 50
+      over the same dates, so users learn from their own decisions.
+  O4. Explain portfolio changes: how much came from the market, the sector and
+      the individual stock, with the evidence (big moves, headlines,
+      dividends, results).
+  O5. Let users backtest rule-based strategies without look-ahead bias and
+      check them on later, unseen years, then run them forward on paper.
+  O6. Provide an IPO desk based on official NSE data and measured history.
+  O7. Measure every predictive component honestly and show its limits.
+  O8. Keep the system correct and maintainable: typed code, automated tests,
+      clear separation of concerns, no fabricated data, secrets protected.
+
+================================================================================
+4. SCOPE AND TARGET USERS
+================================================================================
+
+Target users
+  - Students and first-time investors who want to practise before investing.
+  - Learners who want to test trading ideas properly.
+  - Anyone who wants to understand why their portfolio moved.
+
+In scope
+  - NSE equities and indices; delivery (cash) trades; Indian charges and tax.
+  - Paper trading only. The system never places real orders; the broker
+    connection (Upstox) is used for market data only.
+
+Out of scope (by design)
+  - Real-money trading, derivatives, intraday leverage.
+  - Personalised investment advice. All screens are labelled as research and
+    education.
+
+================================================================================
+5. SYSTEM OVERVIEW
+================================================================================
+
+Main screens (10 sections, each with its own colour identity in the interface):
+
+  Dashboard     Greeting with live market status, NIFTY 50 one-month trend,
+                sector breadth, index strip, interactive chart, watchlist,
+                movers, sector heat map and news.
+  Markets       Benchmark and sectoral indices with trend lines, movers.
+  Watchlist     Followed stocks priced live; following a stock also schedules
+                research on it.
+  IPOs          Open, upcoming, closed and recently listed issues with
+                subscription by investor category and listing results.
+  Portfolios    Paper-trading accounts and trackers for stocks owned, with the
+                "what happened and why" review, order ticket, orders, decision
+                journal and scorecard.
+  Strategy Lab  Rule builder, backtester, saved strategies, forward runs.
+  Research      Four-agent research reports with evidence and data gaps.
+  Planner       Portfolio planning and historical backtesting of allocations.
+  Learn         A six-step learning path and a 41-term glossary; underlined
+                terms anywhere in the app show their meaning on hover or tap.
+  Status        Health of every data source and background worker.
+
+================================================================================
+6. ARCHITECTURE
+================================================================================
+
+  +-------------------------------------------------------------------------+
+  |                     React + TypeScript (Vite) client                    |
+  |  Pages / components  ·  TanStack Query cache  ·  WebSocket live client  |
+  +--------------------------------+----------------------------------------+
+                                   | REST (JSON)  +  WebSocket (live ticks)
+  +--------------------------------v----------------------------------------+
+  |                          FastAPI application                            |
+  |  api/routes  (thin)  ->  services/  (business logic)  ->  tools/ (pure) |
+  |                                                                         |
+  |  Background workers: live price hub · paper order matcher · strategy    |
+  |  forward runner · research queue · IPO history builder · alert watcher  |
+  +------+--------------------------+---------------------------+-----------+
+         |                          |                           |
+  +------v--------+       +---------v----------+       +--------v---------+
+  |  providers/   |       |   DuckDB database  |       | Source monitor   |
+  |  Upstox, NSE, |       |  (24 tables, local |       | (health of each  |
+  |  Yahoo, FRED, |       |   cache with TTL)  |       |  data source)    |
+  |  Google News  |       +--------------------+       +------------------+
+  +---------------+
+
+Layering rules
+  - Only files in providers/ talk to external services. The rest of the code
+    uses a provider interface, so a data source can be replaced without
+    touching business logic.
+  - Routes are thin. Business logic lives in services/. All calculations that
+    matter (charges, tax, indicators, backtests, attribution, IPO statistics)
+    live in tools/ as pure functions, so they can be unit-tested without a
+    network.
+  - Every external call has a timeout, retries with back-off, and maps failures
+    to typed application errors. Responses are cached in DuckDB with a
+    time-to-live and stored with their source and timestamp.
+  - Candle times are stored in UTC and converted to Indian Standard Time only
+    at the edges.
+
+================================================================================
+7. TECHNOLOGY STACK
+================================================================================
+
+  Backend      Python 3.11, FastAPI, Pydantic v2, httpx (async), DuckDB
+  Frontend     React 18, TypeScript (strict), Vite, TanStack Query,
+               Tailwind CSS with design tokens, lightweight-charts
+  Real time    WebSocket hub fed by the Upstox market-data stream, with
+               automatic fallback to polling
+  Testing      pytest (backend), Vitest (frontend), TypeScript compiler checks
+  Quality      ruff (lint and format), Prettier, strict type checking
+  Optional     Local language model (Ollama) used only to phrase facts that the
+               system has already computed; every number in its text is checked
+               against those facts and the text is rejected if it invents one.
+  Cost         Runs on a single laptop with free data sources and no paid
+               services.
+
+================================================================================
+8. MODULES IN DETAIL
+================================================================================
+
+8.1 Market Data Pipeline
+  - Instrument master of about 3,750 NSE instruments, refreshed daily.
+  - Live ticks through a WebSocket hub that subscribes only to what is on
+    screen, watches for silent instruments and records latency.
+  - Historical candles (1 minute to monthly) cached locally.
+  - Freshness labels on every price: Live, Polled, Stale, Last close,
+    Unavailable. A price is never shown without saying how old it is.
+
+8.2 Paper Trading Engine
+  - Accounts start with virtual cash (default Rs 1,00,000) and a chosen
+    brokerage plan (zero on delivery, or Rs 20 / 0.1% per order).
+  - Order types: market, limit, stop-loss; validity "today" or "until
+    cancelled". Orders placed while the market is closed fill at the next
+    open.
+  - A background matcher runs every 3 seconds while the market is open. A fill
+    requires a quote that actually traded in today's session, so no order can
+    fill on a stale price or on an exchange holiday.
+  - Optional target and stop-loss on a buy become linked sell orders once the
+    buy fills; when one fills, the other is cancelled (one-cancels-other).
+  - Cash for open buy orders is reserved, so the same money cannot be spent
+    twice.
+  - Sells close the oldest lots first (FIFO), as Indian tax rules require.
+    Realised and unrealised profit are tracked separately.
+  - Before placing an order the user sees: price basis, itemised charges,
+    total cash needed, break-even price and warnings (insufficient cash,
+    a stop placed above the buy price, more than 40% of cash in one stock,
+    charges large relative to a small order).
+
+8.3 Decision Journal and Scorecard
+  - Every buy records a written reason and a tag (Results, News, Tip, Dip buy,
+    Momentum, and so on).
+  - The journal shows each decision next to its outcome and the NIFTY 50 move
+    over the same dates.
+  - The scorecard reports: win rate, average win and loss, profit factor,
+    realised profit after all charges, charges as a share of gross profit,
+    how many trades beat the index, results by tag, average days held for
+    winners and losers, and estimated capital-gains tax per financial year.
+  - Rule-based lessons are generated only when enough trades support them,
+    for example: "You hold losing trades longer than winning ones" (the
+    disposition effect), "Charges took X% of your gross profit", or
+    "Trades tagged 'Tip' worked 1 of 5 times".
+
+8.4 Portfolio Review: "What happened and why"
+  - Periods: since last visit, today, one week, one month, since start.
+  - For each stock: return, contribution in rupees, and its split into
+    market (NIFTY 50), sector-beyond-market and stock-beyond-sector.
+  - Evidence: the stock's unusually large daily moves, headlines published
+    around those days (labelled as context, not proof of cause), ex-dividend
+    dates, research view changes and results announcements.
+  - Holiday-aware start prices and a plain "no change" message when the market
+    has not traded since the last visit.
+
+8.5 Strategy Lab
+  - Rule builder: price versus moving average, moving-average crossovers,
+    RSI, N-day return, distance from the 52-week high; all entry conditions
+    must hold; any exit condition, stop-loss, target or maximum holding period
+    closes the trade. Four ready-made starting strategies.
+  - Backtests over 1 to 10 years for up to 10 stocks, with full charges.
+  - Results: total return, CAGR, maximum drawdown, win rate, time in market,
+    trade list, comparison with buy-and-hold and with the NIFTY 50.
+  - Out-of-sample check: the period is split into the earlier 70% and the
+    later 30% to show whether the rules still work on years they were not
+    tuned on.
+  - Saved strategies can run forward in a paper account: rules are checked
+    after each session's close and orders fill at the next open, exactly as
+    the backtest assumes.
+
+8.6 IPO Desk
+  - Issues open now, upcoming, closed and awaiting listing, and recent
+    mainboard listings, from NSE's official data.
+  - Subscription by investor category (institutional, high-net-worth, retail,
+    employees, total), price band, lot size, minimum investment, lead
+    managers and prospectus links.
+  - Listing-day gain and return since issue from exchange prices.
+  - "Track record of similar issues": how past issues with similar
+    institutional demand opened on listing day, with sample size, average,
+    median, best and worst.
+
+8.7 Research Engine
+  - Four agents score each followed stock from -1 to +1:
+      Firm      price technicals and company fundamentals,
+      Industry  position against sector peers,
+      Macro     interest rates, inflation and other economic series,
+      Sentiment news headline tone.
+  - Each score carries its evidence and its data gaps; reports are stored with
+    history so changes can be shown.
+  - A validation module replays the scores over past years and measures their
+    relationship with later returns (see Section 13).
+
+8.8 Planner, Alerts, Learning and Monitoring
+  - Planner: allocation strategies tested on history with dividends, charges
+    and tax; goal projections from resampled history.
+  - Alerts for significant events on followed stocks.
+  - Learn page and an in-app glossary.
+  - Status page and sidebar status card showing every data source in plain
+    language, separating core sources from optional ones.
+
+================================================================================
+9. KEY ALGORITHMS AND METHODS
+================================================================================
+
+9.1 Delivery charges (per order)
+  STT          0.1% of value on buy and sell, rounded to the rupee
+  Stamp duty   0.015% of buy value, rounded to the rupee
+  NSE fee      0.00297% of value
+  SEBI fee     Rs 10 per crore (0.0001%)
+  GST          18% on brokerage, exchange and SEBI fees
+  DP charge    about Rs 15.93 per sell (depository plus GST)
+  Break-even   the sell price at which proceeds after sell charges equal the
+               buy cost including buy charges (solved iteratively, because sell
+               charges depend on the sell price).
+
+  Worked example from the system: buying 7 TCS shares at Rs 2,498.80 costs
+  Rs 17,491.60 plus Rs 20.64 in charges; the shares must reach Rs 2,506.69
+  (+0.32%) before a sale makes any money.
+
+9.2 Capital-gains tax estimate
+  Short-term (held 12 months or less) at 20%; long-term at 12.5% above
+  Rs 1.25 lakh per financial year; STT added back because it is not
+  deductible; losses offset by the statutory rules and carried forward.
+
+9.3 Return attribution (portfolio review)
+  stock return  = market part + sector part + stock-specific part
+  market part   = NIFTY 50 return over the same dates
+  sector part   = sector index return - market return
+  stock part    = stock return - sector index return
+  The "largest factor" is named only when one part explains at least half of
+  the total; otherwise the move is reported as mixed. The portfolio-level
+  "market part" is computed position by position over each position's own
+  holding dates, so stocks bought mid-period are not unfairly compared.
+
+9.4 Big-move detection
+  A daily move is "big" if it is at least 2% and at least twice the stock's
+  typical daily move (root mean square of the previous 60 sessions).
+
+9.5 Backtesting without look-ahead bias
+  - Signals use only the closing price of a session and earlier prices.
+  - The resulting order fills at the next session's open.
+  - Stops and targets are checked against each later session's low and high;
+    a price gap through the level fills at the open; if one session touches
+    both, the stop is assumed first (conservative).
+  - Whole shares only, all charges applied on every order.
+  A dedicated unit test proves that a trade signalled on day t is filled at
+  the open of day t+1 and never at the signal close.
+
+9.6 IPO track record
+  Past mainboard issues are grouped by institutional (QIB) subscription:
+  under 1x, 1x-10x, 10x-50x, 50x and above. For a new issue, the matching
+  group's share of issues that opened above the issue price is reported with
+  its sample size. A group with fewer than 8 issues is not used. An issue's
+  own result is never counted in its own track record.
+
+9.7 Grounded language output (optional)
+  When the local language model is enabled, it receives only facts computed
+  by the system. Any number in its output that is not present in those facts
+  causes the text to be rejected. Results are cached, and daily usage is
+  limited by a budget.
+
+================================================================================
+10. DATA SOURCES AND DATA INTEGRITY
+================================================================================
+
+  Source                Used for
+  --------------------  -------------------------------------------------------
+  Upstox API            live ticks, quotes, historical candles, instrument list
+  NSE public data       IPO issues and subscription, index constituents
+  Yahoo Finance         fundamentals and dividends
+  FRED (US Fed. Res.)   macro-economic series
+  Google News RSS       headlines for stocks and IPOs
+
+Integrity rules applied throughout
+  1. No fabricated data. No price, metric, headline or score is hard-coded in
+     any path the user can see. Missing data produces an explicit empty or
+     unavailable state.
+  2. Every stored value records its source and time.
+  3. Freshness is always visible.
+  4. Unofficial figures (for example the IPO "grey market premium") are
+     deliberately not used.
+  5. Secrets stay in a local .env file; they are never logged, committed or
+     sent to the browser.
+  6. A source monitor tracks consecutive failures and last success for each
+     source; the interface explains what is affected.
+
+================================================================================
+11. DATABASE DESIGN
+================================================================================
+
+DuckDB (embedded, file-based, analytical) with 24 tables. Main groups:
+
+  Market data     instruments, provider cache with expiry, candle cache
+  Research        research reports and report history, validation results
+  Portfolios      tracked_portfolios (kind, starting cash, cash, brokerage
+                  plan), tracked_positions (lots with entry price, charges,
+                  reason, tag, index level at entry)
+  Paper trading   paper_orders (side, type, validity, limit and trigger prices,
+                  status, fill details, itemised charges, reason, linked exits,
+                  source), paper_trades (closed lots with buy and sell details,
+                  charges, reasons, index levels)
+  Strategies      strategies (rules as JSON, linked paper account, amount per
+                  trade, active flag, last run)
+  IPOs            ipo_history (issue price, listing date, subscription by
+                  category, listing-day open and close)
+  System          events and alerts, watchlist, preferences, language-model
+                  usage, meta
+
+Schema changes are applied idempotently at start-up, so existing user data is
+kept when the application is upgraded.
+
+================================================================================
+12. QUALITY ASSURANCE AND TESTING
+================================================================================
+
+Automated tests: 134 in total (121 backend, 13 frontend), all passing.
+
+Selected test areas
+  - Charges match the published NSE schedule to the paisa; break-even
+    price covers both sides.
+  - Paper trading: market fill, target and stop-loss pairing, cash
+    reservation, limit orders filling at a better price, sell-quantity checks,
+    FIFO lot closing, day-order expiry, tracking portfolios refusing orders.
+  - Strategy forward run: a real signal places one tagged buy with its
+    stop-loss, and does not place a duplicate.
+  - Rules engine: indicator values, crossovers, next-open fills (no
+    look-ahead), stop gap-through fills, plain-language rule descriptions.
+  - Portfolio review: contributions add up to the total change; first-visit
+    and last-visit periods; attribution maths.
+  - IPO parsing and statistics on NSE's real data formats.
+  - Planner backtests, tax rules, research validation, and assistant safety
+    checks.
+
+Engineering practices
+  - Strict typing (Python type hints, TypeScript strict mode).
+  - Linting and formatting enforced (ruff, Prettier).
+  - Pure calculation functions separated from I/O for testability.
+  - Every user-facing component handles loading, empty, error and stale states.
+  - Verified in the browser on desktop and mobile widths, in light and dark
+    themes, with reduced-motion support.
+
+Defects found during verification and fixed (examples)
+  - Duplicate data points crashed a chart library; data is now de-duplicated
+    on both server and client.
+  - A form rejected valid rupee amounts because of an input step setting.
+  - A stop-loss above the buy price was only warned about; it is now refused,
+    because it would sell immediately after buying.
+  - Non-equity issues (debt, REIT, InvIT, partly paid shares) appeared among
+    IPOs; they are now filtered out.
+  - The market-versus-stock split overstated the market's effect for stocks
+    bought mid-period; it is now computed per position over its own dates.
+
+================================================================================
+13. RESULTS AND MEASURED FINDINGS
+================================================================================
+
+13.1 Calculation correctness
+  All charge, tax, FIFO and backtest-timing rules are verified by automated
+  tests against the published rules. This is the project's primary measure of
+  accuracy: the system's arithmetic must match reality exactly.
+
+13.2 Honest evaluation of research signals
+  The combined research score was replayed over 456 NIFTY 500 stocks for
+  102 months (2018-2026), against the following month's returns:
+    Mean information coefficient (rank correlation)   0.017
+    Hit rate                                          52%
+    System verdict                                    "inconclusive"
+  The system reports this result to the user instead of hiding it. This is a
+  deliberate design choice: a tool that measures itself honestly is more
+  useful to a learner than one that claims high accuracy without proper
+  out-of-sample testing.
+
+13.3 IPO study (193 NSE mainboard issues)
+  Institutional demand    Opened above issue price    Average listing move
+  50x or more             92%                         +27%
+  10x to 50x              72%                         +6.3%
+  1x to 10x               39%                         -5.3%
+  Strong institutional demand has been the clearest single guide to listing
+  results; weak demand has, on average, listed below the issue price.
+
+13.4 Strategy Lab example (real data, 5 years, Rs 1,00,000 per stock)
+  Rules: buy when price is above its 200-day average and RSI(14) is below 35;
+  sell when RSI is above 65, on an 8% stop-loss, or after 60 days.
+    HDFCBANK   rules +27.2%   buy-and-hold -1.1%
+    RELIANCE   rules  +2.4%   buy-and-hold +9.8%
+    NIFTY 50 over the same dates: +38.5%
+  The same rule behaved very differently across stocks, and simply holding
+  the index beat all three. Showing this clearly is the purpose of the lab.
+
+13.5 Real-time performance
+  Server-to-browser delivery of live data: about 70 ms median and under
+  100 ms for 90% of updates in local testing. (End-to-end delay from the
+  exchange should be measured during market hours.)
+
+================================================================================
+14. COMPARISON WITH EXISTING SOLUTIONS
+================================================================================
+
+  Capability                          Broker apps   Typical paper-  FinCortext
+                                                     trading apps
+  ----------------------------------  ------------  --------------  ----------
+  Real money at risk                  Yes           No              No
+  Live exchange prices                Yes           Often delayed   Yes
+  Charges itemised before ordering    Partly        Rarely          Yes
+  Break-even price shown              No            No              Yes
+  Capital-gains tax estimate          Reports       No              Yes
+  Records the reason for each trade   No            No              Yes
+  Trade outcome versus index          No            Rarely          Yes
+  Explains why holdings moved         No            No              Yes
+  Backtest own rules, out-of-sample   Rarely        No              Yes
+  IPO demand with measured history    Partly        No              Yes
+
+(The middle columns describe typical products in general terms; individual
+products and versions differ.)
+
+================================================================================
+15. ENGINEERING CHALLENGES AND HOW THEY WERE SOLVED
+================================================================================
+
+  Challenge                            Solution
+  -----------------------------------  ------------------------------------------
+  Exchange holidays are not in the     Fills require a quote that traded in
+  schedule                             today's session; holiday start prices
+                                       use the last actual close.
+  NSE blocks non-browser sessions      Session warm-up with cookies, renewal on
+                                       refusal, request spacing, local caching.
+  Look-ahead bias in backtests         Close-based signals, next-open fills,
+                                       conservative stop handling, proven by a
+                                       unit test.
+  Double-spending virtual cash         Cash reserved for every open buy order.
+  Many small chart requests            One batched endpoint returns recent
+                                       closes for up to 60 instruments.
+  Live data that silently stops        Watchdog marks silent instruments and
+                                       the interface shows freshness everywhere.
+  Language model inventing numbers     Model receives facts only; any unknown
+                                       number rejects the text.
+  Keeping user data across upgrades    Idempotent schema changes at start-up.
+
+================================================================================
+16. LIMITATIONS
+================================================================================
+
+  - Single market-data provider (Upstox). Access needs a token that must be
+    renewed: yearly for a read-only analytics token, daily for a login token.
+  - IPO data depends on NSE's public website, which can change without notice.
+  - Order matching uses traded prices, not the full order book, so queue
+    position and partial fills are not modelled.
+  - Backtests use split- and bonus-adjusted closes; dividends are excluded
+    from both the strategy and buy-and-hold for a fair comparison.
+  - Single-user, local deployment in the current version.
+  - Research signals have weak measured predictive value (Section 13.2);
+    they are presented as context, not as recommendations.
+
+================================================================================
+17. FUTURE SCOPE
+================================================================================
+
+  1. Replay mode: practise on any past date day by day with real historical
+     prices, useful when the market is closed and for reliving past events.
+  2. Multi-user accounts with sign-in, so a class can practise together.
+  3. Containerised one-command deployment and continuous integration that runs
+     all tests on every change.
+  4. Portfolio-level strategy tests (several stocks sharing one capital) and
+     parameter-robustness checks.
+  5. Export of the journal and scorecard to CSV and PDF.
+  6. A second data provider for redundancy.
+
+================================================================================
+18. LEARNING OUTCOMES
+================================================================================
+
+  - Designing a layered system with clear boundaries between data access,
+    business logic and pure calculation.
+  - Working with real-time data: WebSockets, reconnection, freshness and
+    latency measurement.
+  - Financial domain knowledge: Indian market structure, charges, taxation,
+    IPO process, index construction.
+  - Statistical honesty: out-of-sample testing, avoiding look-ahead bias,
+    reporting sample sizes and uncertainty.
+  - Building for users: plain-language explanations, accessible interaction
+    (keyboard, touch, reduced motion), mobile layouts, light and dark themes.
+  - Quality discipline: automated tests for every rule involving money,
+    strict typing, and verifying each feature against real data before
+    calling it done.
+
+================================================================================
+19. RELEVANCE TO ENTERPRISE SOFTWARE WORK
+================================================================================
+
+Although FinCortext is a financial application, most of the engineering is
+the same as in enterprise information systems:
+
+  - Integration of several external systems with timeouts, retries, caching
+    and monitoring.
+  - Background processing (schedulers, queues, matching engines) that must be
+    correct and recover after restarts.
+  - Data quality as a first-class requirement: source and time recorded for
+    every value, no invented data, explicit handling of missing data.
+  - Transactional business rules (cash, orders, lots, tax) verified by tests.
+  - Operational visibility: a status page that explains system health to
+    non-technical users.
+  - Documentation and conventions written down (architecture plan and coding
+    rules) and followed throughout.
+
+The project reflects a working style that values reliability, careful
+verification and continuous improvement: each feature was tested on real data,
+problems found were fixed at their root, and the results were reported
+honestly, including the ones that were not favourable.
+
+================================================================================
+20. CONCLUSION
+================================================================================
+
+FinCortext shows that a learning platform for the stock market can be both
+realistic and honest. It uses real exchange data, applies real costs and tax,
+explains outcomes, and measures its own predictive components instead of
+claiming accuracy it cannot prove. For a beginner, it offers a safe place to
+practise and a record that shows what their decisions actually achieved. For
+the developer, it was an end-to-end exercise in building a reliable,
+well-tested, data-driven system.
+
+================================================================================
+APPENDIX A. PROJECT STATISTICS (measured from the repository)
+================================================================================
+
+  Backend source            90 Python files, about 17,900 lines
+  Frontend source           67 TypeScript files, about 14,100 lines
+  Automated tests           17 backend test files (about 2,200 lines),
+                            121 backend tests + 13 frontend tests
+  REST endpoints            64
+  Database tables           24
+  Background workers        7 (live price hub, order matcher, strategy
+                            runner, research queue, IPO history builder,
+                            alert watcher, research validation)
+  Glossary terms            41
+  Instruments covered       about 3,750 NSE instruments
+
+================================================================================
+APPENDIX B. HOW TO RUN
+================================================================================
+
+  Requirements: Python 3.11+, Node.js 18+, and a free Upstox developer
+  account for market data. No credentials are needed to install or start.
+
+  Setup (from the project root)
+    copy .env.example .env
+      then set UPSTOX_ACCESS_TOKEN to a read-only Analytics Token
+      from the Upstox developer console
+    cd backend
+    python -m venv .venv
+    .venv\Scripts\python -m pip install -e ".[dev]"
+    cd ..\frontend
+    npm install
+
+  Run (two terminals)
+    cd backend  && .venv\Scripts\python -m uvicorn app.main:app --port 8000
+    cd frontend && npm run dev
+    then open http://localhost:5173
+
+  Tests
+    cd backend  && .venv\Scripts\python -m pytest -q
+    cd frontend && npm test && npm run build
+
+================================================================================
+APPENDIX C. GLOSSARY OF KEY TERMS
+================================================================================
+
+  Backtest        Running rules on past prices to see how they would have done.
+  Break-even      Sell price that returns exactly the money spent, after all
+                  charges on both sides.
+  CAGR            Compound annual growth rate.
+  Delivery trade  Buying shares to hold in a demat account (not intraday).
+  Drawdown        Largest fall from a peak to a later low.
+  FIFO            First in, first out: earliest shares are treated as sold
+                  first.
+  IC              Information coefficient: rank correlation between a score and
+                  later returns.
+  Look-ahead bias Using information in a test that would not have been
+                  available at the time.
+  NIFTY 50        Index of 50 large companies on the NSE.
+  Out-of-sample   Testing on data not used to design or tune the rules.
+  QIB             Qualified institutional buyers (mutual funds, insurers,
+                  foreign funds) in an IPO.
+  RSI             Relative Strength Index, a momentum indicator from 0 to 100.
+  STT             Securities Transaction Tax.
+
+================================================================================
+  FinCortext is a research and education project. It does not provide
+  investment advice and never places real orders.
+================================================================================

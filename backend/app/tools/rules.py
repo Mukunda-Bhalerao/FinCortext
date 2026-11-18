@@ -296,3 +296,48 @@ def hold_curve(bars: Sequence[Bar], start_i: int, capital: float, plan: str) -> 
     ch = order_charges("BUY", qty * first, plan).total
     cash = capital - qty * first - ch
     return [cash + qty * b.close for b in bars[start_i:]]
+
+
+# --- classic starting points -----------------------------------------------------------------
+
+PRESETS: dict[str, tuple[str, Rules]] = {
+    "dip": (
+        "Buy dips in an uptrend",
+        Rules(
+            entry=[
+                Condition(kind="price_vs_sma", op="above", n=200),
+                Condition(kind="rsi", op="below", n=14, value=35),
+            ],
+            exit=[Condition(kind="rsi", op="above", n=14, value=65)],
+            stop_loss=0.08,
+            max_days=60,
+        ),
+    ),
+    "golden_cross": (
+        "Golden cross",
+        Rules(
+            entry=[Condition(kind="sma_cross", op="crosses_above", n=50, m=200)],
+            exit=[Condition(kind="sma_cross", op="crosses_below", n=50, m=200)],
+        ),
+    ),
+    "momentum": (
+        "Momentum",
+        Rules(
+            entry=[
+                Condition(kind="return", op="above", n=126, value=0.2),
+                Condition(kind="price_vs_sma", op="above", n=50),
+            ],
+            exit=[Condition(kind="price_vs_sma", op="crosses_below", n=50)],
+            stop_loss=0.1,
+        ),
+    ),
+    "breakout": (
+        "52-week high breakout",
+        Rules(
+            entry=[Condition(kind="from_high", op="above", n=252, value=0.02)],
+            stop_loss=0.08,
+            take_profit=0.2,
+            max_days=120,
+        ),
+    ),
+}

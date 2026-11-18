@@ -67,6 +67,21 @@ ASK_SYSTEM = (
     'string or null, "include": [symbols], "exclude": [symbols], "max_weight": number or null, '
     '"label": string}}.'
 )
+CHAT_SYSTEM = (
+    "You are the assistant inside FinCortext, a stock-market practice app for beginners in "
+    "India. Rewrite the engine's answer in a warm, plain voice using ONLY the numbered facts. "
+    "Copy every number exactly as written; add no numbers, forecasts or promises. Never tell "
+    "the user to buy or sell; describe what is true and what they could look at. Explain any "
+    "market term in a few words. At most 110 words, no lists. "
+    'Return JSON: {"answer": string, "cited": [fact ids]}.'
+)
+CONCEPT_SYSTEM = (
+    "You explain stock-market concepts to a beginner in India, inside a practice app. Answer "
+    "in at most 90 words of plain language. Use no numbers, figures, prices or percentages at "
+    "all. Do not predict anything and do not tell the user to buy or sell. If the question "
+    "needs live data or is not about investing, say what the app can calculate instead. "
+    'Return JSON: {"answer": string}.'
+)
 
 
 def _numbers(text: str) -> list[float]:
@@ -259,6 +274,76 @@ class Assistant:
             return None
         self._store(key, result)
         return Narrative(**result)
+
+    # --- helpers for the app-wide assistant ---------------------------------------------
+
+    @property
+    def model_name(self) -> str | None:
+        return self._llm.model if self._llm is not None else None
+
+    async def phrase(
+        self, question: str, draft: str, facts: list[Fact], history: list[dict]
+    ) -> tuple[str, list[str]] | None:
+        """The engine's answer in a warmer voice, or None when the model is off, fails, adds a
+        number that is not in the facts, or drifts into advice. The engine's own answer is
+        then shown unchanged."""
+        if self._llm is None or not facts:
+            return None
+        facts_text = self._facts_text(facts)
+        messages = [
+            *history[-4:],
+            {
+                "role": "user",
+                "content": f"Question: {question}\n\nEngine answer: {draft}\n\n"
+                f"Facts:\n{facts_text}",
+            },
+        ]
+        try:
+            out = await self._call(CHAT_SYSTEM, messages, "chat")
+        except AppError:
+            return None
+        text = str(out.get("answer") or "").strip()
+        allowed = f"{facts_text}\n{question}\n{draft}"
+        if not 30 <= len(text) <= 1000 or ungrounded(text, allowed) or _INSTRUCTION.search(text):
+            log.info("chat phrasing rejected by checks")
+            return None
+        valid = {f.id for f in facts}
+        cited = [c for c in out.get("cited") or [] if isinstance(c, str) and c in valid]
+        return _FACT_REF.sub("", text).strip(), cited
+
+    async def pick_tool(self, question: str, tools: dict[str, str]) -> dict | None:
+        """When the rules cannot place a question, let the model choose among the tools. It
+        only chooses; the tool still computes the answer."""
+        if self._llm is None:
+            return None
+        system = (
+            "Choose the tool that answers the user's question in an Indian stock-market "
+            "practice app. Tools:\n"
+            + "\n".join(f"- {k}: {v}" for k, v in tools.items())
+            + '\nReturn JSON: {"tool": a tool name or "none", "symbol": an NSE symbol or null, '
+            '"term": a market term or null}.'
+        )
+        try:
+            out = await self._call(system, [{"role": "user", "content": question}], "route")
+        except AppError:
+            return None
+        return out if isinstance(out, dict) else None
+
+    async def concept(self, question: str) -> str | None:
+        """A short conceptual explanation with no figures, for questions no tool covers.
+        Rejected if it contains any number or reads as advice."""
+        if self._llm is None:
+            return None
+        try:
+            out = await self._call(
+                CONCEPT_SYSTEM, [{"role": "user", "content": question}], "concept"
+            )
+        except AppError:
+            return None
+        text = str(out.get("answer") or "").strip()
+        if not 40 <= len(text) <= 800 or ungrounded(text, question) or _INSTRUCTION.search(text):
+            return None
+        return text
 
     def _limit(self) -> None:
         now = time.monotonic()

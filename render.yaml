@@ -1,0 +1,36 @@
+# Render blueprint: one Docker service serving both the API and the interface.
+# In Render, choose New > Blueprint and point it at this repository.
+#
+# Set UPSTOX_ACCESS_TOKEN in the dashboard (Environment tab) after the first deploy; it is
+# marked sync:false so the token is never written into this file or the repository.
+#
+# The free plan has no persistent disk and sleeps after about 15 minutes of inactivity, so
+# the first request afterwards takes roughly a minute and practice portfolios start empty.
+# To keep data, move to the Starter plan and uncomment the disk block below.
+
+services:
+  - type: web
+    name: fincortext
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore # closest to the NSE data sources
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: UPSTOX_ACCESS_TOKEN # read-only Analytics Token from the Upstox console
+        sync: false
+      - key: DUCKDB_PATH
+        value: /data/fincortext.duckdb
+      - key: LIVE_MODE
+        value: stream
+      - key: NEWS_ENABLED
+        value: "true"
+      - key: LLM_PROVIDER # "ollama" only if you expose an Ollama server to the internet
+        value: none
+      - key: LOG_LEVEL
+        value: INFO
+    # disk:                      # Starter plan and above: keeps portfolios across restarts
+    #   name: fincortext-data
+    #   mountPath: /data
+    #   sizeGB: 1

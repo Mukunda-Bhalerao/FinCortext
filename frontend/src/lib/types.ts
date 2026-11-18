@@ -1298,3 +1298,80 @@ export interface SavedStrategy {
   last_run: string | null;
   last_note: string | null;
 }
+
+// --- assistant and the daily feed --------------------------------------------------------------
+
+export interface ChatStat {
+  label: string;
+  value: string;
+  tone?: "up" | "down" | "muted" | null;
+  hint?: string | null;
+}
+
+export interface ChatRow {
+  label: string;
+  sub?: string | null;
+  value?: string | null;
+  change?: number | null;
+  to?: string | null;
+  href?: string | null;
+}
+
+export interface ChatBar {
+  label: string;
+  value: number;
+  note?: string | null;
+}
+
+export interface ChatCard {
+  kind: "stats" | "rows" | "bars" | "definition" | "steps" | "spark";
+  title: string;
+  note?: string | null;
+  stats: ChatStat[];
+  rows: ChatRow[];
+  bars: ChatBar[];
+  steps: string[];
+  text?: string | null;
+  points: number[];
+}
+
+export interface ChatAnswer {
+  answer: string;
+  tool: string;
+  rule: string;
+  cards: ChatCard[];
+  facts: Fact[];
+  follow_ups: string[];
+  actions: { label: string; to: string }[];
+  answered_by: "engine" | "model";
+  model: string | null;
+  notice: string | null;
+  symbol: string | null;
+  generated_at: string;
+}
+
+export interface Nudge {
+  id: string;
+  kind: "account" | "watchlist" | "ipo" | "strategy" | "market" | "research" | "start";
+  severity: "high" | "medium" | "low";
+  title: string;
+  body: string;
+  symbol: string | null;
+  action_label: string | null;
+  action_to: string | null;
+  ask: string | null;
+}
+
+export interface ProgressStep {
+  key: string;
+  label: string;
+  done: boolean;
+  to: string;
+}
+
+export interface TodayFeed {
+  nudges: Nudge[];
+  progress: ProgressStep[];
+  gaps: string[];
+  generated_at: string;
+}

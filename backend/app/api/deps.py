@@ -8,6 +8,7 @@ from app.providers.upstox import UpstoxProvider
 from app.services.assistant import Assistant
 from app.services.auth import AuthService
 from app.services.candles import CandleService
+from app.services.chat import ChatService
 from app.services.instruments import InstrumentService
 from app.services.ipo import IpoService
 from app.services.live import LiveHub
@@ -21,6 +22,7 @@ from app.services.research import ResearchService
 from app.services.session import SessionClock
 from app.services.signal_lab import SignalLab
 from app.services.strategy import StrategyService
+from app.services.today import TodayService
 from app.services.tracker import TrackerService
 from app.services.watcher import Watcher
 
@@ -48,6 +50,8 @@ class Services:
     ipo: IpoService
     paper: PaperService
     lab_rules: StrategyService
+    today: TodayService
+    chat: ChatService
 
 
 def services(request: Request) -> Services:

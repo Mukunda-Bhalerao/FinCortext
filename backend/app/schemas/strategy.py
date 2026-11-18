@@ -22,8 +22,8 @@ class Condition(BaseModel):
 
     kind: ConditionKind
     op: Op
-    n: int = Field(50, ge=1, le=250)
-    m: int | None = Field(None, ge=2, le=250)
+    n: int = Field(50, ge=1, le=400)  # sessions; 252 is one trading year
+    m: int | None = Field(None, ge=2, le=400)
     value: float | None = None
 
     @model_validator(mode="after")

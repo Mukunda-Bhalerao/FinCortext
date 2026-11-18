@@ -1,8 +1,18 @@
 # FinCortext
 
 Research terminal for NSE-listed equities. A FastAPI backend pulls market data from Upstox,
-caches it in DuckDB and relays live prices to a React dashboard. See `PLAN.md` for the roadmap
-and `AGENT.md` for coding conventions.
+caches it in DuckDB and relays live prices to a React dashboard. See `PLAN.md` for the roadmap,
+`AGENT.md` for coding conventions and [`DEPLOY.md`](DEPLOY.md) to put it online.
+
+Practise with virtual money at live prices, see why your holdings moved, test trading rules on
+years of past data, and ask the built-in assistant — which answers only from figures the engine
+computed, and shows them.
+
+## Deploy
+
+One container serves the API and the interface. `render.yaml` deploys it on Render,
+`fly.toml` on Fly.io, or `docker build -t fincortext .` runs it anywhere.
+[`DEPLOY.md`](DEPLOY.md) has the steps and the trade-offs of each free plan.
 
 ## Setup
 

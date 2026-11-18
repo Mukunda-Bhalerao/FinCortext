@@ -8,6 +8,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 
 from app.api.deps import Services, services, ws_services
+from app.config import origin_allowed
 
 router = APIRouter()
 Svc = Annotated[Services, Depends(services)]
@@ -38,8 +39,11 @@ async def ticks(
 @router.websocket("/api/ws/live")
 async def live(websocket: WebSocket) -> None:
     svc = ws_services(websocket)
-    origin = websocket.headers.get("origin")
-    if origin and origin.rstrip("/") not in svc.settings.allowed_origins:
+    if not origin_allowed(
+        websocket.headers.get("origin"),
+        websocket.headers.get("host"),
+        svc.settings.allowed_origins,
+    ):
         await websocket.close(code=1008)
         return
     await websocket.accept()

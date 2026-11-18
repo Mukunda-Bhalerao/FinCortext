@@ -101,3 +101,20 @@ def test_stock_summary_degrades_without_provider(make_client):
     assert body["instrument"]["isin"] == "INE002A01018"
     assert body["quote"] is None and body["week52_high"] is None
     assert body["problems"]
+
+
+def test_live_socket_allows_the_origin_it_is_served_from():
+    """A deployment serves the interface from the API's own host, so that origin cannot be
+    configured in advance. Same-origin must pass; a different site must not."""
+    from app.config import origin_allowed
+
+    allowed = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    # Served by this process: the browser's origin is the host the request arrived on.
+    assert origin_allowed("https://fincortext.onrender.com", "fincortext.onrender.com", allowed)
+    assert origin_allowed("http://localhost:8000", "localhost:8000", allowed)
+    # The configured development origin still works behind the Vite proxy.
+    assert origin_allowed("http://localhost:5173", "localhost:5173", allowed)
+    # Another site may not open the socket.
+    assert not origin_allowed("https://evil.example", "fincortext.onrender.com", allowed)
+    # A non-browser client sends no Origin; the check does not apply to it.
+    assert origin_allowed(None, "fincortext.onrender.com", allowed)

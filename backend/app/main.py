@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.deps import Services
 from app.api.routes import (
     assistant,
+    chat,
     events,
     ipo,
     market,
@@ -21,6 +22,7 @@ from app.api.routes import (
     tracker,
     ws,
 )
+from app.api.static import mount as mount_interface
 from app.config import Settings, get_settings
 from app.db import Database
 from app.errors import AppError, app_error_handler
@@ -31,6 +33,7 @@ from app.providers.yahoo import YahooProvider
 from app.services.assistant import Assistant
 from app.services.auth import AuthService
 from app.services.candles import CandleService
+from app.services.chat import ChatService
 from app.services.instruments import InstrumentService
 from app.services.ipo import IpoService
 from app.services.live import LiveHub
@@ -46,6 +49,7 @@ from app.services.research_data import ResearchData
 from app.services.session import SessionClock
 from app.services.signal_lab import SignalLab
 from app.services.strategy import StrategyService
+from app.services.today import TodayService
 from app.services.tracker import TrackerService
 from app.services.watcher import Watcher
 
@@ -121,6 +125,9 @@ def build_services(settings: Settings, db: Database | None = None) -> Services:
     assistant = Assistant(db, portfolio, research, instruments, llm, monitor, budget, lab)
     tracker = TrackerService(db, instruments, data, portfolio, research, assistant.narrate)
     paper = PaperService(db, instruments, data, tracker, clock, research.enqueue)
+    ipo = IpoService(db, instruments, candles, monitor)
+    lab_rules = StrategyService(db, instruments, candles, paper, tracker, clock)
+    today = TodayService(db, market, candles, tracker, ipo, lab_rules, clock)
     return Services(
         settings=settings,
         db=db,
@@ -138,8 +145,24 @@ def build_services(settings: Settings, db: Database | None = None) -> Services:
         assistant=assistant,
         tracker=tracker,
         paper=paper,
-        lab_rules=StrategyService(db, instruments, candles, paper, tracker, clock),
-        ipo=IpoService(db, instruments, candles, monitor),
+        lab_rules=lab_rules,
+        ipo=ipo,
+        today=today,
+        chat=ChatService(
+            db,
+            instruments,
+            market,
+            candles,
+            data,
+            research,
+            tracker,
+            paper,
+            ipo,
+            lab_rules,
+            today,
+            assistant,
+            clock,
+        ),
         monitor=monitor,
         lab=lab,
         watcher=Watcher(db, instruments, quotes, research, portfolio, lab, monitor, followed_keys),
@@ -186,6 +209,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await svc.portfolio.stop()
         await svc.research.stop()
         await svc.assistant.aclose()
+        await svc.today.aclose()
         await svc.ipo.aclose()
         await svc.hub.stop()
         await svc.provider.aclose()
@@ -211,7 +235,9 @@ def create_app() -> FastAPI:
     app.include_router(ipo.router)
     app.include_router(paper.router)
     app.include_router(strategy.router)
+    app.include_router(chat.router)
     app.include_router(ws.router)
+    mount_interface(app)  # last: its catch-all must not shadow the API routes
     return app
 
 

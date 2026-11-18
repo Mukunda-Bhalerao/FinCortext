@@ -639,6 +639,62 @@ class TrackerService:
                 review.narrative = await self._narrate(headline, points, facts)
         return review
 
+    async def explain_stock(self, inst: Instrument, since: datetime) -> StockReview | None:
+        """One stock's move since ``since`` with the evidence a portfolio review gives: the
+        market, sector and company parts, its big days, headlines, dividends and research
+        changes. Reported for one share. None when there is no price at the start."""
+        pts = await self._points(inst)
+        cutoff = T.start_cutoff(since)
+        start = T.close_on_or_before(pts, cutoff)
+        live = await self._live([inst])
+        end = live.get(inst.instrument_key, (pts[-1][1] if pts else None,))[0]
+        if start is None or not end:
+            return None
+        mkt = None
+        nifty = self._index("NIFTY")
+        if nifty:
+            with contextlib.suppress(AppError):
+                nifty_pts = await self._points(nifty)
+                nifty_live = await self._live([nifty])
+                mkt = T.period_return(
+                    nifty_pts, cutoff, nifty_live.get(nifty.instrument_key, (None,))[0]
+                )
+        ret = end / start[1] - 1
+        sector_label, sector_ret = await self._sector_return(inst, cutoff)
+        if sector_ret is not None:
+            specific = ret - sector_ret
+        else:
+            specific = ret - mkt if mkt is not None else None
+        today = to_ist(datetime.now(UTC)).date()
+        moves = [
+            Move(date=d, change_pct=r, live=lv) for d, r, lv in T.big_moves(pts, cutoff, end, today)
+        ]
+        stock = StockReview(
+            symbol=inst.symbol,
+            name=inst.name,
+            sector=self._instruments.industry_of(inst.isin) or "Unclassified",
+            quantity=1.0,
+            start_price=start[1],
+            start_basis=f"close on {_fmt_day(start[0])}",
+            end_price=end,
+            return_pct=ret,
+            contribution=end - start[1],
+            contribution_share=0.0,
+            market_return=mkt,
+            sector_label=sector_label,
+            sector_return=sector_ret,
+            stock_specific=specific,
+            driver=T.driver_of(ret, sector_ret, mkt),  # type: ignore[arg-type]
+            moves=moves,
+            headlines=await self._headlines(inst, since, moves),
+            dividends=await self._dividends(inst.symbol, cutoff),
+            research=self._research_shift(inst.instrument_key, since),
+            events=self._events(inst.symbol, since),
+            explanation="",
+        )
+        stock.explanation = self._explain(stock)
+        return stock
+
     # --- review parts -------------------------------------------------------------------
 
     def _index(self, symbol: str) -> Instrument | None:

@@ -13,6 +13,7 @@ import { useHealth } from "../features/status/StatusPage";
 import { useStoredState } from "../lib/useStoredState";
 import { AlertsBell } from "../features/alerts/AlertsBell";
 import { Toaster } from "../components/Toaster";
+import { AssistantPanel } from "../features/assistant/AssistantPanel";
 import { StatusCard } from "./StatusCard";
 
 type NavItem = { to: string; label: string; section: Section; hint: string };
@@ -229,6 +230,18 @@ function ConnectionBanner() {
 export function Shell({ children }: { children: ReactNode }) {
   const [theme, toggleTheme] = useTheme();
   const [navOpen, setNavOpen] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
+  // Ctrl/Cmd+J opens the assistant from anywhere, like the search bar's Ctrl+K.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === "j" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        setAskOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   // Desktop only: the mobile drawer always shows labels.
   const [collapsedPref, setCollapsedPref] = useStoredState<"0" | "1">("fc-sidebar-collapsed", "0");
   const collapsed = collapsedPref === "1" && !navOpen;
@@ -365,6 +378,34 @@ export function Shell({ children }: { children: ReactNode }) {
               <MarketPill />
             </span>
             <FeedPill />
+            <button
+              onClick={() => setAskOpen((v) => !v)}
+              title="Ask the assistant (Ctrl+J)"
+              aria-label="Ask the assistant"
+              aria-expanded={askOpen}
+              className={cx(
+                "flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-2xs font-medium",
+                askOpen
+                  ? "border-accent bg-accent-soft text-accent"
+                  : "border-line-strong text-muted hover:border-accent/60 hover:text-fg",
+              )}
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15.5l-1.9-4.6L5.5 9l4.6-1.4z" />
+                <path d="M18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z" />
+              </svg>
+              <span className="hidden sm:inline">Ask</span>
+            </button>
             <AlertsBell />
             <button
               onClick={toggleTheme}
@@ -382,6 +423,7 @@ export function Shell({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
+      <AssistantPanel open={askOpen} onClose={() => setAskOpen(false)} />
       <Toaster />
     </div>
   );

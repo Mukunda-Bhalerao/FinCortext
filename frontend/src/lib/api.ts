@@ -25,6 +25,8 @@ import type {
   Timeframe,
   PortfolioReview,
   IpoDetail,
+  ChatAnswer,
+  TodayFeed,
   AccountActivity,
   BacktestResult,
   OrderInput,
@@ -144,6 +146,14 @@ export const api = {
     request<PortfolioReview>(`/api/tracker/${q(id)}/review?period=${period}&narrate=${narrate}`),
   markViewed: (id: string) => request<void>(`/api/tracker/${q(id)}/viewed`, { method: "POST" }),
   ipos: () => request<IpoOverview>("/api/ipo"),
+  chat: (body: {
+    question: string;
+    history: { role: "user" | "assistant"; content: string }[];
+    context: { path?: string | null; symbol?: string | null; portfolio_id?: string | null };
+  }) => request<ChatAnswer>("/api/chat", json("POST", body)),
+  chatStarters: (path: string, symbol?: string | null) =>
+    request<string[]>(`/api/chat/starters?path=${encodeURIComponent(path)}${symbol ? `&symbol=${q(symbol)}` : ""}`),
+  today: () => request<TodayFeed>("/api/today"),
   previewOrder: (id: string, body: OrderInput) =>
     request<OrderPreview>(`/api/tracker/${q(id)}/orders/preview`, json("POST", body)),
   placeOrder: (id: string, body: OrderInput) => request<PaperOrder>(`/api/tracker/${q(id)}/orders`, json("POST", body)),
