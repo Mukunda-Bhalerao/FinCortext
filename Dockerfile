@@ -21,7 +21,9 @@ FROM python:3.11-slim AS app
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    DUCKDB_PATH=/data/fincortext.duckdb
+    DUCKDB_PATH=/data/fincortext.duckdb \
+    STATIC_DIR=/srv/static \
+    LLM_PROVIDER=none
 
 WORKDIR /srv
 COPY backend/pyproject.toml ./

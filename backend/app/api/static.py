@@ -7,6 +7,7 @@ running only the backend) the app still starts and only the API responds.
 """
 
 import logging
+import os
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -15,12 +16,20 @@ from fastapi.staticfiles import StaticFiles
 
 log = logging.getLogger(__name__)
 
-# Set by the Dockerfile; falls back to frontend/dist in a source checkout.
-CANDIDATES = (
-    Path(__file__).resolve().parents[2] / "static",
-    Path(__file__).resolve().parents[3] / "frontend" / "dist",
-)
 CACHE_FOREVER = "public, max-age=31536000, immutable"  # hashed asset file names
+# STATIC_DIR is set by the Dockerfile. The rest are for a source checkout, where the package
+# may be imported from the repository or from site-packages, so neither path is guaranteed.
+CANDIDATES = tuple(
+    p
+    for p in (
+        Path(os.environ["STATIC_DIR"]) if os.environ.get("STATIC_DIR") else None,
+        Path(__file__).resolve().parents[2] / "static",
+        Path(__file__).resolve().parents[3] / "frontend" / "dist",
+        Path.cwd() / "static",
+        Path.cwd() / "frontend" / "dist",
+    )
+    if p is not None
+)
 
 
 def find_build() -> Path | None:

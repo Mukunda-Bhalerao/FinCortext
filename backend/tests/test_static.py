@@ -74,3 +74,19 @@ def test_without_a_build_the_api_still_starts(tmp_path, monkeypatch):
     monkeypatch.setattr(static, "CANDIDATES", (tmp_path / "missing",))
     app = FastAPI()
     assert static.mount(app) is False
+
+
+def test_static_dir_env_var_wins(tmp_path, monkeypatch):
+    """The container sets STATIC_DIR, so serving never depends on where Python imported the
+    package from (the repository or site-packages)."""
+    import importlib
+
+    _build(tmp_path / "build")
+    monkeypatch.setenv("STATIC_DIR", str(tmp_path / "build"))
+    reloaded = importlib.reload(static)
+    try:
+        assert reloaded.CANDIDATES[0] == tmp_path / "build"
+        assert reloaded.find_build() == tmp_path / "build"
+    finally:
+        monkeypatch.delenv("STATIC_DIR", raising=False)
+        importlib.reload(static)

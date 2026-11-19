@@ -107,7 +107,7 @@ to check a deployment problem.
 | `PORT` | Set by the host | The container honours it; defaults to 8000. |
 | `LIVE_MODE` | No | `stream` (default) or `poll`. |
 | `NEWS_ENABLED` | No | `true` by default. |
-| `LLM_PROVIDER` | No | Leave `none`. The assistant works without a model; it only loses the warmer wording. |
+| `LLM_PROVIDER` | No | Stays `none`. See below. |
 | `UPSTOX_API_KEY` / `_SECRET` / `_REDIRECT_URI` | Only for OAuth | See above. |
 
 ---
@@ -122,6 +122,20 @@ to check a deployment problem.
 - Secrets belong in the host's dashboard, never in `render.yaml` or `fly.toml`.
 
 ---
+
+## No language model in the deployment
+
+`LLM_PROVIDER` is `none` and the image sets it that way, so nothing tries to reach Ollama.
+
+This costs less than it sounds. The assistant routes every question to a tool that computes
+its own answer from real data, and the model was only ever allowed to reword that answer —
+any figure it added that was not in the computed facts was thrown away. With it off, answers
+come straight from the engine and say so: *"Calculated by FinCortext from the data shown."*
+The research brief falls back to its built-in wording in the same way.
+
+Running Ollama in the container is not an option worth taking: the smallest useful model
+needs more memory than the whole free instance has, there is no GPU, and with no persistent
+disk the weights would download again on every cold start.
 
 ## What a deployed instance is, and is not
 
@@ -138,7 +152,7 @@ to check a deployment problem.
 
 `.github/workflows/ci.yml` runs on GitHub Actions without any credentials:
 
-- backend: `ruff check`, `ruff format --check`, `pytest` (142 tests)
+- backend: `ruff check`, `ruff format --check`, `pytest` (143 tests)
 - interface: `tsc -b`, `vitest`, `vite build`
 - the Docker image builds
 
